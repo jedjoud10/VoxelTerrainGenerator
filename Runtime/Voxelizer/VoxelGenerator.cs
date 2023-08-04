@@ -33,10 +33,19 @@ public class VoxelReadbackRequest
 // Responsible for generating the voxel data using the voxel graph
 public class VoxelGenerator : MonoBehaviour
 {
+    // Compute shader settings
+    [Header("Voxelization Settings")]
+    public Vector3 worldOffset = Vector3.zero;
+    public Vector3 worldScale = Vector3.one;
+
+    // Added onto the isosurface value
+    public float isosurfaceOffset = 0.0F;
+
     // Compute shader that will be responsble for voxel generation
     public ComputeShader voxelShader;
 
     // Render texture responsible for storing voxels
+    [HideInInspector]
     public RenderTexture voxelTexture;
 
     // Number of simultaneous async readbacks that happen during one frame
@@ -57,17 +66,21 @@ public class VoxelGenerator : MonoBehaviour
     public delegate void OnVoxelGenerationComplete(VoxelChunk chunk, VoxelReadbackRequest request);
     public event OnVoxelGenerationComplete onVoxelGenerationComplete;
 
-    // Creates the voxel data list for triple or double buffering
-    void Start()
+    // Initialize the voxel generator
+    public void Init()
     {
         voxelNativeArrays = new List<NativeArray<float>>(asyncReadbacks);
-        voxelTexture = VoxelUtils.CreateTexture(64, GraphicsFormat.R32_SFloat);
+        voxelTexture = VoxelUtils.CreateTexture(VoxelUtils.Size, GraphicsFormat.R32_SFloat);
         freeVoxelNativeArrays = new BitArray(asyncReadbacks, true);
 
-        for(int i = 0; i < asyncReadbacks; i++)
+        for (int i = 0; i < asyncReadbacks; i++)
         {
-            voxelNativeArrays.Add(new NativeArray<float>(64*64*64, Allocator.Persistent));
+            voxelNativeArrays.Add(new NativeArray<float>(VoxelUtils.Total, Allocator.Persistent));
         }
+
+        voxelShader.SetVector("worldOffset", worldOffset);
+        voxelShader.SetVector("worldScale", worldScale * VoxelUtils.VoxelSize);
+        voxelShader.SetFloat("isosurfaceOffset", isosurfaceOffset);
     }
 
     public void GenerateVoxels(VoxelChunk chunk) {
@@ -76,9 +89,7 @@ public class VoxelGenerator : MonoBehaviour
 
     // Get the latest chunk in the queue and generate voxel data for it
     void Update()
-    {
-        AsyncGPUReadback.WaitAllRequests();
-    
+    {    
         for(int i = 0; i < asyncReadbacks; i++)
         {
             if (!freeVoxelNativeArrays[i])
@@ -90,8 +101,10 @@ public class VoxelGenerator : MonoBehaviour
             if (pendingVoxelGenerationChunks.TryDequeue(out chunk)) {
                 // begin generating the voxel data
                 voxelShader.SetTexture(0, "voxelTexture", voxelTexture);
-                voxelShader.SetVector("offset", (chunk.transform.position / VoxelUtils.VOXEL_SIZE) / VoxelUtils.VERTEX_SCALING);
-                voxelShader.Dispatch(0, 16, 16, 16);
+                voxelShader.SetVector("offset", (chunk.transform.position / VoxelUtils.VoxelSize) / VoxelUtils.VertexScaling);
+
+                int count = VoxelUtils.Size / 4;
+                voxelShader.Dispatch(0, count, count, count);
 
                 VoxelReadbackRequest voxelReadbackRequest = new VoxelReadbackRequest
                 {

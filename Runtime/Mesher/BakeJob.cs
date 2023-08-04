@@ -12,6 +12,6 @@ public struct BakeJob : IJob
     public int meshId;
     public void Execute()
     {
-        Physics.BakeMesh(meshId, false, MeshColliderCookingOptions.None);
+        Physics.BakeMesh(meshId, false);
     }
 }

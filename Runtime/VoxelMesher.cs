@@ -13,17 +13,27 @@ using UnityEngine.Rendering;
 // Contains the allocation data for a single job
 // There are multiple instances of this class stored inside the voxel mesher to saturate the other threads
 class MeshJobHandler {
-    public NativeArray<int> indices = new NativeArray<int>(64*64*64, Allocator.Persistent);
-    public NativeArray<float3> vertices = new NativeArray<float3>(64*64*64, Allocator.Persistent);
-    public NativeArray<float4> uvs = new NativeArray<float4>(64*64*64, Allocator.Persistent);
-    public NativeCounter counter = new NativeCounter(Allocator.Persistent);
-    public NativeCounter counterQuad = new NativeCounter(Allocator.Persistent);
-    public NativeArray<int> triangles = new NativeArray<int>(64*64*64*3*2*4, Allocator.Persistent); 
+    public NativeArray<int> indices;
+    public NativeArray<float3> vertices;
+    public NativeArray<float4> uvs;
+    public NativeCounter counter;
+    public NativeCounter counterQuad;
+    public NativeArray<int> triangles;
     public JobHandle vertexJobHandle;
     public JobHandle quadJobHandle;
     public VoxelReadbackRequest voxels;
     public VoxelChunk chunk;
     public bool computeCollisions = false;
+
+    public MeshJobHandler()
+    {
+        indices = new NativeArray<int>(VoxelUtils.Total, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        vertices = new NativeArray<float3>(VoxelUtils.Total, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        uvs = new NativeArray<float4>(VoxelUtils.Total, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        counter = new NativeCounter(Allocator.Persistent);
+        counterQuad = new NativeCounter(Allocator.Persistent);
+        triangles = new NativeArray<int>(VoxelUtils.Total * 6 * 4, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+    }
 
     public bool Free { get; private set; } = true;
 
@@ -39,6 +49,9 @@ class MeshJobHandler {
             vertices = vertices,
             uvs = uvs,
             counter = counter,
+            voxelScale = VoxelUtils.VoxelSize,
+            vertexScale = VoxelUtils.VertexScaling,
+            size = VoxelUtils.Size,
         };
 
         QuadJob quadJob = new QuadJob {
@@ -46,10 +59,11 @@ class MeshJobHandler {
             vertexIndices = indices,
             counter = counterQuad,
             triangles = triangles,
+            size = VoxelUtils.Size,
         };
 
-        JobHandle vertexJobHandle = vertexJob.Schedule(64*64*64, 512);
-        JobHandle quadJobHandle = quadJob.Schedule(64*64*64, 512, vertexJobHandle);
+        JobHandle vertexJobHandle = vertexJob.Schedule(VoxelUtils.Total, 512);
+        JobHandle quadJobHandle = quadJob.Schedule(VoxelUtils.Total, 512, vertexJobHandle);
 
         this.vertexJobHandle = vertexJobHandle;
         this.quadJobHandle = quadJobHandle;     
@@ -107,14 +121,14 @@ public class VoxelMesher : MonoBehaviour
 
     Queue<(VoxelChunk, VoxelReadbackRequest, bool)> pendingMeshGenerationChunks;
 
-    // Creates the voxel data list for triple or double buffering
-    void Start()
+    // Initialize the voxel mesher
+    public void Init()
     {
         handlers = new List<MeshJobHandler>(meshJobsPerFrame);
         pendingMeshGenerationChunks = new Queue<(VoxelChunk, VoxelReadbackRequest, bool)>();
         ongoingBakeJobs = new List<(JobHandle, VoxelChunk, Mesh)>();
 
-        for(int i = 0; i < meshJobsPerFrame; i++)
+        for (int i = 0; i < meshJobsPerFrame; i++)
         {
             handlers.Add(new MeshJobHandler());
         }

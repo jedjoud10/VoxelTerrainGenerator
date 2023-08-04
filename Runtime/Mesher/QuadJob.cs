@@ -49,24 +49,27 @@ public struct QuadJob : IJobParallelFor
         new uint3(0, 1, 0)
     };
 
-    // Counter
+    // Quad Counter
     public NativeCounter.Concurrent counter;
+
+    // Static settings
+    public int size;
     
     // Check and edge and check if we must generate a quad in it's forward facing direction
     void CheckEdge(uint3 basePosition, int index)
     {
         uint3 forward = quadForwardDirection[index];
 
-        int baseIndex = VoxelUtils.PosToIndex(basePosition);
-        int endIndex = VoxelUtils.PosToIndex(basePosition + forward);
+        int baseIndex = VoxelUtils.PosToIndex(basePosition, size);
+        int endIndex = VoxelUtils.PosToIndex(basePosition + forward, size);
     
         if ((voxelized[baseIndex] > 0.0) ^ (voxelized[endIndex] > 0.0)) {
             bool flip = (voxelized[endIndex] > 0.0);
 
-            int index0 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4]);
-            int index1 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 1]);
-            int index2 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 2]);
-            int index3 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 3]);
+            int index0 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4], size);
+            int index1 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 1], size);
+            int index2 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 2], size);
+            int index3 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 3], size);
             
             int vertex0 = vertexIndices[index0];
             int vertex1 = vertexIndices[index1];
@@ -88,9 +91,9 @@ public struct QuadJob : IJobParallelFor
     // Excuted for each cell within the grid
     public void Execute(int index)
     {
-        uint3 position = VoxelUtils.IndexToPos(index);
+        uint3 position = VoxelUtils.IndexToPos(index, size);
 
-        if (math.any((position > new uint3(61))) || math.any((position == new uint3(0)))) {
+        if (math.any((position > new uint3(size-2))) || math.any((position == new uint3(0)))) {
             return;
         }
 

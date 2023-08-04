@@ -62,15 +62,20 @@ public struct VertexJob : IJobParallelFor
     [NativeDisableParallelForRestriction]
     public NativeArray<float4> uvs;
 
-    // Counter
+    // Vertex Counter
     public NativeCounter.Concurrent counter;
+
+    // Static settings
+    [ReadOnly] public int size;
+    [ReadOnly] public float vertexScale;
+    [ReadOnly] public float voxelScale;
 
     // Excuted for each cell within the grid
     public void Execute(int index)
     {
-        uint3 position = VoxelUtils.IndexToPos(index);
+        uint3 position = VoxelUtils.IndexToPos(index, size);
 
-        if (position.x > 61 || position.y > 61 || position.z > 61) {
+        if (math.any(position > math.uint3(size - 2))) {
             return;
         }
 
@@ -82,8 +87,8 @@ public struct VertexJob : IJobParallelFor
             uint3 startOffset = edgePositions0[edge];
             uint3 endOffset = edgePositions1[edge];
 
-            int startIndex = VoxelUtils.PosToIndex(startOffset + position);
-            int endIndex = VoxelUtils.PosToIndex(endOffset + position);
+            int startIndex = VoxelUtils.PosToIndex(startOffset + position, size);
+            int endIndex = VoxelUtils.PosToIndex(endOffset + position, size);
 
             // Get the densities of the edge
             float startDensity = voxelized[startIndex];
@@ -100,19 +105,18 @@ public struct VertexJob : IJobParallelFor
         // Add the vertex into the native array if needed
         if (count > 0) {
             // Must be offset by vec3(1, 1, 1)
-            const int INDEX_OFFSET = 64*64 + 64 + 1;
+            int indexOffset = size*size + size + 1;
             
             int vertexIndex = counter.Increment();
-            indices[index + INDEX_OFFSET] = vertexIndex;
+            indices[index + indexOffset] = vertexIndex;
 
             // Output vertex in object space
             float3 outputVertex = (vertex / (float)count) + position;
 
-            // UVs contain the AO data and extra data
-            float ao = VoxelUtils.CalculatePerVertexAmbientOcclusion(outputVertex, ref voxelized);
-            float4 outputUVs = new float4(ao);
+            // TODO: Handle custom UV shenanigans
+            float4 outputUVs = new float4(0);
 
-            vertices[vertexIndex] = outputVertex * VoxelUtils.VERTEX_SCALING * VoxelUtils.VOXEL_SIZE;
+            vertices[vertexIndex] = outputVertex * vertexScale * voxelScale;
             uvs[vertexIndex] = outputUVs;
         }
     }

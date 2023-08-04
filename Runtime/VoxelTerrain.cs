@@ -11,21 +11,28 @@ using UnityEngine.Rendering;
 // generate chunks -> generate voxels -> generate mesh -> generate mesh collider
 public class VoxelTerrain : MonoBehaviour
 {
-    private Queue<VoxelChunk> chunks = new Queue<VoxelChunk>();
+    [Header("Main Settings")]
+    public uint chunkResolution = 32;
+    public float voxelSize = 1.0F;
+    public bool computeCollision = false;
+
     
     public GameObject chunkPrefab;
-
     public Vector3Int extents;
 
     void Start() {
         VoxelGenerator voxelGenerator = GetComponent<VoxelGenerator>(); 
         VoxelMesher voxelMesher = GetComponent<VoxelMesher>();
+        VoxelUtils.Size = (int)chunkResolution;
+        VoxelUtils.VoxelSize = voxelSize;
+        voxelGenerator.Init();
+        voxelMesher.Init();
 
         voxelGenerator.onVoxelGenerationComplete += OnVoxelGenerationComplete;
         voxelMesher.onVoxelMeshingComplete += OnVoxelMeshingComplete;
         voxelMesher.onCollisionBakingComplete += OnCollisionBakingComplete;
 
-        float offset = 64 * VoxelUtils.VOXEL_SIZE;
+        float offset = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
 
         for (int x = -extents.x; x < extents.x; x++) {
             for (int y = -extents.z; y < extents.z; y++) {
@@ -41,7 +48,7 @@ public class VoxelTerrain : MonoBehaviour
     void OnVoxelGenerationComplete(VoxelChunk chunk, VoxelReadbackRequest request)
     {
         VoxelMesher voxelMesher = GetComponent<VoxelMesher>();
-        voxelMesher.GenerateMesh(chunk, request, true);
+        voxelMesher.GenerateMesh(chunk, request, computeCollision);
     }
 
     void OnVoxelMeshingComplete(VoxelChunk chunk, Mesh mesh)
@@ -51,6 +58,6 @@ public class VoxelTerrain : MonoBehaviour
 
     void OnCollisionBakingComplete(VoxelChunk chunk, Mesh mesh) 
     {
-        chunk.GetComponent<MeshCollider>().sharedMesh = mesh;
+        //chunk.GetComponent<MeshCollider>().sharedMesh = mesh;
     }
 }
