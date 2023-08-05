@@ -47,6 +47,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 67c1f2da8151ece498d87984ae6dbd90, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  worldOffset: {x: 0, y: 0, z: 0}
+  worldScale: {x: 1, y: 1, z: 1}
+  isosurfaceOffset: 0
   voxelShader: {fileID: 7200000, guid: e462ac5da1eeb174ca7f61e9b72917b9, type: 3}
   voxelTexture: {fileID: 0}
   asyncReadbacks: 1
@@ -75,6 +78,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 00e1ff5fc0a7fe64db46a425293b5b1f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  chunkResolution: 32
+  voxelSize: 1
+  computeCollision: 0
+  material: {fileID: 0}
   chunkPrefab: {fileID: 0}
   extents: {x: 5, y: 1, z: 5}
 --- !u!114 &3468452622346475171
@@ -89,3 +96,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: efb0edf5fd1e01a4283d253eaa649b4e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  details:
+  - method: 1
+    localStartRayPosition: {x: -3.24, y: 0, z: 0}
+    localEndRayPosition: {x: 0, y: 0, z: 0}

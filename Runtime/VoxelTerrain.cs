@@ -15,6 +15,7 @@ public class VoxelTerrain : MonoBehaviour
     public uint chunkResolution = 32;
     public float voxelSize = 1.0F;
     public bool computeCollision = false;
+    public Material material;
 
     
     public GameObject chunkPrefab;
@@ -38,6 +39,7 @@ public class VoxelTerrain : MonoBehaviour
             for (int y = -extents.z; y < extents.z; y++) {
                 for (int z = -extents.y; z < extents.y; z++) {
                     GameObject obj = Instantiate(chunkPrefab, new Vector3(x * offset, z * offset, y * offset), Quaternion.identity, this.transform);
+                    obj.GetComponent<MeshRenderer>().material = material;
                     VoxelChunk chunk = obj.GetComponent<VoxelChunk>();
                     voxelGenerator.GenerateVoxels(chunk);
                 }  
@@ -45,19 +47,22 @@ public class VoxelTerrain : MonoBehaviour
         }
     }
 
+    // When we finish generating the voxel data, begin the mesh generation
     void OnVoxelGenerationComplete(VoxelChunk chunk, VoxelReadbackRequest request)
     {
         VoxelMesher voxelMesher = GetComponent<VoxelMesher>();
         voxelMesher.GenerateMesh(chunk, request, computeCollision);
     }
 
+    // Update the mesh of the given chunk when we generate it
     void OnVoxelMeshingComplete(VoxelChunk chunk, Mesh mesh)
     {
         chunk.GetComponent<MeshFilter>().mesh = mesh;
     }
 
+    // Update the mesh collider when we finish collision baking
     void OnCollisionBakingComplete(VoxelChunk chunk, Mesh mesh) 
     {
-        //chunk.GetComponent<MeshCollider>().sharedMesh = mesh;
+        chunk.GetComponent<MeshCollider>().sharedMesh = mesh;
     }
 }

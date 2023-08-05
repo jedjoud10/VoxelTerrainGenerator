@@ -1,0 +1,35 @@
+.Port_Single {
+	--port-color: #49bfeb;
+}
+
+.Port_Vector2 {
+	--port-color: #82a140;
+}
+
+.Port_Vector3 {
+	--port-color: #ffe6c2;
+}
+
+.Port_Vector4 {
+	--port-color: #2d4dcf;
+}
+
+.Port_Testino<T> {
+	--port-color: #000000;
+}
+
+.Port_Object {
+	--port-color: #ff00ee;
+}
+
+.Port_Color {
+	--port-color: #FF00FF;
+}
+
+.Port_GameObject {
+	--port-color: #9c9c9c;
+}
+
+.Port_Boolean {
+	--port-color: #ad0000;
+}

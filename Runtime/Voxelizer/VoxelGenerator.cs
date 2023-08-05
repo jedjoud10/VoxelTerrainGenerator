@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -12,8 +13,8 @@ using UnityEngine.Rendering;
 // Also allows us to Free the native array to give it back to the Voxel Generator for generation
 public class VoxelReadbackRequest 
 {
-    public bool completed;
-    public int index;
+    public bool Completed { get; internal set; }
+    public int Index { get; internal set; }
 
     public VoxelGenerator generator;
     public VoxelChunk chunk;
@@ -21,11 +22,10 @@ public class VoxelReadbackRequest
     // Voxelized memory
     public NativeArray<float> voxelized;
 
-
     // Dispose of the request's memory, giving it back to the VoxelGenerator
     public void Dispose() {
-        generator.freeVoxelNativeArrays[index] = true;
-        generator.voxelNativeArrays[index] = voxelized;
+        generator.freeVoxelNativeArrays[Index] = true;
+        generator.voxelNativeArrays[Index] = voxelized;
         chunk = null;
     }
 }
@@ -108,8 +108,8 @@ public class VoxelGenerator : MonoBehaviour
 
                 VoxelReadbackRequest voxelReadbackRequest = new VoxelReadbackRequest
                 {
-                    index = i,
-                    completed = false,
+                    Index = i,
+                    Completed = false,
                     generator = this,
                     chunk = chunk,
                     voxelized = voxelNativeArrays[i],
@@ -121,12 +121,13 @@ public class VoxelGenerator : MonoBehaviour
                 AsyncGPUReadback.RequestIntoNativeArray(
                     ref nativeArray,
                     voxelTexture, 0,
-                    delegate(AsyncGPUReadbackRequest request) 
+                    delegate (AsyncGPUReadbackRequest request)
                     {
-                        voxelReadbackRequest.completed = true;
+                        voxelReadbackRequest.Completed = true;
                         onVoxelGenerationComplete.Invoke(chunk, voxelReadbackRequest);
                     }
                 );
+                
             }
         }
     }
