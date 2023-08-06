@@ -8,7 +8,7 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 
-// Generated voxel data from the GPuU
+// Generated voxel data from the GPU
 // Allows us to check if the readback has finished and if we can use the NativeArray
 // Also allows us to Free the native array to give it back to the Voxel Generator for generation
 public class VoxelReadbackRequest 
@@ -49,7 +49,7 @@ public class VoxelGenerator : VoxelBehaviour
     public RenderTexture voxelTexture;
 
     // Number of simultaneous async readbacks that happen during one frame
-    [Range(1, 4)]
+    [Range(1, 8)]
     public int asyncReadbacks = 1;
 
     // List of persistently allocated native arrays

@@ -10,7 +10,7 @@ public struct SubdivideJob : IJob
 {
     // The total nodes that where generated
     [WriteOnly]
-    public NativeHashMap<int3, OctreeNode> nodes;
+    public NativeHashSet<OctreeNode> nodes;
 
     // Currently pending nodes for generation
     public NativeQueue<OctreeNode> pending;

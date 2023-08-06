@@ -24,7 +24,7 @@ public class VoxelTerrain : MonoBehaviour
     
     public GameObject chunkPrefab;
 
-    private Dictionary<int3, VoxelChunk> chunks;
+    private Dictionary<OctreeNode, VoxelChunk> chunks;
 
     private VoxelGenerator voxelGenerator;
     private VoxelMesher voxelMesher;
@@ -48,7 +48,7 @@ public class VoxelTerrain : MonoBehaviour
         voxelOctree.onOctreeChanged += OnOctreeChanged;
 
         // Init local vars
-        chunks = new Dictionary<int3, VoxelChunk>();
+        chunks = new Dictionary<OctreeNode, VoxelChunk>();
     }
 
     // Dispose of all the voxel behaviours
@@ -64,26 +64,25 @@ public class VoxelTerrain : MonoBehaviour
     {
         foreach (var item in removed)
         {
-            if (chunks.TryGetValue(item.position, out VoxelChunk value))
+            if (chunks.TryGetValue(item, out VoxelChunk value))
             {
-                chunks.Remove(item.position);
+                chunks.Remove(item);
                 Destroy(value.gameObject);
             }
         }
 
         foreach (var item in added)
         {
-            float offset = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
-            float x = (float)item.position.x * offset;
-            float y = (float)item.position.y * offset;
-            float z = (float)item.position.z * offset;
-            float size = item.ScalingFactor();
-            GameObject obj = Instantiate(chunkPrefab, new Vector3(x, y, z), Quaternion.identity, this.transform);
-            obj.GetComponent<MeshRenderer>().material = material;
-            obj.transform.localScale = new Vector3(size, size, size);
-            VoxelChunk chunk = obj.GetComponent<VoxelChunk>();
-            voxelGenerator.GenerateVoxels(chunk);
-            chunks.Add(item.position, chunk);
+            if (item.leaf)
+            {
+                float size = item.ScalingFactor();
+                GameObject obj = Instantiate(chunkPrefab, item.WorldPosition(), Quaternion.identity, this.transform);
+                obj.GetComponent<MeshRenderer>().material = material;
+                obj.transform.localScale = new Vector3(size, size, size);
+                VoxelChunk chunk = obj.GetComponent<VoxelChunk>();
+                voxelGenerator.GenerateVoxels(chunk);
+                chunks.TryAdd(item, chunk);
+            }
         }
     }
 

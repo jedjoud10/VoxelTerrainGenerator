@@ -10,11 +10,11 @@ public struct DiffJob : IJob
 {
     // The old nodes that where generated
     [ReadOnly]
-    public NativeHashMap<int3, OctreeNode> oldNodes;
+    public NativeHashSet<OctreeNode> oldNodes;
 
     // The total nodes that where generated
     [ReadOnly]
-    public NativeHashMap<int3, OctreeNode> nodes;
+    public NativeHashSet<OctreeNode> nodes;
 
     [WriteOnly]
     public NativeList<OctreeNode> diffedNodes;
@@ -27,21 +27,21 @@ public struct DiffJob : IJob
 
         if (direction)
         {
-            foreach (var pair in oldNodes)
+            foreach (var node in oldNodes)
             {
-                if (!nodes.ContainsKey(pair.Key))
+                if (!nodes.Contains(node))
                 {
-                    diffedNodes.Add(pair.Value);
+                    diffedNodes.Add(node);
                 }
             }
         }
         else
         {
-            foreach (var pair in nodes)
+            foreach (var node in nodes)
             {
-                if (!oldNodes.ContainsKey(pair.Key))
+                if (!oldNodes.Contains(node))
                 {
-                    diffedNodes.Add(pair.Value);
+                    diffedNodes.Add(node);
                 }
             }
         }

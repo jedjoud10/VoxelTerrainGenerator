@@ -20,8 +20,8 @@ void CSVoxelizer (uint3 id : SV_DispatchThreadID)
 
     float density1 = -pow(fbmCellular(position * 0.01 * float3(1, 1.8, 1), 5, 0.5, 2).x, 3.0) * 200;
     density1 = min(position.y, density1);
-    float density2 = fbm(position * 0.01 * float3(1, 3, 1), 6, 0.4, 2.2) * 12;
+    float density2 = fbm(position * 0.01 * float3(1, 3, 1), 6, 0.4, 2.2) * 22;
 
-    float density = lerp(density1, density2, snoise(position * 0.003) * 0.5 + 0.5) + position.y;
+    float density = lerp(density1, density2, snoise(position * 0.0002) * 0.5 + 0.5) + position.y;
     voxelTexture[id.xyz] = density + isosurfaceOffset;
 }

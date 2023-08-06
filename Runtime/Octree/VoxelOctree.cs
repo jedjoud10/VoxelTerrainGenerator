@@ -31,7 +31,7 @@ public class VoxelOctree : VoxelBehaviour
     private NativeArray<OctreeTarget> targets;
 
     // Native hashmap for keeping track of the current nodes in the tree
-    private NativeHashMap<int3, OctreeNode>[] octreeNodesBuffer;
+    private NativeHashSet<OctreeNode>[] octreeNodesBuffer;
     private int currentIndex;
 
     // Native arrays to diff the octree nodes
@@ -48,19 +48,26 @@ public class VoxelOctree : VoxelBehaviour
     // Final job handle that we must wait for
     JobHandle finalJobHandle;
 
+    // Used to make sure we only generate the octree when we are free
+    VoxelMesher mesher;
+    VoxelGenerator generator;
+
     internal override void Init()
     {
+        generator = GetComponent<VoxelGenerator>();
+        mesher = GetComponent<VoxelMesher>();
+
         targets = new NativeArray<OctreeTarget>(maxTargetCount, Allocator.Persistent);
         for (int i = 0; i < maxTargetCount; i++)
         {
             targets[i] = new OctreeTarget();
         }
 
-        octreeNodesBuffer = new NativeHashMap<int3, OctreeNode>[2];
+        octreeNodesBuffer = new NativeHashSet<OctreeNode>[2];
 
         for (int i = 0; i < 2; i++)
         {
-            octreeNodesBuffer[i] = new NativeHashMap<int3, OctreeNode>(1, Allocator.Persistent);
+            octreeNodesBuffer[i] = new NativeHashSet<OctreeNode>(1, Allocator.Persistent);
         }
         
         pending = new NativeQueue<OctreeNode>(Allocator.Persistent);
@@ -72,17 +79,34 @@ public class VoxelOctree : VoxelBehaviour
     // Loop over all the octree loaders and generate the octree for them
     void Update()
     {
-        if (finalJobHandle.IsCompleted)
+        OctreeLoader[] loaders = FindObjectsByType<OctreeLoader>(FindObjectsSortMode.None);
+        float offset = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
+        for (int i = 0; i < Mathf.Min(targets.Length, loaders.Length); i++)
         {
-            onOctreeChanged(ref addedNodes, ref removedNodes);
+            targets[i] = new OctreeTarget
+            {
+                generateCollisions = loaders[i].generateCollisions,
+                center = loaders[i].transform.position / offset,
+                radius = loaders[i].radius / offset,
+                lodMultiplier = loaders[i].lodMultiplier,
+            };
+        }
+
+        bool free = mesher.MeshGenerationTasksRemaining == 0 && generator.VoxelGenerationTasksRemaining == 0 && mesher.CollisionBakingTasksRemaining == 0;
+        if (finalJobHandle.IsCompleted && free)
+        {
+            if (addedNodes.Length > 0 || removedNodes.Length > 0)
+            {
+                onOctreeChanged(ref addedNodes, ref removedNodes);
+            }
 
             int index = currentIndex;
             currentIndex += 1;
             currentIndex = currentIndex % 2;
 
             // Ready up the allocations
-            NativeHashMap<int3, OctreeNode> oldNodes = octreeNodesBuffer[1 - index];
-            NativeHashMap<int3, OctreeNode> nodes = octreeNodesBuffer[index];
+            NativeHashSet<OctreeNode> oldNodes = octreeNodesBuffer[1 - index];
+            NativeHashSet<OctreeNode> nodes = octreeNodesBuffer[index];
             pending.Enqueue(OctreeNode.RootNode(maxDepth));
 
             SubdivideJob job = new SubdivideJob
@@ -118,18 +142,7 @@ public class VoxelOctree : VoxelBehaviour
             finalJobHandle.Complete();
         } else
         {
-            OctreeLoader[] loaders = FindObjectsByType<OctreeLoader>(FindObjectsSortMode.None);
-            float offset = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
-            for (int i = 0; i < Mathf.Min(targets.Length, loaders.Length); i++)
-            {
-                targets[i] = new OctreeTarget
-                {
-                    generateCollisions = loaders[i].generateCollisions,
-                    center = loaders[i].transform.position / offset,
-                    radius = loaders[i].radius / offset,
-                    lodMultiplier = loaders[i].lodMultiplier,
-                };
-            }
+
         }
     }
 
@@ -149,14 +162,16 @@ public class VoxelOctree : VoxelBehaviour
             return;
         }
 
-        Gizmos.color = new Color(1, 0, 0, 0.5f);
-        float offset = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
         foreach (var item in octreeNodesBuffer[currentIndex])
         {
-            Vector3 position = new Vector3(item.Value.center.x, item.Value.center.y, item.Value.center.z) * offset;
-            Vector3 size = new Vector3(item.Value.size, item.Value.size, item.Value.size) * offset;
-            Gizmos.DrawCube(position, size);
+            if (item.leaf)
+            {
+                float color = (float)(maxDepth - item.invDepth) / (float)maxDepth;
+                Gizmos.color = new Color(color, color, color, color);
+                Vector3 position = item.WorldCenter();
+                Vector3 size = item.WorldSize();
+                Gizmos.DrawWireCube(position, size);
+            }
         }
-
     }
 }

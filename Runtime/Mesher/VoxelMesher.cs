@@ -102,7 +102,7 @@ class MeshJobHandler {
 public class VoxelMesher : VoxelBehaviour
 {
     // Number of simultaneous mesh generation tasks that happen during one frame
-    [Range(1, 4)]
+    [Range(1, 8)]
     public int meshJobsPerFrame = 1;
 
     // List of persistently allocated mesh data
