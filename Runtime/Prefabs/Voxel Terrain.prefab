@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 305494748139102449}
   - component: {fileID: 8572855768852968992}
   - component: {fileID: 3468452622346475171}
+  - component: {fileID: 7193759343885691420}
   m_Layer: 0
   m_Name: Voxel Terrain
   m_TagString: Untagged
@@ -78,12 +79,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 00e1ff5fc0a7fe64db46a425293b5b1f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  chunkResolution: 32
-  voxelSize: 1
-  computeCollision: 0
-  material: {fileID: 0}
+  chunkResolution: 64
+  voxelSize: 0.5
+  computeCollision: 1
+  material: {fileID: 2100000, guid: 4f75e93d90f56374c9e6ff9c6d95945d, type: 2}
   chunkPrefab: {fileID: 0}
-  extents: {x: 5, y: 1, z: 5}
+  extents: {x: 4, y: 2, z: 4}
 --- !u!114 &3468452622346475171
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -96,7 +97,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: efb0edf5fd1e01a4283d253eaa649b4e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  details:
-  - method: 1
-    localStartRayPosition: {x: -3.24, y: 0, z: 0}
-    localEndRayPosition: {x: 0, y: 0, z: 0}
+--- !u!114 &7193759343885691420
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5247181259204451943}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e787133040bb3d45acfc35df2b68f88, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxTargetCount: 1
+  maxDepth: 4
+  minNodeGenerationDepth: 0
+  lodDistanceScaling: 1

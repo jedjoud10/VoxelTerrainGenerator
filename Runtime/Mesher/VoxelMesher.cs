@@ -99,7 +99,7 @@ class MeshJobHandler {
 }
 
 // Responsible for creating and executing the mesh generation jobs
-public class VoxelMesher : MonoBehaviour
+public class VoxelMesher : VoxelBehaviour
 {
     // Number of simultaneous mesh generation tasks that happen during one frame
     [Range(1, 4)]
@@ -121,8 +121,14 @@ public class VoxelMesher : MonoBehaviour
 
     Queue<(VoxelChunk, VoxelReadbackRequest, bool)> pendingMeshGenerationChunks;
 
+    // Get the number of mesh generation tasks remaining
+    public int MeshGenerationTasksRemaining => pendingMeshGenerationChunks.Count;
+
+    // Get the number of collision baking tasks remaining
+    public int CollisionBakingTasksRemaining => ongoingBakeJobs.Count;
+
     // Initialize the voxel mesher
-    public void Init()
+    internal override void Init()
     {
         handlers = new List<MeshJobHandler>(meshJobsPerFrame);
         pendingMeshGenerationChunks = new Queue<(VoxelChunk, VoxelReadbackRequest, bool)>();
@@ -192,8 +198,8 @@ public class VoxelMesher : MonoBehaviour
         }
         ongoingBakeJobs.RemoveAll(item => item.Item1.IsCompleted);
     }
-    
-    void OnApplicationQuit()
+
+    internal override void Dispose()
     {
         foreach (MeshJobHandler handler in handlers) 
         {

@@ -14,7 +14,8 @@ public static class VoxelUtils
     public static float VertexScaling => (float)Size / ((float)Size - 2.0F);
 
     // Voxel scaling size
-    public static float VoxelSize { get; internal set; }
+    public static int VoxelSizeReduction { get; internal set; }
+    public static float VoxelSize => 1F / Mathf.Pow(2F, VoxelSizeReduction);
 
     // Current chunk resolution
     public static int Size { get; internal set; }

@@ -4,8 +4,9 @@
 // Used for async readback
 RWTexture3D<float> voxelTexture;
 
-// Chunk offset
-float4 offset;
+// Chunk offset + scale
+float3 chunkOffset;
+float chunkScale; 
 
 // World parameters
 float3 worldOffset;
@@ -15,7 +16,7 @@ float isosurfaceOffset;
 [numthreads(4,4,4)]
 void CSVoxelizer (uint3 id : SV_DispatchThreadID)
 {
-    float3 position = (id.xzy + offset.xyz) * worldScale + worldOffset;
+    float3 position = (id.xzy * chunkScale + chunkOffset) * worldScale + worldOffset;
 
     float density1 = -pow(fbmCellular(position * 0.01 * float3(1, 1.8, 1), 5, 0.5, 2).x, 3.0) * 200;
     density1 = min(position.y, density1);

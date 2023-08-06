@@ -31,7 +31,7 @@ public class VoxelReadbackRequest
 }
 
 // Responsible for generating the voxel data using the voxel graph
-public class VoxelGenerator : MonoBehaviour
+public class VoxelGenerator : VoxelBehaviour
 {
     // Compute shader settings
     [Header("Voxelization Settings")]
@@ -61,13 +61,16 @@ public class VoxelGenerator : MonoBehaviour
     // Chunks that we must generate the voxels for
     internal Queue<VoxelChunk> pendingVoxelGenerationChunks = new Queue<VoxelChunk>();
 
+    // Get the number of voxel generation tasks remaining
+    public int VoxelGenerationTasksRemaining => pendingVoxelGenerationChunks.Count;
+
     // Called when a chunk finishes generating its voxel data
     // The request must be disposed of otherwise we will not be able to generate more voxels
     public delegate void OnVoxelGenerationComplete(VoxelChunk chunk, VoxelReadbackRequest request);
     public event OnVoxelGenerationComplete onVoxelGenerationComplete;
 
     // Initialize the voxel generator
-    public void Init()
+    internal override void Init()
     {
         voxelNativeArrays = new List<NativeArray<float>>(asyncReadbacks);
         voxelTexture = VoxelUtils.CreateTexture(VoxelUtils.Size, GraphicsFormat.R32_SFloat);
@@ -101,7 +104,8 @@ public class VoxelGenerator : MonoBehaviour
             if (pendingVoxelGenerationChunks.TryDequeue(out chunk)) {
                 // begin generating the voxel data
                 voxelShader.SetTexture(0, "voxelTexture", voxelTexture);
-                voxelShader.SetVector("offset", (chunk.transform.position / VoxelUtils.VoxelSize) / VoxelUtils.VertexScaling);
+                voxelShader.SetVector("chunkOffset", (chunk.transform.position / VoxelUtils.VoxelSize) / VoxelUtils.VertexScaling);
+                voxelShader.SetFloat("chunkScale", chunk.transform.localScale.x);
 
                 int count = VoxelUtils.Size / 4;
                 voxelShader.Dispatch(0, count, count, count);
@@ -131,10 +135,11 @@ public class VoxelGenerator : MonoBehaviour
             }
         }
     }
-    
-    void OnApplicationQuit() {
+
+    internal override void Dispose()
+    {
         AsyncGPUReadback.WaitAllRequests();
-        foreach (NativeArray<float> nativeArray in voxelNativeArrays) 
+        foreach (NativeArray<float> nativeArray in voxelNativeArrays)
         {
             nativeArray.Dispose();
         }
