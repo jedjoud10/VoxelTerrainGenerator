@@ -122,10 +122,38 @@ public class VoxelMesher : VoxelBehaviour
     Queue<(VoxelChunk, VoxelReadbackRequest, bool)> pendingMeshGenerationChunks;
 
     // Get the number of mesh generation tasks remaining
-    public int MeshGenerationTasksRemaining => pendingMeshGenerationChunks.Count;
+    public int MeshGenerationTasksRemaining
+    {
+        get
+        {
+            if (pendingMeshGenerationChunks != null)
+            {
+                return pendingMeshGenerationChunks.Count;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+    }
 
     // Get the number of collision baking tasks remaining
-    public int CollisionBakingTasksRemaining => ongoingBakeJobs.Count;
+    public int CollisionBakingTasksRemaining
+    {
+        get
+        {
+            if (ongoingBakeJobs != null)
+            {
+                return ongoingBakeJobs.Count;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+    }
+
+
 
     // Initialize the voxel mesher
     internal override void Init()

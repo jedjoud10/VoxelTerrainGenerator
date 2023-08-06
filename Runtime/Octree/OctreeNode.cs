@@ -27,7 +27,10 @@ public struct OctreeNode: IEquatable<OctreeNode>
     public int3 position;
 
     // Inverse Depth of the node starting from maxDepth
-    public int invDepth;
+    public int depth;
+
+    // Max depth propagated from the main octree node
+    public int maxDepth;
 
     // The full size of the node
     public int size;
@@ -35,13 +38,17 @@ public struct OctreeNode: IEquatable<OctreeNode>
     // Is this node a leaf node or not
     public bool leaf;
 
+    // Should we generate collisions from this node
+    public bool generateCollisions;
+
     // Create the root node
     public static OctreeNode RootNode(int maxDepth)
     {
         int size = (int)(math.pow(2.0F, (float)(maxDepth))) * 1;
         OctreeNode node = new OctreeNode();
         node.position = -math.int3(size / 2);
-        node.invDepth = maxDepth;
+        node.depth = 0;
+        node.maxDepth = maxDepth;
         node.size = size;
         return node;
     }
@@ -49,7 +56,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
     // Calculate the world center position of the octree node
     public Vector3 WorldCenter()
     {
-        float scaling = (float)VoxelUtils.Size * VoxelUtils.VoxelSize / 1.0F;
+        float scaling = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
         float3 center = math.float3(position) + math.float3((float)size / 2.0F);
         return new Vector3(center.x, center.y, center.z) * scaling;
     }
@@ -57,7 +64,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
     // Calculate the world position of the octree node
     public Vector3 WorldPosition()
     {
-        float scaling = (float)VoxelUtils.Size * VoxelUtils.VoxelSize / 1.0F;
+        float scaling = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
         float3 _position = math.float3(position);
         return new Vector3(_position.x, _position.y, _position.z) * scaling;
     }
@@ -65,44 +72,62 @@ public struct OctreeNode: IEquatable<OctreeNode>
     // Calculate the scaling factor that must be applied to the chunks
     public float ScalingFactor()
     {
-        return (math.pow(2.0F, (float)(invDepth))) * 1;
+        return (math.pow(2.0F, (float)(maxDepth - depth)));
     }
 
     // Calculate the world size of the octree node
     public Vector3 WorldSize()
     {
-        float scaling = (float)VoxelUtils.Size * VoxelUtils.VoxelSize / 1.0F;
+        float scaling = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
         return new Vector3((float)size * scaling, (float)size * scaling, (float)size * scaling);
     }
 
     public bool Equals(OctreeNode other)
     {
         return math.all(this.position == other.position) &&
-            this.invDepth == other.invDepth &&
+            this.depth == other.depth &&
             this.size == other.size &&
             this.leaf == other.leaf;
     }
 
-    // Check if we can subdivide this node
-    public bool ShouldSubdivide(ref NativeArray<OctreeTarget> targets, float globalLodMultiplier = 1.0F)
+    // https://forum.unity.com/threads/burst-error-bc1091-external-and-internal-calls-are-not-allowed-inside-static-constructors.1347293/
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            int hash = 17;
+            hash = hash * 23 + position.GetHashCode();
+            hash = hash * 23 + depth.GetHashCode();
+            hash = hash * 23 + leaf.GetHashCode();
+            hash = hash * 23 + size.GetHashCode();
+            return hash;
+        }
+    }
+
+    // Check if we can subdivide this node (and also if we should generate collisions)
+    public bool ShouldSubdivide(ref NativeArray<OctreeTarget> targets, ref NativeArray<float> qualityPoints, out bool generateCollisions)
     {
         bool subdivide = false;
+        generateCollisions = false;
 
         foreach (var target in targets)
         {
-            float3 minBounds = math.float3(position / 1);
-            float3 maxBounds = math.float3(position / 1) + math.float3(size / 1);
+            float3 minBounds = math.float3(position);
+            float3 maxBounds = math.float3(position) + math.float3(size);
             float3 clamped = math.clamp(target.center, minBounds, maxBounds);
-            subdivide |= math.distance(clamped, target.center) < target.radius;
-        } 
+
+            bool local = math.distance(clamped, target.center) < target.radius * ScalingFactor() * qualityPoints[depth] * target.lodMultiplier;
+            subdivide |= local;
+            generateCollisions |= local && target.generateCollisions;
+        }
 
         return subdivide;
     }
 
     // Try to subdivide the current node into 8 octants
-    public void TrySubdivide(ref NativeArray<OctreeTarget> targets, ref NativeHashSet<OctreeNode> nodes, ref NativeQueue<OctreeNode> pending, float globalLodMultiplier = 1.0F)
+    public void TrySubdivide(ref NativeArray<OctreeTarget> targets, ref NativeHashSet<OctreeNode> nodes, ref NativeQueue<OctreeNode> pending, ref NativeArray<float> qualityPoints)
     {
-        if (ShouldSubdivide(ref targets, globalLodMultiplier) && invDepth > 0)
+        if (ShouldSubdivide(ref targets, ref qualityPoints, out bool generateChildrenCollisions) && depth < maxDepth)
         {
             for (int i = 0; i < 8; i++)
             {
@@ -110,8 +135,10 @@ public struct OctreeNode: IEquatable<OctreeNode>
                 OctreeNode node = new OctreeNode
                 {
                     position = offset * (size / 2) + this.position,
-                    invDepth = invDepth - 1,
-                    size = size / 2
+                    depth = depth + 1,
+                    size = size / 2,
+                    maxDepth = maxDepth,
+                    generateCollisions = generateChildrenCollisions && depth == (maxDepth-1),
                 };
 
                 pending.Enqueue(node);

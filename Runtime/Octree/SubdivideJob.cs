@@ -19,14 +19,15 @@ public struct SubdivideJob : IJob
     [ReadOnly]
     public NativeArray<OctreeTarget> targets;
 
-    // Used for distance scaling
-    public float globalLodMultiplier;
+    // Quality curve points 
+    [ReadOnly]
+    public NativeArray<float> qualityPoints;
 
     public void Execute()
     {
         nodes.Clear();
         while (pending.TryDequeue(out OctreeNode node)) {
-            node.TrySubdivide(ref targets, ref nodes, ref pending, globalLodMultiplier);
+            node.TrySubdivide(ref targets, ref nodes, ref pending, ref qualityPoints);
         }
     }
 }

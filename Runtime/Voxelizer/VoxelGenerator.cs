@@ -62,7 +62,19 @@ public class VoxelGenerator : VoxelBehaviour
     internal Queue<VoxelChunk> pendingVoxelGenerationChunks = new Queue<VoxelChunk>();
 
     // Get the number of voxel generation tasks remaining
-    public int VoxelGenerationTasksRemaining => pendingVoxelGenerationChunks.Count;
+    public int VoxelGenerationTasksRemaining
+    {
+        get
+        {
+            if (pendingVoxelGenerationChunks != null)
+            {
+                return pendingVoxelGenerationChunks.Count;
+            } else
+            {
+                return 0;
+            }
+        }
+    }
 
     // Called when a chunk finishes generating its voxel data
     // The request must be disposed of otherwise we will not be able to generate more voxels
@@ -102,7 +114,6 @@ public class VoxelGenerator : VoxelBehaviour
 
             VoxelChunk chunk = null;
             if (pendingVoxelGenerationChunks.TryDequeue(out chunk)) {
-                // begin generating the voxel data
                 voxelShader.SetTexture(0, "voxelTexture", voxelTexture);
                 voxelShader.SetVector("chunkOffset", (chunk.transform.position / VoxelUtils.VoxelSize) / VoxelUtils.VertexScaling);
                 voxelShader.SetFloat("chunkScale", chunk.transform.localScale.x);

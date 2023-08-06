@@ -19,7 +19,7 @@ public class VoxelTerrain : MonoBehaviour
 
     [Min(0)]
     public int voxelSizeReduction = 0;
-    public bool computeCollision = false;
+    public bool generateCollisions = false;
     public Material material;
     
     public GameObject chunkPrefab;
@@ -30,13 +30,29 @@ public class VoxelTerrain : MonoBehaviour
     private VoxelMesher voxelMesher;
     private VoxelOctree voxelOctree;
 
+    // Called when the terrain finishes generating the based chunk and octree
+    public delegate void InitialGenerationDone();
+    public event InitialGenerationDone onInitialGenerationDone;
+
+    bool started = false;
+    bool generating = false;
+    bool initial = true;
+
+    private void OnValidate()
+    {
+        if (!started)
+        {
+            VoxelUtils.Size = resolution;
+            VoxelUtils.VoxelSizeReduction = voxelSizeReduction;
+        }
+    }
+
     void Start() {
         // Initialize the generator and mesher
+        started = false;
         voxelGenerator = GetComponent<VoxelGenerator>(); 
         voxelMesher = GetComponent<VoxelMesher>();
         voxelOctree = GetComponent<VoxelOctree>();
-        VoxelUtils.Size = resolution;
-        VoxelUtils.VoxelSizeReduction = voxelSizeReduction;
         voxelGenerator.Init();
         voxelMesher.Init();
         voxelOctree.Init();
@@ -57,7 +73,20 @@ public class VoxelTerrain : MonoBehaviour
         voxelGenerator.Dispose();
         voxelMesher.Dispose();
         voxelOctree.Dispose();
-    } 
+    }
+
+    private void Update()
+    {
+        if (generating && voxelGenerator.VoxelGenerationTasksRemaining == 0 && voxelMesher.CollisionBakingTasksRemaining == 0 && voxelMesher.MeshGenerationTasksRemaining== 0) {
+            generating = false;
+
+            if (initial)
+            {
+                onInitialGenerationDone.Invoke();
+                initial = false;
+            }
+        }
+    }
 
     // Generate the new chunks and delete the old ones
     private void OnOctreeChanged(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed)
@@ -80,17 +109,20 @@ public class VoxelTerrain : MonoBehaviour
                 obj.GetComponent<MeshRenderer>().material = material;
                 obj.transform.localScale = new Vector3(size, size, size);
                 VoxelChunk chunk = obj.GetComponent<VoxelChunk>();
+                chunk.node = item;
                 voxelGenerator.GenerateVoxels(chunk);
                 chunks.TryAdd(item, chunk);
             }
         }
+
+        generating = true;
     }
 
     // When we finish generating the voxel data, begin the mesh generation
     void OnVoxelGenerationComplete(VoxelChunk chunk, VoxelReadbackRequest request)
     {
         VoxelMesher voxelMesher = GetComponent<VoxelMesher>();
-        voxelMesher.GenerateMesh(chunk, request, computeCollision);
+        voxelMesher.GenerateMesh(chunk, request, chunk.node.generateCollisions && generateCollisions);
     }
 
     // Update the mesh of the given chunk when we generate it

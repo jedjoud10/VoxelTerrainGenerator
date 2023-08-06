@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -16,13 +17,9 @@ public class VoxelOctree : VoxelBehaviour
     [Min(1)]
     public int maxDepth = 8;
 
-    // Min depth at wich we must generate the nodes
-    [Min(0)]
-    public int minNodeGenerationDepth = 0;
-
-    // Factor for distance scaling
-    [Min(1.0F)]
-    public float lodDistanceScaling = 1.0F;
+    // Quality LOD curve
+    public float[] curvePoints;
+    private NativeArray<float> qualityPointsNativeArray;
 
     // Should we draw gizmoss for the octree or not?
     public bool drawGizmos = false;
@@ -52,6 +49,8 @@ public class VoxelOctree : VoxelBehaviour
     VoxelMesher mesher;
     VoxelGenerator generator;
 
+    private bool currentlyExecuting = false;
+
     internal override void Init()
     {
         generator = GetComponent<VoxelGenerator>();
@@ -74,11 +73,38 @@ public class VoxelOctree : VoxelBehaviour
 
         addedNodes = new NativeList<OctreeNode>(Allocator.Persistent);
         removedNodes = new NativeList<OctreeNode>(Allocator.Persistent);
+
+        qualityPointsNativeArray = new NativeArray<float>(maxDepth, Allocator.Persistent);
+
+        for (int i = 0; i < maxDepth; i++)
+        {
+            qualityPointsNativeArray[i] = curvePoints[i];
+        }
+    }
+
+    private void OnValidate()
+    {
+        if (curvePoints.Length != maxDepth)
+        {
+            Array.Resize(ref curvePoints, maxDepth);
+        }
     }
 
     // Loop over all the octree loaders and generate the octree for them
     void Update()
     {
+        if (currentlyExecuting && finalJobHandle.IsCompleted)
+        {
+            finalJobHandle.Complete();
+
+            if (addedNodes.Length > 0 || removedNodes.Length > 0)
+            {
+                onOctreeChanged(ref addedNodes, ref removedNodes);
+            }
+
+            currentlyExecuting = false;
+        }
+
         OctreeLoader[] loaders = FindObjectsByType<OctreeLoader>(FindObjectsSortMode.None);
         float offset = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
         for (int i = 0; i < Mathf.Min(targets.Length, loaders.Length); i++)
@@ -92,14 +118,10 @@ public class VoxelOctree : VoxelBehaviour
             };
         }
 
+        // Make sure we are free for octree generation
         bool free = mesher.MeshGenerationTasksRemaining == 0 && generator.VoxelGenerationTasksRemaining == 0 && mesher.CollisionBakingTasksRemaining == 0;
-        if (finalJobHandle.IsCompleted && free)
+        if (finalJobHandle.IsCompleted && free && !currentlyExecuting)
         {
-            if (addedNodes.Length > 0 || removedNodes.Length > 0)
-            {
-                onOctreeChanged(ref addedNodes, ref removedNodes);
-            }
-
             int index = currentIndex;
             currentIndex += 1;
             currentIndex = currentIndex % 2;
@@ -107,14 +129,14 @@ public class VoxelOctree : VoxelBehaviour
             // Ready up the allocations
             NativeHashSet<OctreeNode> oldNodes = octreeNodesBuffer[1 - index];
             NativeHashSet<OctreeNode> nodes = octreeNodesBuffer[index];
-            pending.Enqueue(OctreeNode.RootNode(maxDepth));
+            pending.Enqueue(OctreeNode.RootNode(maxDepth-1));
 
             SubdivideJob job = new SubdivideJob
             {
                 targets = targets,
                 nodes = nodes,
                 pending = pending,
-                globalLodMultiplier = lodDistanceScaling,
+                qualityPoints = qualityPointsNativeArray,
             };
 
             DiffJob addedDiffJob = new DiffJob
@@ -139,10 +161,7 @@ public class VoxelOctree : VoxelBehaviour
             JobHandle removedJob = removedDiffJob.Schedule(initial);
 
             finalJobHandle = JobHandle.CombineDependencies(addedJob, removedJob);
-            finalJobHandle.Complete();
-        } else
-        {
-
+            currentlyExecuting = true;
         }
     }
 
@@ -153,6 +172,12 @@ public class VoxelOctree : VoxelBehaviour
         pending.Dispose();
         addedNodes.Dispose();
         removedNodes.Dispose();
+        qualityPointsNativeArray.Dispose();
+
+        foreach (var item in octreeNodesBuffer)
+        {
+            item.Dispose();
+        }
     }
 
     void OnDrawGizmosSelected()
@@ -162,11 +187,11 @@ public class VoxelOctree : VoxelBehaviour
             return;
         }
 
-        foreach (var item in octreeNodesBuffer[currentIndex])
+        foreach (var item in octreeNodesBuffer[1-currentIndex])
         {
-            if (item.leaf)
+            if (item.leaf && item.depth == item.maxDepth)
             {
-                float color = (float)(maxDepth - item.invDepth) / (float)maxDepth;
+                float color = (float)(item.depth) / (float)maxDepth;
                 Gizmos.color = new Color(color, color, color, color);
                 Vector3 position = item.WorldCenter();
                 Vector3 size = item.WorldSize();

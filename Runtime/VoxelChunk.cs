@@ -8,4 +8,5 @@ using UnityEngine;
 // Script added to all game objects that represent a chunk
 public class VoxelChunk : MonoBehaviour
 {
+    public OctreeNode node;
 }
