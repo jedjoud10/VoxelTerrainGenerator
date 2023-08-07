@@ -1,3 +1,5 @@
+#define PI 3.14159265358979
+
 float3 mod289(float3 x) {
     return x - floor(x * (1.0 / 289.0)) * 289.0;
 }
@@ -12,6 +14,13 @@ float3 permute(float3 x) {
 }
 float3 mod7(float3 x) {
     return x - floor(x * (1.0 / 7.0)) * 7.0;
+}
+
+float2 hash(in float2 x)
+{
+    const float2 k = float2(0.3183099, 0.3678794);
+    x = x * k + k.yx;
+    return -1.0 + 2.0 * frac(16.0 * k * frac(x.x * x.y * (x.x + x.y)));
 }
 
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -61,7 +62,8 @@ public class VoxelGenerator : VoxelBehaviour
     // Chunks that we must generate the voxels for
     internal Queue<VoxelChunk> pendingVoxelGenerationChunks = new Queue<VoxelChunk>();
 
-    // Get the number of voxel generation tasks remaining
+    // Get the number of voxel generation tasks pen
+    /*
     public int VoxelGenerationTasksRemaining
     {
         get
@@ -73,6 +75,18 @@ public class VoxelGenerator : VoxelBehaviour
             {
                 return 0;
             }
+        }
+    }
+    */
+
+    // Checks if we completed voxel generation
+    public bool Free
+    {
+        get
+        {
+            bool free = pendingVoxelGenerationChunks?.Count == 0;
+            free &= freeVoxelNativeArrays.Cast<bool>().All(x => x);
+            return free;
         }
     }
 

@@ -2,11 +2,11 @@
     "name": "jedjoud.voxelterraingenerator.editor",
     "rootNamespace": "",
     "references": [
-        "GUID:a432eb0a70c5c4a37ab50d59671586f8",
-        "GUID:ca937d03ee5dd4d699091438dc0f3ae6",
         "GUID:f0062f368b8ff49498c534259edcfc97"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

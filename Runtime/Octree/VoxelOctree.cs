@@ -119,7 +119,7 @@ public class VoxelOctree : VoxelBehaviour
         }
 
         // Make sure we are free for octree generation
-        bool free = mesher.MeshGenerationTasksRemaining == 0 && generator.VoxelGenerationTasksRemaining == 0 && mesher.CollisionBakingTasksRemaining == 0;
+        bool free = mesher.Free && generator.Free;
         if (finalJobHandle.IsCompleted && free && !currentlyExecuting)
         {
             int index = currentIndex;

@@ -8,6 +8,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using System.Linq;
 
 
 // Contains the allocation data for a single job
@@ -121,6 +122,19 @@ public class VoxelMesher : VoxelBehaviour
 
     Queue<(VoxelChunk, VoxelReadbackRequest, bool)> pendingMeshGenerationChunks;
 
+    // Checks if the voxel mesher has completed all the work
+    public bool Free
+    {
+        get
+        {
+            bool bakeJobs = ongoingBakeJobs.Count == 0;
+            bool pending = pendingMeshGenerationChunks.Count == 0;
+            bool handlersFree = handlers.All(x => x.Free);
+            return bakeJobs && pending && handlersFree;
+        }
+    }
+
+    /*
     // Get the number of mesh generation tasks remaining
     public int MeshGenerationTasksRemaining
     {
@@ -136,6 +150,7 @@ public class VoxelMesher : VoxelBehaviour
             }
         }
     }
+    */
 
     // Get the number of collision baking tasks remaining
     public int CollisionBakingTasksRemaining

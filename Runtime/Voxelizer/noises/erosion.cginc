@@ -15,19 +15,6 @@
 //WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-
-
-#define PI 3.14159265358979
-
-
-float2 hash(in float2 x)
-{
-    const float2 k = float2(0.3183099, 0.3678794);
-    x = x * k + k.yx;
-    return -1.0 + 2.0 * frac(16.0 * k * frac(x.x * x.y * (x.x + x.y)) + seedHash);
-}
-
-
 // from https://www.shadertoy.com/view/XdXBRH
 //name:Noise - Gradient - 2D - Deriv
 //Author: iq
@@ -113,7 +100,7 @@ float3 mountain(float2 p, float s) {
     float3 h = 0;
     float a = 0.7 * (smoothstep(0.3, 0.5, n.x * 0.5 + 0.5)); //smooth the valleys
     float f = 1.0;
-    for (int i = 0; i < 5; i++) {
+    for (int k = 0; k < 5; k++) {
         h += erosion(p * f, dir + h.zy * float2(1.0, -1.0)) * a * float3(1.0, f, f);
         a *= 0.4;
         f *= 2.0;

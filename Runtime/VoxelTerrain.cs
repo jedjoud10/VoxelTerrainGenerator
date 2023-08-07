@@ -2,11 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
-using Unity.Jobs;
-using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
-using UnityEngine.Rendering;
 
 // Voxel terrain that handles generating the chunks and handling detail generation
 // generate chunks -> generate voxels -> generate mesh -> generate mesh collider
@@ -21,18 +17,25 @@ public class VoxelTerrain : MonoBehaviour
     public int voxelSizeReduction = 0;
     public bool generateCollisions = false;
     public Material material;
-    
     public GameObject chunkPrefab;
-
     private Dictionary<OctreeNode, VoxelChunk> chunks;
-
     private VoxelGenerator voxelGenerator;
     private VoxelMesher voxelMesher;
     private VoxelOctree voxelOctree;
 
-    // Called when the terrain finishes generating the based chunk and octree
+    // Pending chunks that we will have to hide eventually
+    private List<OctreeNode> toRemove = new List<OctreeNode>();
+
+    // Pending chunks that we will need to make visible
+    private List<VoxelChunk> toMakeVisible = new List<VoxelChunk>();
+
+    // Called when the terrain finishes generating the base chunk and octree
     public delegate void InitialGenerationDone();
     public event InitialGenerationDone onInitialGenerationDone;
+
+    // Called when the terrain finishes generating newly chunks
+    public delegate void ChunkGenerationDone();
+    public event ChunkGenerationDone onChunkGenerationDone;
 
     bool started = false;
     bool generating = false;
@@ -53,6 +56,8 @@ public class VoxelTerrain : MonoBehaviour
         voxelGenerator = GetComponent<VoxelGenerator>(); 
         voxelMesher = GetComponent<VoxelMesher>();
         voxelOctree = GetComponent<VoxelOctree>();
+        VoxelUtils.Size = resolution;
+        VoxelUtils.VoxelSizeReduction = voxelSizeReduction;
         voxelGenerator.Init();
         voxelMesher.Init();
         voxelOctree.Init();
@@ -62,6 +67,7 @@ public class VoxelTerrain : MonoBehaviour
         voxelMesher.onVoxelMeshingComplete += OnVoxelMeshingComplete;
         voxelMesher.onCollisionBakingComplete += OnCollisionBakingComplete;
         voxelOctree.onOctreeChanged += OnOctreeChanged;
+        onChunkGenerationDone += SwapsChunk;
 
         // Init local vars
         chunks = new Dictionary<OctreeNode, VoxelChunk>();
@@ -77,8 +83,10 @@ public class VoxelTerrain : MonoBehaviour
 
     private void Update()
     {
-        if (generating && voxelGenerator.VoxelGenerationTasksRemaining == 0 && voxelMesher.CollisionBakingTasksRemaining == 0 && voxelMesher.MeshGenerationTasksRemaining== 0) {
+        if (generating && voxelGenerator.Free && voxelMesher.Free) {
             generating = false;
+
+            onChunkGenerationDone.Invoke();
 
             if (initial)
             {
@@ -88,16 +96,34 @@ public class VoxelTerrain : MonoBehaviour
         }
     }
 
-    // Generate the new chunks and delete the old ones
-    private void OnOctreeChanged(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed)
+    // Deswpans the chunks that we do not need of and makes the new ones visible
+    void SwapsChunk()
     {
-        foreach (var item in removed)
+        foreach (var item in toRemove)
         {
             if (chunks.TryGetValue(item, out VoxelChunk value))
             {
                 chunks.Remove(item);
                 Destroy(value.gameObject);
             }
+        }
+
+        toRemove.Clear();
+
+        foreach (var item in toMakeVisible)
+        {
+            item.GetComponent<MeshRenderer>().enabled = true;
+        }
+
+        toMakeVisible.Clear();
+    }
+
+    // Generate the new chunks and delete the old ones
+    private void OnOctreeChanged(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed)
+    {
+        foreach (var item in removed)
+        {
+            toRemove.Add(item);
         }
 
         foreach (var item in added)
@@ -107,11 +133,13 @@ public class VoxelTerrain : MonoBehaviour
                 float size = item.ScalingFactor();
                 GameObject obj = Instantiate(chunkPrefab, item.WorldPosition(), Quaternion.identity, this.transform);
                 obj.GetComponent<MeshRenderer>().material = material;
+                obj.GetComponent<MeshRenderer>().enabled = false;
                 obj.transform.localScale = new Vector3(size, size, size);
                 VoxelChunk chunk = obj.GetComponent<VoxelChunk>();
                 chunk.node = item;
                 voxelGenerator.GenerateVoxels(chunk);
                 chunks.TryAdd(item, chunk);
+                toMakeVisible.Add(chunk);
             }
         }
 
