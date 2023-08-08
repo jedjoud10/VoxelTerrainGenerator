@@ -6,13 +6,6 @@
 // See LICENSE file for details.
 // https://github.com/stegu/webgl-noise
 
-// Modulo 289 without a division (only multiplications)
-
-float2 mod289(float2 x) {
-  return x - floor(x * (1.0 / 289.0)) * 289.0;
-}
-
-
 // Cellular noise, returning F1 and F2 in a float2.
 // Standard 3x3 search window for good F1 and F2 values
 float2 cellular(float2 P) {

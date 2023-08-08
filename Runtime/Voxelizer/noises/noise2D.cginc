@@ -36,8 +36,8 @@ float snoise(float2 v)
 
 // Permutations
   i = mod289(i); // Avoid truncation effects in permutation
-  float3 p = permute( permute( i.y + float3(0.0, i1.y, 1.0 ))
-		+ i.x + float3(0.0, i1.x, 1.0 ));
+  float3 p = permute( permute( i.y + float3(0.0, i1.y, 1.0 )) + permuationSeed.y
+		+ i.x + float3(0.0, i1.x, 1.0 ) + permuationSeed.z);
 
   float3 m = max(0.5 - float3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
   m = m*m ;

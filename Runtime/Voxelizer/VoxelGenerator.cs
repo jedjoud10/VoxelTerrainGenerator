@@ -34,10 +34,13 @@ public class VoxelReadbackRequest
 // Responsible for generating the voxel data using the voxel graph
 public class VoxelGenerator : VoxelBehaviour
 {
-    // Compute shader settings
     [Header("Voxelization Settings")]
     public Vector3 worldOffset = Vector3.zero;
     public Vector3 worldScale = Vector3.one;
+
+    [Header("Seeding Behavior")]
+    public Vector3Int permutationSeed = Vector3Int.zero;
+    public Vector3Int moduloSeed = Vector3Int.zero;
 
     // Added onto the isosurface value
     public float isosurfaceOffset = 0.0F;
@@ -84,9 +87,16 @@ public class VoxelGenerator : VoxelBehaviour
     {
         get
         {
-            bool free = pendingVoxelGenerationChunks?.Count == 0;
-            free &= freeVoxelNativeArrays.Cast<bool>().All(x => x);
-            return free;
+            if (pendingVoxelGenerationChunks != null && freeVoxelNativeArrays != null)
+            {
+                bool free = pendingVoxelGenerationChunks.Count == 0;
+                free &= freeVoxelNativeArrays.Cast<bool>().All(x => x);
+                return free;
+            }
+            else
+            {
+                return false;
+            }
         }
     }
 
@@ -107,11 +117,34 @@ public class VoxelGenerator : VoxelBehaviour
             voxelNativeArrays.Add(new NativeArray<float>(VoxelUtils.Total, Allocator.Persistent));
         }
 
+        UpdateStaticComputeFields();
+    }
+
+    // Randomize the stored seeds
+    public void RandomizeSeeds()
+    {
+        permutationSeed.x = UnityEngine.Random.Range(-10, 10);
+        permutationSeed.y = UnityEngine.Random.Range(-10, 10);
+        permutationSeed.z = UnityEngine.Random.Range(-10, 10);
+
+        moduloSeed.x = UnityEngine.Random.Range(-10, 10);
+        moduloSeed.y = UnityEngine.Random.Range(-10, 10);
+        moduloSeed.z = UnityEngine.Random.Range(-10, 10);
+
+        UpdateStaticComputeFields();
+    }
+
+    // Update the static world generation fields (will also update the seed)
+    public void UpdateStaticComputeFields()
+    {
         voxelShader.SetVector("worldOffset", worldOffset);
         voxelShader.SetVector("worldScale", worldScale * VoxelUtils.VoxelSize);
         voxelShader.SetFloat("isosurfaceOffset", isosurfaceOffset);
+        voxelShader.SetInts("permuationSeed", new int[] { permutationSeed.x, permutationSeed.y, permutationSeed.z });
+        voxelShader.SetInts("moduloSeed", new int[] { moduloSeed.x, moduloSeed.y, moduloSeed.z });
     }
 
+    // Add the given chunk inside the queue for voxel generation
     public void GenerateVoxels(VoxelChunk chunk) {
         pendingVoxelGenerationChunks.Enqueue(chunk);
     }

@@ -38,15 +38,6 @@
 //
 // https://www.shadertoy.com/playlist/fXlXzf&from=0&num=12
 
-
-float3 hash3( float2 p )
-{
-    float3 q = float3( dot(p,float2(127.1,311.7)), 
-				   dot(p,float2(269.5,183.3)), 
-				   dot(p,float2(419.2,371.9)) );
-	return frac(sin(q)*43758.5453);
-}
-
 float voronoise( in float2 p, float u, float v )
 {
 	float k = 1.0+63.0*pow(1.0-v,6.0);

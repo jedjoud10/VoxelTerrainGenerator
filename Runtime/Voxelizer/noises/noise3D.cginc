@@ -41,9 +41,9 @@ float snoise(float3 v)
 // Permutations
   i = mod289(i); 
   float4 p = permute( permute( permute( 
-             i.z + float4(0.0, i1.z, i2.z, 1.0 ))
-           + i.y + float4(0.0, i1.y, i2.y, 1.0 )) 
-           + i.x + float4(0.0, i1.x, i2.x, 1.0 ));
+             i.z + float4(0.0, i1.z, i2.z, 1.0 ) + permuationSeed.x)
+           + i.y + float4(0.0, i1.y, i2.y, 1.0 ) + permuationSeed.y) 
+           + i.x + float4(0.0, i1.x, i2.x, 1.0 ) + permuationSeed.z);
 
 // Gradients: 7x7 points over a square, mapped onto an octahedron.
 // The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)

@@ -37,9 +37,13 @@ public class VoxelTerrain : MonoBehaviour
     public delegate void ChunkGenerationDone();
     public event ChunkGenerationDone onChunkGenerationDone;
 
-    bool started = false;
-    bool generating = false;
-    bool initial = true;
+    // Did the terrain finish all its tasks
+    public bool Free { get; private set; } = false;
+
+    internal bool started = false;
+
+    // Did the terrain finish computing the initial base terrain
+    public bool Initial { get; private set; } = false;
 
     private void OnValidate()
     {
@@ -52,7 +56,7 @@ public class VoxelTerrain : MonoBehaviour
 
     void Start() {
         // Initialize the generator and mesher
-        started = false;
+        started = true;
         voxelGenerator = GetComponent<VoxelGenerator>(); 
         voxelMesher = GetComponent<VoxelMesher>();
         voxelOctree = GetComponent<VoxelOctree>();
@@ -83,15 +87,15 @@ public class VoxelTerrain : MonoBehaviour
 
     private void Update()
     {
-        if (generating && voxelGenerator.Free && voxelMesher.Free) {
-            generating = false;
+        if (!Free && voxelGenerator.Free && voxelMesher.Free) {
+            Free = true;
 
             onChunkGenerationDone?.Invoke();
 
-            if (initial)
+            if (!Initial)
             {
                 onInitialGenerationDone?.Invoke();
-                initial = false;
+                Initial = true;
             }
         }
     }
@@ -143,7 +147,7 @@ public class VoxelTerrain : MonoBehaviour
             }
         }
 
-        generating = true;
+        Free = false;
     }
 
     // When we finish generating the voxel data, begin the mesh generation
@@ -163,5 +167,18 @@ public class VoxelTerrain : MonoBehaviour
     void OnCollisionBakingComplete(VoxelChunk chunk, Mesh mesh) 
     {
         chunk.GetComponent<MeshCollider>().sharedMesh = mesh;
+    }
+
+    // Request all the chunks to regenerate their meshes
+    public void RequestAll()
+    {
+        if (Free && voxelGenerator.Free && voxelMesher.Free)
+        {
+            foreach (var item in chunks)
+            {
+                item.Value.GetComponent<MeshCollider>().sharedMesh = null;
+                voxelGenerator.GenerateVoxels(item.Value);
+            }
+        }
     }
 }

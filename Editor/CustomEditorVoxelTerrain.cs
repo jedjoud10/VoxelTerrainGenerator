@@ -26,5 +26,12 @@ public class CustomEditorVoxelTerrain : Editor
         //EditorGUILayout.LabelField("Mesh Tasks Remaining: " + mesher.MeshGenerationTasksRemaining);
         //EditorGUILayout.LabelField("Collision Tasks Remaining: " + mesher.CollisionBakingTasksRemaining);
         //EditorGUILayout.LabelField("Generator Tasks Remaining: " + generator.VoxelGenerationTasksRemaining);
+
+        GUI.enabled = terrain.Free && generator.Free && mesher.Free;
+        if (GUILayout.Button("Regenerate"))
+        {
+            terrain.RequestAll();
+        }
+        GUI.enabled = true;
     }
 }

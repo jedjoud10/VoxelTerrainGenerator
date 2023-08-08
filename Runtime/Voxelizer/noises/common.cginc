@@ -1,17 +1,29 @@
 #define PI 3.14159265358979
 
 float3 mod289(float3 x) {
+    x += moduloSeed.x;
     return x - floor(x * (1.0 / 289.0)) * 289.0;
 }
+
+// Modulo 289 without a division (only multiplications)
+float2 mod289(float2 x) {
+    x += moduloSeed.y;
+    return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
 float4 mod289(float4 x) {
+    x += moduloSeed.z;
     return x - floor(x * (1.0 / 289.0)) * 289.0;
 }
+
 float4 permute(float4 x) {
     return mod289(((x * 34.0) + 1.0) * x);
 }
+
 float3 permute(float3 x) {
     return mod289((34.0 * x + 1.0) * x);
 }
+
 float3 mod7(float3 x) {
     return x - floor(x * (1.0 / 7.0)) * 7.0;
 }
@@ -23,6 +35,13 @@ float2 hash(in float2 x)
     return -1.0 + 2.0 * frac(16.0 * k * frac(x.x * x.y * (x.x + x.y)));
 }
 
+float3 hash3( float2 p )
+{
+    float3 q = float3( dot(p,float2(127.1,311.7)), 
+				   dot(p,float2(269.5,183.3)), 
+				   dot(p,float2(419.2,371.9)) );
+	return frac(sin(q)*43758.5453);
+}
 
 /*
 original_author: Patricio Gonzalez Vivo

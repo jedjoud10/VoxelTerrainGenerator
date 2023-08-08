@@ -187,7 +187,19 @@ public class VoxelOctree : VoxelBehaviour
             return;
         }
 
-        foreach (var item in octreeNodesBuffer[1-currentIndex])
+        /*
+        int index = 0;
+
+        if (finalJobHandle.IsCompleted)
+        {
+            index = 1 - currentIndex;
+        }
+        else
+        {
+            index = currentIndex;
+        }
+
+        foreach (var item in octreeNodesBuffer[index])
         {
             if (item.leaf && item.depth == item.maxDepth)
             {
@@ -198,5 +210,6 @@ public class VoxelOctree : VoxelBehaviour
                 Gizmos.DrawWireCube(position, size);
             }
         }
+        */
     }
 }
