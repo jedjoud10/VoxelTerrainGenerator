@@ -198,7 +198,7 @@ public class VoxelMesher : VoxelBehaviour
             {
                 VoxelChunk chunk = handler.chunk;
                 Mesh mesh = handler.Complete();
-                onVoxelMeshingComplete.Invoke(chunk, mesh);
+                onVoxelMeshingComplete?.Invoke(chunk, mesh);
             
                 if (handler.computeCollisions && mesh.vertexCount > 0 && mesh.triangles.Length > 0)
                 {
@@ -236,7 +236,7 @@ public class VoxelMesher : VoxelBehaviour
         {
             if (handle.IsCompleted) {
                 handle.Complete();
-                onCollisionBakingComplete.Invoke(chunk, mesh);
+                onCollisionBakingComplete?.Invoke(chunk, mesh);
             }
         }
         ongoingBakeJobs.RemoveAll(item => item.Item1.IsCompleted);

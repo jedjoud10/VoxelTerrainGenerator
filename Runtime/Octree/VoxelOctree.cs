@@ -99,7 +99,7 @@ public class VoxelOctree : VoxelBehaviour
 
             if (addedNodes.Length > 0 || removedNodes.Length > 0)
             {
-                onOctreeChanged(ref addedNodes, ref removedNodes);
+                onOctreeChanged?.Invoke(ref addedNodes, ref removedNodes);
             }
 
             currentlyExecuting = false;

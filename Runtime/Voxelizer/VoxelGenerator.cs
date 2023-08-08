@@ -129,8 +129,12 @@ public class VoxelGenerator : VoxelBehaviour
             VoxelChunk chunk = null;
             if (pendingVoxelGenerationChunks.TryDequeue(out chunk)) {
                 voxelShader.SetTexture(0, "voxelTexture", voxelTexture);
-                voxelShader.SetVector("chunkOffset", (chunk.transform.position / VoxelUtils.VoxelSize) / VoxelUtils.VertexScaling);
-                voxelShader.SetFloat("chunkScale", chunk.transform.localScale.x);
+                Vector3 test = Vector3.one * (chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) * 0.5F;
+
+                //voxelShader.SetVector("chunkOffset", (chunk.transform.position / VoxelUtils.VoxelSize) / VoxelUtils.VertexScaling);
+                voxelShader.SetVector("chunkOffset", (chunk.transform.position - test) / VoxelUtils.VoxelSize);
+                //voxelShader.SetFloat("chunkScale", chunk.transform.localScale.x);
+                voxelShader.SetFloat("chunkScale", (chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) / VoxelUtils.VoxelSize);
 
                 int count = VoxelUtils.Size / 4;
                 voxelShader.Dispatch(0, count, count, count);
@@ -153,7 +157,7 @@ public class VoxelGenerator : VoxelBehaviour
                     delegate (AsyncGPUReadbackRequest request)
                     {
                         voxelReadbackRequest.Completed = true;
-                        onVoxelGenerationComplete.Invoke(chunk, voxelReadbackRequest);
+                        onVoxelGenerationComplete?.Invoke(chunk, voxelReadbackRequest);
                     }
                 );
                 

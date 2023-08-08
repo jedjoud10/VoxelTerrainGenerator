@@ -86,11 +86,11 @@ public class VoxelTerrain : MonoBehaviour
         if (generating && voxelGenerator.Free && voxelMesher.Free) {
             generating = false;
 
-            onChunkGenerationDone.Invoke();
+            onChunkGenerationDone?.Invoke();
 
             if (initial)
             {
-                onInitialGenerationDone.Invoke();
+                onInitialGenerationDone?.Invoke();
                 initial = false;
             }
         }
