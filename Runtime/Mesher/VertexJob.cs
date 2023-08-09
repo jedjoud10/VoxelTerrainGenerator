@@ -43,9 +43,13 @@ public struct VertexJob : IJobParallelFor
         new uint3(1, 0, 0),
     };
 
-    // Voxelized readback data that we will generate
+    // Voxel densities as halfs
     [ReadOnly]
-    public NativeArray<float> voxelized;
+    public NativeArray<half> densities;
+
+    // Voxel colors and materials
+    [ReadOnly]
+    public NativeArray<uint> colorMaterials;
 
     // Contains 3D data of the indices of the vertices
     [WriteOnly]
@@ -80,6 +84,7 @@ public struct VertexJob : IJobParallelFor
         }
 
         float3 vertex = float3.zero;
+        float3 color = float3.zero;
         uint count = 0;
 
         // Iterate over the edges in the cube
@@ -91,8 +96,12 @@ public struct VertexJob : IJobParallelFor
             int endIndex = VoxelUtils.PosToIndex(endOffset + position, size);
 
             // Get the densities of the edge
-            float startDensity = voxelized[startIndex];
-            float endDensity = voxelized[endIndex];
+            float startDensity = math.half(densities[startIndex]);
+            float endDensity = math.half(densities[endIndex]);
+
+            // Get the color / material of the edge
+            uint startColorMaterial = colorMaterials[startIndex];
+            uint endColorMaterial = colorMaterials[startIndex];
 
             // Create a vertex on the line of the edge
             if (((startDensity > 0.0) ^ (endDensity > 0.0))) {
@@ -114,7 +123,7 @@ public struct VertexJob : IJobParallelFor
             float3 outputVertex = (vertex / (float)count) + position;
 
             // TODO: Handle custom UV shenanigans
-            float4 outputUVs = new float4(0);
+            float4 outputUVs = new float4(0.0F);
 
             vertices[vertexIndex] = outputVertex * vertexScale * voxelScale;
             uvs[vertexIndex] = outputUVs;

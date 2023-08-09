@@ -170,15 +170,34 @@ public class VoxelTerrain : MonoBehaviour
     }
 
     // Request all the chunks to regenerate their meshes
-    public void RequestAll()
+    public void RequestAll(bool disableColliders = true, bool tempHide = false)
     {
         if (Free && voxelGenerator.Free && voxelMesher.Free)
         {
             foreach (var item in chunks)
             {
-                item.Value.GetComponent<MeshCollider>().sharedMesh = null;
+                if (disableColliders)
+                {
+                    item.Value.GetComponent<MeshCollider>().sharedMesh = null;
+                }
+
+                if (tempHide)
+                {
+                    item.Value.GetComponent<MeshFilter>().mesh = null;
+                }
+
                 voxelGenerator.GenerateVoxels(item.Value);
             }
         }
+    }
+
+    // Request a single chunk to regenerate its mesh based on its node
+    public void Request(OctreeNode node, bool disableColliders = true, bool tempHide = false)
+    {
+    }
+
+    // Request a multitude of chunks to regenerate their meshes
+    public void RequestMultiple(OctreeNode[] nodes, bool disableColliders = true, bool tempHide = false)
+    {
     }
 }

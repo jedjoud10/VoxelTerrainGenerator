@@ -9,9 +9,9 @@ using Unity.Burst;
 [BurstCompile(CompileSynchronously = true)]
 public struct QuadJob : IJobParallelFor
 {
-    // Voxelized readback data that we will generate
+    // Voxel densities as halfs
     [ReadOnly]
-    public NativeArray<float> voxelized;
+    public NativeArray<half> densities;
 
     // Contains 3D data of the indices of the vertices
     [ReadOnly]
@@ -63,8 +63,8 @@ public struct QuadJob : IJobParallelFor
         int baseIndex = VoxelUtils.PosToIndex(basePosition, size);
         int endIndex = VoxelUtils.PosToIndex(basePosition + forward, size);
     
-        if ((voxelized[baseIndex] > 0.0) ^ (voxelized[endIndex] > 0.0)) {
-            bool flip = (voxelized[endIndex] > 0.0);
+        if ((densities[baseIndex] > 0.0) ^ (densities[endIndex] > 0.0)) {
+            bool flip = (densities[endIndex] > 0.0);
 
             int index0 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4], size);
             int index1 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 1], size);

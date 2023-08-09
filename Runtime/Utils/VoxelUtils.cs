@@ -61,30 +61,40 @@ public static class VoxelUtils
     }
 
     // Calculate normals using first differences
-    public static float3 CalculateNormals(uint3 position, ref NativeArray<float> voxels, int size)
+    public static float3 CalculateNormals(uint3 position, ref NativeArray<half> densities, int size)
     {
-        float baseDensity = voxels[PosToIndex(position, size)];
-        float densityOffsetX = voxels[PosToIndex(position, size) + 1];
-        float densityOffsetY = voxels[PosToIndex(position, size) + size];
-        float densityOffsetZ = voxels[PosToIndex(position, size) + size * size];
+        float baseDensity = densities[PosToIndex(position, size)];
+        float densityOffsetX = densities[PosToIndex(position, size) + 1];
+        float densityOffsetY = densities[PosToIndex(position, size) + size];
+        float densityOffsetZ = densities[PosToIndex(position, size) + size * size];
     
         return math.normalizesafe(new float3(baseDensity - densityOffsetX, baseDensity - densityOffsetY, baseDensity - densityOffsetZ));
     }
 
+    // Convert a packed color material value to rgb color and uint material
+    public static void UnpackColorMaterial(in uint input, out float3 color, out byte material)
+    {
+        sbyte packedColorX = (sbyte)(input & 0xFF);
+        sbyte packedColorY = (sbyte)((input >> 8) & 0xFF);
+        sbyte packedColorZ = (sbyte)((input >> 16) & 0xFF);
+        material = (byte)((input >> 24) & 0xFF);
+        color = math.float3((float)packedColorX / 128.0F, (float)packedColorY / 128.0F, (float)packedColorZ / 128.0F);
+    }
+
     // Sampled the voxel grid using trilinear filtering
-    public static float SampleGridInterpolated(float3 position, ref NativeArray<float> voxels, int size) {
+    public static float SampleGridInterpolated(float3 position, ref NativeArray<half> densities, int size) {
         float3 frac = math.frac(position);
         uint3 voxPos = (uint3)math.floor(position);
 
-        float d000 = voxels[PosToIndex(voxPos, size)];
-        float d100 = voxels[PosToIndex(voxPos, size) + 1];
-        float d010 = voxels[PosToIndex(voxPos, size) + size * size];
-        float d110 = voxels[PosToIndex(voxPos, size) + size * size + 1];
+        float d000 = densities[PosToIndex(voxPos, size)];
+        float d100 = densities[PosToIndex(voxPos, size) + 1];
+        float d010 = densities[PosToIndex(voxPos, size) + size * size];
+        float d110 = densities[PosToIndex(voxPos, size) + size * size + 1];
 
-        float d001 = voxels[PosToIndex(voxPos, size) + size];
-        float d101 = voxels[PosToIndex(voxPos, size) + 1 + size];
-        float d011 = voxels[PosToIndex(voxPos, size) + size * size + size];
-        float d111 = voxels[PosToIndex(voxPos, size) + size * size + 1 + size];
+        float d001 = densities[PosToIndex(voxPos, size) + size];
+        float d101 = densities[PosToIndex(voxPos, size) + 1 + size];
+        float d011 = densities[PosToIndex(voxPos, size) + size * size + size];
+        float d111 = densities[PosToIndex(voxPos, size) + size * size + 1 + size];
 
         float mixed0 = math.lerp(d000, d100, frac.x);
         float mixed1 = math.lerp(d010, d110, frac.x);
@@ -100,7 +110,7 @@ public static class VoxelUtils
     }
 
     // Calculate the ambient occlusion factor of a specific vertex based on its normals
-    public static float CalculatePerVertexAmbientOcclusion(float3 position, ref NativeArray<float> voxels, int size)
+    public static float CalculatePerVertexAmbientOcclusion(float3 position, ref NativeArray<half> densities, int size)
     {
         float ao = 0;
 
@@ -110,7 +120,7 @@ public static class VoxelUtils
                     float3 offset = new float3(x, y, z) * 2 - new float3(1);
                     float3 final = (position + offset * 2 + new float3(1));
                     final = math.clamp(final, float3.zero, new float3(size - 2));
-                    float density = SampleGridInterpolated(final, ref voxels, size);
+                    float density = SampleGridInterpolated(final, ref densities, size);
                     ao += density > 0 ? 1 : 0;
                 }
             }

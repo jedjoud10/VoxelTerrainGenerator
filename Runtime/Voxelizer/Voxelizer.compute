@@ -17,33 +17,31 @@ int3 moduloSeed;
 #include "./sdf.cginc"
 
 // Used for async readback
-RWTexture3D<float> voxelTexture;
+RWTexture3D<half> densityTexture;
+RWTexture3D<uint> colorMaterialTexture;
 
 [numthreads(4,4,4)]
 void CSVoxelizer (uint3 id : SV_DispatchThreadID)
 {
     float3 position = (id.xzy * chunkScale + chunkOffset) * worldScale + worldOffset;
 
-    //float density = position.y - cellular(position.xz * 0.02) * 10;
-
-    //density = min(sdBox(position, float3(10, 10, 10)), position.y);
-
     float density1 = -fbmCellular(position * 0.002 * float3(1, 1.9, 1), 6, 0.49, 2.1).x * 100;
     density1 = opSmoothUnion(density1, position.y, 200);
 
     float density2 = fbm(position.xz * 0.001, 8, 0.32, 2.61) * 320;
-    //density2 -= cellular(position * 0.003 * float3(1, 4, 1)).y * 100;
-    //density2 -= cellular(position * 0.01 * float3(1, 4, 1)).y * 30;
     density2 = opSmoothUnion(density2, position.y, 1600);
-    
-    //float density1 = 0.0;
     density2 = -fbmCellular(position.xz * 0.001, 8, 0.32, 2.60).y * 600;
 
-    float mixer = saturate(((snoise(position.xz * 0.0003) * 0.5 + 0.5) - 0.5) * 1 + 0.5);
+    float density3 = abs(fbm(position * 0.001, 7, 0.4, 1.98)) * 100;
+
+    float mixer = snoise(position.xz * 0.0006) * 0.5 + 0.5;
     mixer = smoothstep(0, 1, mixer);
 
-    float density = lerp(density1, density2, mixer) + position.y;
+    float mixer2 = snoise(position.xz * 0.0003 - 21.64) * 0.5 + 0.5;
+    mixer2 = smoothstep(0, 1, mixer2);
 
+    float density = lerp(lerp(density1, density2, mixer), density3, mixer2) + position.y;
 
-    voxelTexture[id.xyz] = density + isosurfaceOffset;
+    densityTexture[id.xyz] = half(density + isosurfaceOffset);
+    colorMaterialTexture[id.xyz] = 0;
 }

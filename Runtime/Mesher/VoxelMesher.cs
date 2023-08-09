@@ -45,7 +45,8 @@ class MeshJobHandler {
         Free = false;
 
         VertexJob vertexJob = new VertexJob {
-            voxelized = voxels.voxelized,
+            densities = voxels.nativeArrays.densities,
+            colorMaterials = voxels.nativeArrays.colorMaterials,
             indices = indices,
             vertices = vertices,
             uvs = uvs,
@@ -56,7 +57,7 @@ class MeshJobHandler {
         };
 
         QuadJob quadJob = new QuadJob {
-            voxelized = voxels.voxelized,
+            densities = voxels.nativeArrays.densities,
             vertexIndices = indices,
             counter = counterQuad,
             triangles = triangles,

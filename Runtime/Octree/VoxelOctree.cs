@@ -21,9 +21,6 @@ public class VoxelOctree : VoxelBehaviour
     public float[] curvePoints;
     private NativeArray<float> qualityPointsNativeArray;
 
-    // Should we draw gizmoss for the octree or not?
-    public bool drawGizmos = false;
-
     // List of the targets
     private NativeArray<OctreeTarget> targets;
 
@@ -51,6 +48,7 @@ public class VoxelOctree : VoxelBehaviour
 
     private bool currentlyExecuting = false;
 
+    // Intialize octree memory
     internal override void Init()
     {
         generator = GetComponent<VoxelGenerator>();
@@ -82,6 +80,7 @@ public class VoxelOctree : VoxelBehaviour
         }
     }
 
+    // Make sure the number of quality levels is equal the octree depth
     private void OnValidate()
     {
         if (curvePoints.Length != maxDepth)
@@ -178,38 +177,5 @@ public class VoxelOctree : VoxelBehaviour
         {
             item.Dispose();
         }
-    }
-
-    void OnDrawGizmosSelected()
-    {
-        if (!targets.IsCreated || !drawGizmos)
-        {
-            return;
-        }
-
-        /*
-        int index = 0;
-
-        if (finalJobHandle.IsCompleted)
-        {
-            index = 1 - currentIndex;
-        }
-        else
-        {
-            index = currentIndex;
-        }
-
-        foreach (var item in octreeNodesBuffer[index])
-        {
-            if (item.leaf && item.depth == item.maxDepth)
-            {
-                float color = (float)(item.depth) / (float)maxDepth;
-                Gizmos.color = new Color(color, color, color, color);
-                Vector3 position = item.WorldCenter();
-                Vector3 size = item.WorldSize();
-                Gizmos.DrawWireCube(position, size);
-            }
-        }
-        */
     }
 }
