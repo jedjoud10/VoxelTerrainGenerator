@@ -13,12 +13,12 @@ public class VoxelEdits : VoxelBehaviour
     private Texture3D indirectionTexture;
 
     // List of texture "segments" that will be sparsely stored in the world
-    private List<VoxelTextures> editedVoxels;
+    private List<Texture3D> editedVoxels;
 
     // Initialize the voxel edits handler
     internal override void Init()
     {
-        editedVoxels = new List<VoxelTextures>();
+        editedVoxels = new List<Texture3D>();
         indirectionTexture = VoxelUtils.CreateTexture(256, UnityEngine.Experimental.Rendering.GraphicsFormat.R16_UInt);
     }
 

@@ -14,44 +14,58 @@ float isosurfaceOffset;
 int3 permuationSeed;
 int3 moduloSeed;
 
+// GPU representation of what a voxel is
+// Density: first 2 bytes
+// Material: 3rd byte
+// Free: 4th byte
+
 #include "./noises.cginc"
 #include "./sdf.cginc"
 
 // Used for async readback
-RWTexture3D<half> densityTexture;
-RWTexture3D<uint> colorMaterialTexture;
+RWTexture3D<uint> voxels;
 
+// Generates the voxel data on the GPU
 [numthreads(4,4,4)]
 void CSVoxelizer (uint3 id : SV_DispatchThreadID)
 {
+    // Calculate the main world position
     float3 position = (id.xzy * chunkScale + chunkOffset) * worldScale + worldOffset;
 
+    // Density value for biome 1
     float density1 = -fbmCellular(position * 0.002 * float3(1, 1.9, 1), 6, 0.49, 2.1).x * 100;
     density1 = opSmoothUnion(density1, position.y, 200);
 
+    // Density value for biome 2
     float density2 = fbm(position.xz * 0.001, 8, 0.32, 2.61) * 320;
     density2 = opSmoothUnion(density2, position.y, 1600);
     density2 = -fbmCellular(position.xz * 0.001, 8, 0.32, 2.60).y * 600;
 
+    // Density value for biome 3
     float density3 = abs(fbm(position * 0.001, 7, 0.4, 1.98)) * 100;
 
+    // Mixer between biome 1 and biome 2
     float mixer = snoise(position.xz * 0.0006) * 0.5 + 0.5;
     mixer = smoothstep(0, 1, mixer);
 
+    // Mixer between result and biome 3
     float mixer2 = snoise(position.xz * 0.0003 - 21.64) * 0.5 + 0.5;
     mixer2 = smoothstep(0, 1, mixer2);
 
+    // Calculate density
     float density = lerp(lerp(density1, density2, mixer), density3, mixer2) + position.y;
-
-    densityTexture[id.xyz] = half(density + isosurfaceOffset);
-    colorMaterialTexture[id.xyz] = 0;
+    //density = -1;
+    
+    // Pack the voxel density and material
+    uint packedDensity = f32tof16(density);
+    uint packedMaterial = uint(clamp(round(snoise(position * 0.004) + 1.0), 0, 2));
+    uint packedData = packedDensity | (packedMaterial << 16);
+    voxels[id.xyz] = packedData;
 }
 
 [numthreads(4,4,4)]
 void CSEdits (uint3 id : SV_DispatchThreadID)
 {
+    // Calculate the main world position
     float3 position = (id.xzy * chunkScale + chunkOffset) * worldScale + worldOffset;
-
-    densityTexture[id.xyz] = 0;
-    colorMaterialTexture[id.xyz] = 0;
 }

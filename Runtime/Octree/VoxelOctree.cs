@@ -9,10 +9,6 @@ using UnityEngine;
 // Handles generating the octree for all octree loaders and creating the octree and detecting the delta
 public class VoxelOctree : VoxelBehaviour
 {
-    // Max number of targets supported
-    [Min(1)]
-    public int maxTargetCount = 1;
-
     // Max depth of the octree
     [Min(1)]
     public int maxDepth = 8;
@@ -21,7 +17,7 @@ public class VoxelOctree : VoxelBehaviour
     public float[] curvePoints;
     private NativeArray<float> qualityPointsNativeArray;
 
-    // List of the targets
+    // TODO: Make this work bruh (only set to one for now)
     private NativeArray<OctreeTarget> targets;
 
     // Native hashmap for keeping track of the current nodes in the tree
@@ -47,6 +43,7 @@ public class VoxelOctree : VoxelBehaviour
     VoxelGenerator generator;
 
     private bool currentlyExecuting = false;
+    private bool mustUpdate = false;
 
     // Intialize octree memory
     internal override void Init()
@@ -54,11 +51,8 @@ public class VoxelOctree : VoxelBehaviour
         generator = GetComponent<VoxelGenerator>();
         mesher = GetComponent<VoxelMesher>();
 
-        targets = new NativeArray<OctreeTarget>(maxTargetCount, Allocator.Persistent);
-        for (int i = 0; i < maxTargetCount; i++)
-        {
-            targets[i] = new OctreeTarget();
-        }
+        targets = new NativeArray<OctreeTarget>(1, Allocator.Persistent);
+        targets[0] = new OctreeTarget();
 
         octreeNodesBuffer = new NativeHashSet<OctreeNode>[2];
 
@@ -80,12 +74,28 @@ public class VoxelOctree : VoxelBehaviour
         }
     }
 
+    // Force the octree to update due to an octree loader moving
+    public void UpdateOctreeLoader(OctreeLoader loader)
+    {
+        float offset = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
+        targets[0] = new OctreeTarget
+        {
+            generateCollisions = loader.generateCollisions,
+            center = loader.transform.position / offset,
+            radius = loader.radius / offset,
+        };
+        mustUpdate = true;
+    }
+
     // Make sure the number of quality levels is equal the octree depth
     private void OnValidate()
     {
-        if (curvePoints.Length != maxDepth)
+        if (curvePoints != null)
         {
-            Array.Resize(ref curvePoints, maxDepth);
+            if (curvePoints.Length != maxDepth)
+            {
+                Array.Resize(ref curvePoints, maxDepth);
+            }
         }
     }
 
@@ -97,23 +107,11 @@ public class VoxelOctree : VoxelBehaviour
             currentlyExecuting = false;
         }
 
-        OctreeLoader[] loaders = FindObjectsByType<OctreeLoader>(FindObjectsSortMode.None);
-        float offset = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
-        for (int i = 0; i < Mathf.Min(targets.Length, loaders.Length); i++)
-        {
-            targets[i] = new OctreeTarget
-            {
-                generateCollisions = loaders[i].generateCollisions,
-                center = loaders[i].transform.position / offset,
-                radius = loaders[i].radius / offset,
-                lodMultiplier = loaders[i].lodMultiplier,
-            };
-        }
-
         // Make sure we are free for octree generation
         bool free = mesher.Free && generator.Free;
-        if (finalJobHandle.IsCompleted && free && !currentlyExecuting)
+        if (finalJobHandle.IsCompleted && free && !currentlyExecuting && mustUpdate)
         {
+            mustUpdate = false;
             int index = currentIndex;
             currentIndex += 1;
             currentIndex = currentIndex % 2;

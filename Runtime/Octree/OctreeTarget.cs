@@ -16,7 +16,4 @@ public struct OctreeTarget
 
     // Radius in world space
     public float radius;
-
-    // LOD multiplier unique to this taget
-    public float lodMultiplier;
 }

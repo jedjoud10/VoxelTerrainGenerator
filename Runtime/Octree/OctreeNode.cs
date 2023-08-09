@@ -116,7 +116,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
             float3 maxBounds = math.float3(position) + math.float3(size);
             float3 clamped = math.clamp(target.center, minBounds, maxBounds);
 
-            bool local = math.distance(clamped, target.center) < target.radius * ScalingFactor() * qualityPoints[depth] * target.lodMultiplier;
+            bool local = math.distance(clamped, target.center) < target.radius * ScalingFactor() * qualityPoints[depth];
             subdivide |= local;
             generateCollisions |= local && target.generateCollisions;
         }

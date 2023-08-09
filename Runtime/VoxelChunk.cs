@@ -12,4 +12,5 @@ public class VoxelChunk : MonoBehaviour
     public OctreeNode node;
 
     // Keep track of the voxel data for this voxel chunk
+    public NativeArray<Voxel> voxels;
 }

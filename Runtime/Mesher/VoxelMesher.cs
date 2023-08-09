@@ -9,96 +9,7 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using System.Linq;
-
-
-// Contains the allocation data for a single job
-// There are multiple instances of this class stored inside the voxel mesher to saturate the other threads
-class MeshJobHandler {
-    public NativeArray<int> indices;
-    public NativeArray<float3> vertices;
-    public NativeArray<float4> uvs;
-    public NativeCounter counter;
-    public NativeCounter counterQuad;
-    public NativeArray<int> triangles;
-    public JobHandle vertexJobHandle;
-    public JobHandle quadJobHandle;
-    public VoxelReadbackRequest voxels;
-    public VoxelChunk chunk;
-    public bool computeCollisions = false;
-
-    public MeshJobHandler()
-    {
-        indices = new NativeArray<int>(VoxelUtils.Total, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        vertices = new NativeArray<float3>(VoxelUtils.Total, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        uvs = new NativeArray<float4>(VoxelUtils.Total, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        counter = new NativeCounter(Allocator.Persistent);
-        counterQuad = new NativeCounter(Allocator.Persistent);
-        triangles = new NativeArray<int>(VoxelUtils.Total * 6 * 4, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-    }
-
-    public bool Free { get; private set; } = true;
-
-    // Begin the vertex + quad job that will generate the mesh
-    public void BeginJob() {
-        counter.Count = 0;
-        counterQuad.Count = 0;
-        Free = false;
-
-        VertexJob vertexJob = new VertexJob {
-            densities = voxels.nativeArrays.densities,
-            colorMaterials = voxels.nativeArrays.colorMaterials,
-            indices = indices,
-            vertices = vertices,
-            uvs = uvs,
-            counter = counter,
-            voxelScale = VoxelUtils.VoxelSize,
-            vertexScale = VoxelUtils.VertexScaling,
-            size = VoxelUtils.Size,
-        };
-
-        QuadJob quadJob = new QuadJob {
-            densities = voxels.nativeArrays.densities,
-            vertexIndices = indices,
-            counter = counterQuad,
-            triangles = triangles,
-            size = VoxelUtils.Size,
-        };
-
-        JobHandle vertexJobHandle = vertexJob.Schedule(VoxelUtils.Total, 512);
-        JobHandle quadJobHandle = quadJob.Schedule(VoxelUtils.Total, 512, vertexJobHandle);
-
-        this.vertexJobHandle = vertexJobHandle;
-        this.quadJobHandle = quadJobHandle;     
-    }
-
-    // Complete the jobs and return a mesh
-    public Mesh Complete() {
-        quadJobHandle.Complete();
-        Free = true;
-
-        int maxVertices = counter.Count;
-        int maxIndices = counterQuad.Count * 6;
-
-        Mesh mesh = new Mesh();
-        mesh.SetVertices(vertices.Reinterpret<Vector3>(), 0, maxVertices);
-        mesh.SetIndices(triangles, 0, maxIndices, MeshTopology.Triangles, 0);
-        mesh.SetUVs(0, uvs.Reinterpret<Vector4>(), 0, maxVertices);
-        voxels.Dispose();
-        voxels = null;
-        chunk = null;
-        return mesh;
-    }
-
-    // Dispose of the underlying memory allocations
-    public void Dispose() {
-        indices.Dispose();
-        vertices.Dispose();
-        uvs.Dispose();
-        counter.Dispose();
-        counterQuad.Dispose();
-        triangles.Dispose();
-    }
-}
+using System.Threading;
 
 // Responsible for creating and executing the mesh generation jobs
 public class VoxelMesher : VoxelBehaviour
@@ -107,21 +18,24 @@ public class VoxelMesher : VoxelBehaviour
     [Range(1, 8)]
     public int meshJobsPerFrame = 1;
 
+    public bool generateCollisions = false;
+    public Material[] voxelMaterials;
+
     // List of persistently allocated mesh data
     internal List<MeshJobHandler> handlers;
 
     // Called when a chunk finishes generating its voxel data
-    public delegate void OnVoxelMeshingComplete(VoxelChunk chunk, Mesh mesh);
+    public delegate void OnVoxelMeshingComplete(VoxelChunk chunk, VoxelMesh mesh);
     public event OnVoxelMeshingComplete onVoxelMeshingComplete;
 
     // Called when a chunk's mesh gets its collision data
-    public delegate void OnCollisionBakingComplete(VoxelChunk chunk, Mesh mesh);
+    public delegate void OnCollisionBakingComplete(VoxelChunk chunk, VoxelMesh mesh);
     public event OnCollisionBakingComplete onCollisionBakingComplete;
 
     // Used for collision
-    private List<(JobHandle, VoxelChunk, Mesh)> ongoingBakeJobs;
+    private List<(JobHandle, VoxelChunk, VoxelMesh)> ongoingBakeJobs;
 
-    Queue<(VoxelChunk, VoxelReadbackRequest, bool)> pendingMeshGenerationChunks;
+    Queue<(VoxelChunk, VoxelTempContainer, bool)> pendingMeshGenerationChunks;
 
     // Checks if the voxel mesher has completed all the work
     public bool Free
@@ -135,48 +49,12 @@ public class VoxelMesher : VoxelBehaviour
         }
     }
 
-    /*
-    // Get the number of mesh generation tasks remaining
-    public int MeshGenerationTasksRemaining
-    {
-        get
-        {
-            if (pendingMeshGenerationChunks != null)
-            {
-                return pendingMeshGenerationChunks.Count;
-            }
-            else
-            {
-                return 0;
-            }
-        }
-    }
-    */
-
-    // Get the number of collision baking tasks remaining
-    public int CollisionBakingTasksRemaining
-    {
-        get
-        {
-            if (ongoingBakeJobs != null)
-            {
-                return ongoingBakeJobs.Count;
-            }
-            else
-            {
-                return 0;
-            }
-        }
-    }
-
-
-
     // Initialize the voxel mesher
     internal override void Init()
     {
         handlers = new List<MeshJobHandler>(meshJobsPerFrame);
-        pendingMeshGenerationChunks = new Queue<(VoxelChunk, VoxelReadbackRequest, bool)>();
-        ongoingBakeJobs = new List<(JobHandle, VoxelChunk, Mesh)>();
+        pendingMeshGenerationChunks = new Queue<(VoxelChunk, VoxelTempContainer, bool)>();
+        ongoingBakeJobs = new List<(JobHandle, VoxelChunk, VoxelMesh)>();
 
         for (int i = 0; i < meshJobsPerFrame; i++)
         {
@@ -185,9 +63,9 @@ public class VoxelMesher : VoxelBehaviour
     }
 
     // Begin generating the mesh data using the given chunk and readback requeset
-    public void GenerateMesh(VoxelChunk chunk, VoxelReadbackRequest request, bool computeCollisions = false)
+    public void GenerateMesh(VoxelChunk chunk, VoxelTempContainer container, bool computeCollisions)
     {
-        pendingMeshGenerationChunks.Enqueue((chunk, request, computeCollisions));
+        pendingMeshGenerationChunks.Enqueue((chunk, container, computeCollisions && generateCollisions));
     }
 
     void Update()
@@ -198,17 +76,17 @@ public class VoxelMesher : VoxelBehaviour
             if (handler.quadJobHandle.IsCompleted && !handler.Free)
             {
                 VoxelChunk chunk = handler.chunk;
-                Mesh mesh = handler.Complete();
-                onVoxelMeshingComplete?.Invoke(chunk, mesh);
+                VoxelMesh voxelMesh = handler.Complete(voxelMaterials);
+                onVoxelMeshingComplete?.Invoke(chunk, voxelMesh);
             
-                if (handler.computeCollisions && mesh.vertexCount > 0 && mesh.triangles.Length > 0)
+                if (handler.computeCollisions && voxelMesh.mesh.vertexCount > 0 && voxelMesh.mesh.triangles.Length > 0)
                 {
                     BakeJob bakeJob = new BakeJob {
-                        meshId = mesh.GetInstanceID(),
+                        meshId = voxelMesh.mesh.GetInstanceID(),
                     };
 
                     var handle = bakeJob.Schedule();
-                    ongoingBakeJobs.Add((handle, chunk, mesh));
+                    ongoingBakeJobs.Add((handle, chunk, voxelMesh));
                 }
             }
         }
@@ -216,7 +94,7 @@ public class VoxelMesher : VoxelBehaviour
         // Begin the jobs for the meshes
         for (int i = 0; i < meshJobsPerFrame; i++)
         {
-            (VoxelChunk, VoxelReadbackRequest, bool) output = (null, null, false);
+            (VoxelChunk, VoxelTempContainer, bool) output = (null, null, false);
             if (pendingMeshGenerationChunks.TryDequeue(out output))
             {
                 if (!handlers[i].Free) {

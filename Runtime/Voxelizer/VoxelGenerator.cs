@@ -5,72 +5,10 @@ using System.Linq;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
-
-// Struct containing the render textures of the voxel data
-public struct VoxelRenderTextures
-{
-    // Voxel densities stored as halfs for performance
-    [HideInInspector]
-    public RenderTexture densityTexture;
-
-    // Color (stored as vec3<u8>) and material index (u8) packed together
-    [HideInInspector]
-    public RenderTexture colorMaterialTexture;
-}
-
-// Struct containing read-only voxel textures
-public struct VoxelTextures
-{
-    // Voxel densities stored as halfs for performance
-    [HideInInspector]
-    public Texture3D densityTexture;
-
-    // Color (stored as vec3<u8>) and material index (u8) packed together
-    [HideInInspector]
-    public Texture3D colorMaterialTexture;
-}
-
-// Struct containing the native arrays of the voxel data
-public struct VoxelNativeArrays
-{
-    // Voxel densities stored as halfs for performance
-    public NativeArray<half> densities;
-
-    // Color (stored as vec3<u8>) and material index (u8) packed together
-    public NativeArray<uint> colorMaterials;
-}
-
-// Generated voxel data from the GPU
-// Allows us to check if the readback has finished and if we can use the NativeArray
-// Also allows us to Free the native array to give it back to the Voxel Generator for generation
-public class VoxelReadbackRequest 
-{
-    public bool DensityReadbackCompleted { get; internal set; }
-    public bool ColorMaterialsReadbackCompleted { get; internal set; }
-    public bool Completed
-    {
-        get
-        {
-            return DensityReadbackCompleted && ColorMaterialsReadbackCompleted;
-        }
-    }
-
-    public int Index { get; internal set; }
-
-    public VoxelGenerator generator;
-    public VoxelChunk chunk;
-    public VoxelNativeArrays nativeArrays;
-
-    // Dispose of the request's memory, giving it back to the VoxelGenerator
-    public void Dispose() {
-        generator.freeVoxelNativeArrays[Index] = true;
-        generator.voxelNativeArrays[Index] = nativeArrays;
-        chunk = null;
-    }
-}
 
 // Responsible for generating the voxel data using the voxel graph
 public class VoxelGenerator : VoxelBehaviour
@@ -91,37 +29,20 @@ public class VoxelGenerator : VoxelBehaviour
 
     // Render texture responsible for storing voxels
     [HideInInspector]
-    public VoxelRenderTextures readbackTextures;
+    public RenderTexture readbackTexture;
 
     // Number of simultaneous async readbacks that happen during one frame
     [Range(1, 8)]
     public int asyncReadbacks = 1;
 
     // List of persistently allocated native arrays
-    internal List<VoxelNativeArrays> voxelNativeArrays;
+    internal List<NativeArray<Voxel>> voxelNativeArrays;
 
     // Bitset containing the voxel native arrays that are free
     internal BitArray freeVoxelNativeArrays;
 
     // Chunks that we must generate the voxels for
     internal Queue<VoxelChunk> pendingVoxelGenerationChunks = new Queue<VoxelChunk>();
-
-    // Get the number of voxel generation tasks pen
-    /*
-    public int VoxelGenerationTasksRemaining
-    {
-        get
-        {
-            if (pendingVoxelGenerationChunks != null)
-            {
-                return pendingVoxelGenerationChunks.Count;
-            } else
-            {
-                return 0;
-            }
-        }
-    }
-    */
 
     // Checks if we completed voxel generation
     public bool Free
@@ -149,25 +70,15 @@ public class VoxelGenerator : VoxelBehaviour
     // Initialize the voxel generator
     internal override void Init()
     {
-        voxelNativeArrays = new List<VoxelNativeArrays>(asyncReadbacks);
 
-        readbackTextures = new VoxelRenderTextures
-        {
-            densityTexture = VoxelUtils.CreateRenderTexture(VoxelUtils.Size, GraphicsFormat.R16_SFloat),
-            colorMaterialTexture = VoxelUtils.CreateRenderTexture(VoxelUtils.Size, GraphicsFormat.R32_UInt),
-        };
         
+        readbackTexture = VoxelUtils.CreateRenderTexture(VoxelUtils.Size, GraphicsFormat.R32_UInt);        
         freeVoxelNativeArrays = new BitArray(asyncReadbacks, true);
 
+        voxelNativeArrays = new List<NativeArray<Voxel>>(asyncReadbacks);
         for (int i = 0; i < asyncReadbacks; i++)
         {
-            VoxelNativeArrays arrays = new VoxelNativeArrays
-            {
-                densities = new NativeArray<half>(VoxelUtils.Total, Allocator.Persistent),
-                colorMaterials = new NativeArray<uint>(VoxelUtils.Total, Allocator.Persistent)
-            };
-
-            voxelNativeArrays.Add(arrays);
+            voxelNativeArrays.Add(new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent));
         }
 
         UpdateStaticComputeFields();
@@ -195,8 +106,7 @@ public class VoxelGenerator : VoxelBehaviour
         voxelShader.SetFloat("isosurfaceOffset", isosurfaceOffset);
         voxelShader.SetInts("permuationSeed", new int[] { permutationSeed.x, permutationSeed.y, permutationSeed.z });
         voxelShader.SetInts("moduloSeed", new int[] { moduloSeed.x, moduloSeed.y, moduloSeed.z });
-        voxelShader.SetTexture(0, "densityTexture", readbackTextures.densityTexture);
-        voxelShader.SetTexture(0, "colorMaterialTexture", readbackTextures.colorMaterialTexture);
+        voxelShader.SetTexture(0, "voxels", readbackTexture);
     }
 
     // Add the given chunk inside the queue for voxel generation
@@ -228,53 +138,26 @@ public class VoxelGenerator : VoxelBehaviour
                 // Handle terrain edits by overlaying them onto the generated data
                 voxelShader.Dispatch(1, count, count, count);
 
-
-                // Readback request
+                // Begin the readback request
                 VoxelReadbackRequest voxelReadbackRequest = new VoxelReadbackRequest
                 {
                     Index = i,
-                    ColorMaterialsReadbackCompleted = false,
-                    DensityReadbackCompleted = false,
                     generator = this,
                     chunk = chunk,
-                    nativeArrays = voxelNativeArrays[i],
+                    voxels = voxelNativeArrays[i],
                 };
 
-                // Native arrays used for readback
-                NativeArray<half> densities = voxelNativeArrays[i].densities;
-                NativeArray<uint> colorMaterials = voxelNativeArrays[i].colorMaterials;
-
-                // Readback the density texture
+                // Readback the voxel texture
                 freeVoxelNativeArrays[i] = false;
+                NativeArray<Voxel> voxels = voxelNativeArrays[i];
                 AsyncGPUReadback.RequestIntoNativeArray(
-                    ref densities,
-                    readbackTextures.densityTexture, 0,
-                    delegate (AsyncGPUReadbackRequest request)
+                    ref voxels,
+                    readbackTexture, 0,
+                    delegate (AsyncGPUReadbackRequest asyncRequest)
                     {
-                        voxelReadbackRequest.DensityReadbackCompleted = true;
-
-                        if (voxelReadbackRequest.Completed)
-                        {
-                            onVoxelGenerationComplete?.Invoke(chunk, voxelReadbackRequest);
-                        }
+                        onVoxelGenerationComplete?.Invoke(voxelReadbackRequest.chunk, voxelReadbackRequest);
                     }
                 );
-
-                // Readback the color / material texture
-                AsyncGPUReadback.RequestIntoNativeArray(
-                    ref colorMaterials,
-                    readbackTextures.colorMaterialTexture, 0,
-                    delegate (AsyncGPUReadbackRequest request)
-                    {
-                        voxelReadbackRequest.ColorMaterialsReadbackCompleted = true;
-                
-                        if (voxelReadbackRequest.Completed)
-                        {
-                            onVoxelGenerationComplete?.Invoke(chunk, voxelReadbackRequest);
-                        }
-                    }
-                );
-
             }
         }
     }
@@ -282,10 +165,9 @@ public class VoxelGenerator : VoxelBehaviour
     internal override void Dispose()
     {
         AsyncGPUReadback.WaitAllRequests();
-        foreach (VoxelNativeArrays nativeArrays in voxelNativeArrays)
+        foreach (var nativeArrays in voxelNativeArrays)
         {
-            nativeArrays.densities.Dispose();
-            nativeArrays.colorMaterials.Dispose();
+            nativeArrays.Dispose();
         }
     }
 }

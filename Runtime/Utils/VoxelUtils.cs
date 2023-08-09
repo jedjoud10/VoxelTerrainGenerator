@@ -22,7 +22,7 @@ public static class VoxelUtils
     public static uint UintSize => (uint)Size;
 
     // Total number of voxels in a volume
-    public static int Total => Size * Size * Size;
+    public static int Volume => Size * Size * Size;
 
     // Create a 3D render texture with the specified size and format
     public static RenderTexture CreateRenderTexture(int size, GraphicsFormat format)

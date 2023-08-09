@@ -9,9 +9,9 @@ using Unity.Burst;
 [BurstCompile(CompileSynchronously = true)]
 public struct QuadJob : IJobParallelFor
 {
-    // Voxel densities as halfs
+    // Voxel native array
     [ReadOnly]
-    public NativeArray<half> densities;
+    public NativeArray<Voxel> voxels;
 
     // Contains 3D data of the indices of the vertices
     [ReadOnly]
@@ -49,8 +49,17 @@ public struct QuadJob : IJobParallelFor
         new uint3(0, 1, 0)
     };
 
-    // Quad Counter
-    public NativeCounter.Concurrent counter;
+    // Quad Counter for each material
+    [WriteOnly]
+    public NativeMultiCounter.Concurrent counters;
+
+    // Material counter to keep track of divido
+    [ReadOnly]
+    public NativeCounter materialCounter;
+
+    // HashMap that converts the material index to submesh index
+    [ReadOnly]
+    public NativeParallelHashMap<ushort, int>.ReadOnly materialHashMap;
 
     // Static settings
     public int size;
@@ -62,29 +71,41 @@ public struct QuadJob : IJobParallelFor
 
         int baseIndex = VoxelUtils.PosToIndex(basePosition, size);
         int endIndex = VoxelUtils.PosToIndex(basePosition + forward, size);
-    
-        if ((densities[baseIndex] > 0.0) ^ (densities[endIndex] > 0.0)) {
-            bool flip = (densities[endIndex] > 0.0);
 
+        Voxel endVoxel = voxels[endIndex];
+        Voxel startVoxel = voxels[baseIndex];
+ 
+        if ((startVoxel.density > 0.0) ^ (endVoxel.density > 0.0)) {
+            bool flip = (endVoxel.density > 0.0);
+            ushort material = flip ? endVoxel.material : startVoxel.material;
+
+            // Fetch the indices of the vertex positions
             int index0 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4], size);
             int index1 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 1], size);
             int index2 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 2], size);
             int index3 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 3], size);
             
+            // Fetch the actual indices of the vertices
             int vertex0 = vertexIndices[index0];
             int vertex1 = vertexIndices[index1];
             int vertex2 = vertexIndices[index2];
             int vertex3 = vertexIndices[index3];
-        
-            int test = counter.Increment() * 6;
 
-            triangles[test + (flip ? 0 : 2)] = vertex0;
-            triangles[test + 1] = vertex1;
-            triangles[test + (flip ? 2 : 0)] = vertex2;
+            // Get the triangle index base
+            int packedMaterialIndex = materialHashMap[material];
+            int segmentOffset = triangles.Length / materialCounter.Count;
+            int triIndex = counters.Increment(packedMaterialIndex) * 6;
+            triIndex += segmentOffset * packedMaterialIndex;
 
-            triangles[test + (flip ? 3 : 5)] = vertex2;
-            triangles[test + 4] = vertex3;
-            triangles[test + (flip ? 5 : 3)] = vertex0;
+            // Set the first tri
+            triangles[triIndex + (flip ? 0 : 2)] = vertex0;
+            triangles[triIndex + 1] = vertex1;
+            triangles[triIndex + (flip ? 2 : 0)] = vertex2;
+
+            // Set the second tri
+            triangles[triIndex + (flip ? 3 : 5)] = vertex2;
+            triangles[triIndex + 4] = vertex3;
+            triangles[triIndex + (flip ? 5 : 3)] = vertex0;
         }
     }
 
