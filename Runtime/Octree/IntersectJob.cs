@@ -8,6 +8,13 @@ using Unity.Burst;
 [BurstCompile(CompileSynchronously = true)]
 public struct IntersectJob : IJob
 {
+    // The input AABB (in octree space)
+    public float3 min;
+    public float3 max;
+
+    // Leaf nodes that intersected the AABB
+    NativeList<OctreeNode> intersectLeafs;
+
     public void Execute()
     {
     }

@@ -24,8 +24,8 @@ public static class VoxelUtils
     // Total number of voxels in a volume
     public static int Total => Size * Size * Size;
 
-    // Create a 3D texture with the specified size and format
-    public static RenderTexture CreateTexture(int size, GraphicsFormat format)
+    // Create a 3D render texture with the specified size and format
+    public static RenderTexture CreateRenderTexture(int size, GraphicsFormat format)
     {
         RenderTexture texture = new RenderTexture(size, size, 0, format);
         texture.height = size;
@@ -35,6 +35,15 @@ public static class VoxelUtils
         texture.dimension = UnityEngine.Rendering.TextureDimension.Tex3D;
         texture.enableRandomWrite = true;
         texture.Create();
+        return texture;
+    }
+
+    // Create a 3D texture with the specified size and format
+    public static Texture3D CreateTexture(int size, GraphicsFormat format)
+    {
+        Texture3D texture = new Texture3D(size, size, size, format, TextureCreationFlags.None);
+        texture.dimension = UnityEngine.Rendering.TextureDimension.Tex3D;
+        texture.Apply();
         return texture;
     }
 

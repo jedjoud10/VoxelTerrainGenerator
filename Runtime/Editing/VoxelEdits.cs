@@ -18,6 +18,8 @@ public class VoxelEdits : VoxelBehaviour
     // Initialize the voxel edits handler
     internal override void Init()
     {
+        editedVoxels = new List<VoxelTextures>();
+        indirectionTexture = VoxelUtils.CreateTexture(256, UnityEngine.Experimental.Rendering.GraphicsFormat.R16_UInt);
     }
 
     // Dispose of any memory

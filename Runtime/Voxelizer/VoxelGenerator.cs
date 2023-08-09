@@ -153,8 +153,8 @@ public class VoxelGenerator : VoxelBehaviour
 
         readbackTextures = new VoxelRenderTextures
         {
-            densityTexture = VoxelUtils.CreateTexture(VoxelUtils.Size, GraphicsFormat.R16_SFloat),
-            colorMaterialTexture = VoxelUtils.CreateTexture(VoxelUtils.Size, GraphicsFormat.R32_UInt),
+            densityTexture = VoxelUtils.CreateRenderTexture(VoxelUtils.Size, GraphicsFormat.R16_SFloat),
+            colorMaterialTexture = VoxelUtils.CreateRenderTexture(VoxelUtils.Size, GraphicsFormat.R32_UInt),
         };
         
         freeVoxelNativeArrays = new BitArray(asyncReadbacks, true);
@@ -216,13 +216,20 @@ public class VoxelGenerator : VoxelBehaviour
 
             VoxelChunk chunk = null;
             if (pendingVoxelGenerationChunks.TryDequeue(out chunk)) {
+                // Set chunk only parameters
                 Vector3 test = Vector3.one * (chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) * 0.5F;
                 voxelShader.SetVector("chunkOffset", (chunk.transform.position - test) / VoxelUtils.VoxelSize);
                 voxelShader.SetFloat("chunkScale", (chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) / VoxelUtils.VoxelSize);
 
+                // Generate the voxel data for the chunk
                 int count = VoxelUtils.Size / 4;
                 voxelShader.Dispatch(0, count, count, count);
 
+                // Handle terrain edits by overlaying them onto the generated data
+                voxelShader.Dispatch(1, count, count, count);
+
+
+                // Readback request
                 VoxelReadbackRequest voxelReadbackRequest = new VoxelReadbackRequest
                 {
                     Index = i,
@@ -233,11 +240,12 @@ public class VoxelGenerator : VoxelBehaviour
                     nativeArrays = voxelNativeArrays[i],
                 };
 
+                // Native arrays used for readback
                 NativeArray<half> densities = voxelNativeArrays[i].densities;
                 NativeArray<uint> colorMaterials = voxelNativeArrays[i].colorMaterials;
 
+                // Readback the density texture
                 freeVoxelNativeArrays[i] = false;
-
                 AsyncGPUReadback.RequestIntoNativeArray(
                     ref densities,
                     readbackTextures.densityTexture, 0,
@@ -252,6 +260,7 @@ public class VoxelGenerator : VoxelBehaviour
                     }
                 );
 
+                // Readback the color / material texture
                 AsyncGPUReadback.RequestIntoNativeArray(
                     ref colorMaterials,
                     readbackTextures.colorMaterialTexture, 0,

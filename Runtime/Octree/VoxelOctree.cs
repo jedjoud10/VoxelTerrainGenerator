@@ -94,13 +94,6 @@ public class VoxelOctree : VoxelBehaviour
     {
         if (currentlyExecuting && finalJobHandle.IsCompleted)
         {
-            finalJobHandle.Complete();
-
-            if (addedNodes.Length > 0 || removedNodes.Length > 0)
-            {
-                onOctreeChanged?.Invoke(ref addedNodes, ref removedNodes);
-            }
-
             currentlyExecuting = false;
         }
 
@@ -161,8 +154,23 @@ public class VoxelOctree : VoxelBehaviour
 
             finalJobHandle = JobHandle.CombineDependencies(addedJob, removedJob);
             currentlyExecuting = true;
+
+            finalJobHandle.Complete();
+
+            if (addedNodes.Length > 0 || removedNodes.Length > 0)
+            {
+                onOctreeChanged?.Invoke(ref addedNodes, ref removedNodes);
+            }
         }
     }
+
+    /*
+    // Check if an AABB intersects the octree, and return a native list of the intersected leaf nodes (using an async job)
+    public bool TryCheckAABBIntersection(Vector3 min, Vector3 max, ref NativeList<OctreeNode> output, out JobHandle handle)
+    {
+
+    }
+    */
 
     // Dispose the octree memory
     internal override void Dispose()
