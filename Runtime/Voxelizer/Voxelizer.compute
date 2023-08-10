@@ -14,6 +14,9 @@ float isosurfaceOffset;
 int3 permuationSeed;
 int3 moduloSeed;
 
+// Voxel resolution
+int size;
+
 // GPU representation of what a voxel is
 // Density: first 2 bytes
 // Material: 3rd byte
@@ -21,6 +24,7 @@ int3 moduloSeed;
 
 #include "./noises.cginc"
 #include "./sdf.cginc"
+#include "./morton.cginc"
 
 // Used for async readback
 RWTexture3D<uint> voxels;
@@ -60,7 +64,11 @@ void CSVoxelizer (uint3 id : SV_DispatchThreadID)
     uint packedDensity = f32tof16(density);
     uint packedMaterial = 0;
     uint packedData = packedDensity | (packedMaterial << 16);
-    voxels[id.xyz] = packedData;
+
+    // Morton encode the texture data
+    uint mortonIndex = encodeMorton32(id.xzy);
+    uint3 mortonPos = indexToPos(mortonIndex);
+    voxels[mortonPos.xzy] = packedData;
 }
 
 [numthreads(4,4,4)]

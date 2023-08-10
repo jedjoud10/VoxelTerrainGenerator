@@ -106,6 +106,7 @@ public class VoxelGenerator : VoxelBehaviour
         voxelShader.SetFloat("isosurfaceOffset", isosurfaceOffset);
         voxelShader.SetInts("permuationSeed", new int[] { permutationSeed.x, permutationSeed.y, permutationSeed.z });
         voxelShader.SetInts("moduloSeed", new int[] { moduloSeed.x, moduloSeed.y, moduloSeed.z });
+        voxelShader.SetInt("size", VoxelUtils.Size);
         voxelShader.SetTexture(0, "voxels", readbackTexture);
     }
 

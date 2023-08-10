@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
@@ -50,6 +51,8 @@ public static class VoxelUtils
     // Convert an index to a 3D position
     public static uint3 IndexToPos(int index, int size)
     {
+        return Morton.DecodeMorton32((uint)index);
+        
         uint index2 = (uint)index;
         uint size2 = (uint)size;
         
@@ -61,11 +64,14 @@ public static class VoxelUtils
         uint z = w / size2;// y in N(B)
         uint x = w % size2;        // z in N(C)
         return new uint3(x, y, z);
+        
     }
 
     // Convert a 3D position into an index
+    [return: AssumeRange(0u, 262144)]
     public static int PosToIndex(uint3 position, int size)
     {
+        return (int)Morton.EncodeMorton32(position);
         return (int)math.round((position.y * size * size + (position.z * size) + position.x));
     }
 

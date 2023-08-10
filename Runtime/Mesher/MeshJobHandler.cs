@@ -58,6 +58,7 @@ internal class MeshJobHandler {
         {
             voxels = voxels.voxels,
             enabled = enabled,
+            size = VoxelUtils.Size,
         };
 
         // Generate the vertices of the mesh
@@ -87,16 +88,16 @@ internal class MeshJobHandler {
         };
 
         // Start the material + filter job
-        JobHandle materialJobHandle = materialJob.Schedule(VoxelUtils.Volume, 512, dependency);
-        JobHandle filterJobHandle = filterJob.Schedule(VoxelUtils.Volume, 512, dependency);
+        JobHandle materialJobHandle = materialJob.Schedule(VoxelUtils.Volume, 4096, dependency);
+        JobHandle filterJobHandle = filterJob.Schedule(VoxelUtils.Volume, 4096, dependency);
 
         // Start the vertex job
         JobHandle vertexDep = JobHandle.CombineDependencies(filterJobHandle, dependency);
-        JobHandle vertexJobHandle = vertexJob.Schedule(VoxelUtils.Volume, 512, vertexDep);
+        JobHandle vertexJobHandle = vertexJob.Schedule(VoxelUtils.Volume, 4096, vertexDep);
         
         // Start the quad job
         JobHandle merged = JobHandle.CombineDependencies(materialJobHandle, vertexJobHandle, filterJobHandle);
-        JobHandle quadJobHandle = quadJob.Schedule(VoxelUtils.Volume, 512, merged);
+        JobHandle quadJobHandle = quadJob.Schedule(VoxelUtils.Volume, 4096, merged);
 
         this.vertexJobHandle = vertexJobHandle;
         this.quadJobHandle = quadJobHandle;     
