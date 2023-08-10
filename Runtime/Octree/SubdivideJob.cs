@@ -9,8 +9,7 @@ using Unity.Burst;
 public struct SubdivideJob : IJob
 {
     // The total nodes that where generated
-    [WriteOnly]
-    public NativeHashSet<OctreeNode> nodes;
+    public NativeList<OctreeNode> nodes;
 
     // Currently pending nodes for generation
     public NativeQueue<OctreeNode> pending;

@@ -14,6 +14,25 @@ public struct Voxel
 
     // Material of the voxel that depicts its color and other parameters
     public ushort material;
+
+    private ushort _padding;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct Voxel4
+{
+    public half density0;
+    public ushort material0;
+    private ushort _padding0;
+    public half density1;
+    public ushort material1;
+    private ushort _padding1;
+    public half density2;
+    public ushort material2;
+    private ushort _padding2;
+    public half density3;
+    public ushort material3;
+    private ushort _padding3;
 }
 
 // Voxel container with custom dispose methods

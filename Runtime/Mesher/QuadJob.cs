@@ -49,6 +49,10 @@ public struct QuadJob : IJobParallelFor
         new uint3(0, 1, 0)
     };
 
+    // Used for fast traversal
+    [ReadOnly]
+    public NativeArray<byte> enabled;
+
     // Quad Counter for each material
     [WriteOnly]
     public NativeMultiCounter.Concurrent counters;
@@ -84,7 +88,7 @@ public struct QuadJob : IJobParallelFor
             int index1 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 1], size);
             int index2 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 2], size);
             int index3 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 3], size);
-            
+                        
             // Fetch the actual indices of the vertices
             int vertex0 = vertexIndices[index0];
             int vertex1 = vertexIndices[index1];
@@ -117,6 +121,8 @@ public struct QuadJob : IJobParallelFor
         if (math.any((position > new uint3(size-2))) || math.any((position == new uint3(0)))) {
             return;
         }
+
+        return;
 
         CheckEdge(position, 0);
         CheckEdge(position, 1);

@@ -2,11 +2,15 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
+using Unity.Jobs;
 using UnityEngine;
 
 // Voxel terrain that handles generating the chunks and handling detail generation
 // generate chunks -> generate voxels -> generate mesh -> generate mesh collider
-[RequireComponent(typeof(VoxelGenerator), typeof(VoxelMesher), typeof(VoxelOctree))]
+[RequireComponent(typeof(VoxelGenerator))]
+[RequireComponent(typeof(VoxelMesher))]
+[RequireComponent(typeof(VoxelOctree))]
+[RequireComponent(typeof(VoxelEdits))]
 public class VoxelTerrain : MonoBehaviour
 {
     [Header("Main Settings")]
@@ -132,7 +136,7 @@ public class VoxelTerrain : MonoBehaviour
 
         foreach (var item in added)
         {
-            if (item.leaf)
+            if (item.childBaseIndex == -1)
             {
                 float size = item.ScalingFactor();
                 GameObject obj = Instantiate(chunkPrefab, item.WorldPosition(), Quaternion.identity, this.transform);
@@ -191,15 +195,5 @@ public class VoxelTerrain : MonoBehaviour
                 voxelGenerator.GenerateVoxels(item.Value);
             }
         }
-    }
-
-    // Request a single chunk to regenerate its mesh based on its node
-    public void Request(OctreeNode node, bool disableColliders = true, bool tempHide = false)
-    {
-    }
-
-    // Request a multitude of chunks to regenerate their meshes
-    public void RequestMultiple(OctreeNode[] nodes, bool disableColliders = true, bool tempHide = false)
-    {
     }
 }

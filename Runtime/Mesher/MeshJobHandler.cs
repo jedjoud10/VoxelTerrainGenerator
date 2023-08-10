@@ -5,9 +5,10 @@ using UnityEngine;
 
 // Contains the allocation data for a single job
 // There are multiple instances of this class stored inside the voxel mesher to saturate the other threads
-class MeshJobHandler {
+internal class MeshJobHandler {
     public NativeArray<int> indices;
     public NativeArray<float3> vertices;
+    public NativeArray<byte> enabled;
     public NativeCounter counter;
     public NativeMultiCounter countersQuad;
     public NativeCounter materialCounter;
@@ -20,10 +21,11 @@ class MeshJobHandler {
     public VoxelChunk chunk;
     public bool computeCollisions = false;
 
-    public MeshJobHandler()
+    internal MeshJobHandler()
     {
         indices = new NativeArray<int>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         vertices = new NativeArray<float3>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        enabled = new NativeArray<byte>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         counter = new NativeCounter(Allocator.Persistent);
         countersQuad = new NativeMultiCounter(256, Allocator.Persistent);
         triangles = new NativeArray<int>(VoxelUtils.Volume * 6 * 4, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
@@ -31,11 +33,10 @@ class MeshJobHandler {
         materialHashSet = new NativeParallelHashSet<ushort>(256, Allocator.Persistent);
         materialCounter = new NativeCounter(Allocator.Persistent);
     }
-
     public bool Free { get; private set; } = true;
 
     // Begin the vertex + quad job that will generate the mesh
-    public void BeginJob() {
+    internal void BeginJob(JobHandle dependency) {
         countersQuad.Reset();
         counter.Count = 0;
         materialCounter.Count = 0;
@@ -52,9 +53,17 @@ class MeshJobHandler {
             materialCounter = materialCounter,
         };
 
+        // Filters out completely empty segments
+        FilterJob filterJob = new FilterJob
+        {
+            voxels = voxels.voxels,
+            enabled = enabled,
+        };
+
         // Generate the vertices of the mesh
         // Executed only onces, and shared by multiple submeshes
         VertexJob vertexJob = new VertexJob {
+            enabled = enabled,
             voxels = voxels.voxels,
             indices = indices,
             vertices = vertices,
@@ -67,6 +76,7 @@ class MeshJobHandler {
         // Generate the quads of the mesh
         // Executed for EACH material in the mesh
         QuadJob quadJob = new QuadJob {
+            enabled = enabled,
             voxels = voxels.voxels,
             vertexIndices = indices,
             counters = countersQuad,
@@ -76,9 +86,16 @@ class MeshJobHandler {
             size = VoxelUtils.Size,
         };
 
-        JobHandle materialJobHandle = materialJob.Schedule(VoxelUtils.Volume, 512);
-        JobHandle vertexJobHandle = vertexJob.Schedule(VoxelUtils.Volume, 512);
-        JobHandle merged = JobHandle.CombineDependencies(materialJobHandle, vertexJobHandle);
+        // Start the material + filter job
+        JobHandle materialJobHandle = materialJob.Schedule(VoxelUtils.Volume, 512, dependency);
+        JobHandle filterJobHandle = filterJob.Schedule(VoxelUtils.Volume, 512, dependency);
+
+        // Start the vertex job
+        JobHandle vertexDep = JobHandle.CombineDependencies(filterJobHandle, dependency);
+        JobHandle vertexJobHandle = vertexJob.Schedule(VoxelUtils.Volume, 512, vertexDep);
+        
+        // Start the quad job
+        JobHandle merged = JobHandle.CombineDependencies(materialJobHandle, vertexJobHandle, filterJobHandle);
         JobHandle quadJobHandle = quadJob.Schedule(VoxelUtils.Volume, 512, merged);
 
         this.vertexJobHandle = vertexJobHandle;
@@ -86,7 +103,7 @@ class MeshJobHandler {
     }
 
     // Complete the jobs and return a mesh
-    public VoxelMesh Complete(Material[] orderedMaterials) {
+    internal VoxelMesh Complete(Material[] orderedMaterials) {
         quadJobHandle.Complete();
         Free = true;
 
@@ -121,7 +138,7 @@ class MeshJobHandler {
     }
 
     // Dispose of the underlying memory allocations
-    public void Dispose() {
+    internal void Dispose() {
         indices.Dispose();
         vertices.Dispose();
         counter.Dispose();

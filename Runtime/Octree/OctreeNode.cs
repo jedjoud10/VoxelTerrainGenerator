@@ -35,11 +35,14 @@ public struct OctreeNode: IEquatable<OctreeNode>
     // The full size of the node
     public int size;
 
-    // Is this node a leaf node or not
-    public bool leaf;
-
     // Should we generate collisions from this node
     public bool generateCollisions;
+
+    // Index of the current node inside the array
+    public int index;
+
+    // Index of the children nodes
+    public int childBaseIndex;
 
     // Create the root node
     public static OctreeNode RootNode(int maxDepth)
@@ -50,6 +53,8 @@ public struct OctreeNode: IEquatable<OctreeNode>
         node.depth = 0;
         node.maxDepth = maxDepth;
         node.size = size;
+        node.index = 0;
+        node.childBaseIndex = 1;
         return node;
     }
 
@@ -87,7 +92,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
         return math.all(this.position == other.position) &&
             this.depth == other.depth &&
             this.size == other.size &&
-            this.leaf == other.leaf;
+            (this.childBaseIndex == -1) == (other.childBaseIndex == -1);
     }
 
     // https://forum.unity.com/threads/burst-error-bc1091-external-and-internal-calls-are-not-allowed-inside-static-constructors.1347293/
@@ -98,10 +103,18 @@ public struct OctreeNode: IEquatable<OctreeNode>
             int hash = 17;
             hash = hash * 23 + position.GetHashCode();
             hash = hash * 23 + depth.GetHashCode();
-            hash = hash * 23 + leaf.GetHashCode();
+            hash = hash * 23 + childBaseIndex.GetHashCode();
             hash = hash * 23 + size.GetHashCode();
             return hash;
         }
+    }
+
+    // Check if this node intersects the given AABB
+    public bool IntersectsAABB(float3 min, float3 max)
+    {
+        float3 nodeMin = math.float3(position);
+        float3 nodeMax = math.float3(position) + math.float3(size);
+        return math.all(min <= nodeMax) && math.all(nodeMin < max);
     }
 
     // Check if we can subdivide this node (and also if we should generate collisions)
@@ -125,10 +138,12 @@ public struct OctreeNode: IEquatable<OctreeNode>
     }
 
     // Try to subdivide the current node into 8 octants
-    public void TrySubdivide(ref NativeArray<OctreeTarget> targets, ref NativeHashSet<OctreeNode> nodes, ref NativeQueue<OctreeNode> pending, ref NativeArray<float> qualityPoints)
+    public void TrySubdivide(ref NativeArray<OctreeTarget> targets, ref NativeList<OctreeNode> nodes, ref NativeQueue<OctreeNode> pending, ref NativeArray<float> qualityPoints)
     {
         if (ShouldSubdivide(ref targets, ref qualityPoints, out bool generateChildrenCollisions) && depth < maxDepth)
         {
+            childBaseIndex = nodes.Length;
+
             for (int i = 0; i < 8; i++)
             {
                 int3 offset = offsets[i];
@@ -138,19 +153,16 @@ public struct OctreeNode: IEquatable<OctreeNode>
                     depth = depth + 1,
                     size = size / 2,
                     maxDepth = maxDepth,
+                    index = childBaseIndex + i,
+                    childBaseIndex = -1,
                     generateCollisions = generateChildrenCollisions && depth == (maxDepth-1),
                 };
 
                 pending.Enqueue(node);
+                nodes.Add(node);
             }
-            leaf = false;
-            //nodes[center] = this;
-        } else
-        {
-            leaf = true;
-            //nodes[center] = this;
-        }
 
-        nodes.Add(this);
+            nodes[this.index] = this;
+        }
     }
 }

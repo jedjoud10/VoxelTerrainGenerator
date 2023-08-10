@@ -21,7 +21,8 @@ public class VoxelOctree : VoxelBehaviour
     private NativeArray<OctreeTarget> targets;
 
     // Native hashmap for keeping track of the current nodes in the tree
-    private NativeHashSet<OctreeNode>[] octreeNodesBuffer;
+    private NativeHashSet<OctreeNode>[] octreeNodesHashSet;
+    private NativeList<OctreeNode>[] octreeNodesList;
     private int currentIndex;
 
     // Native arrays to diff the octree nodes
@@ -54,13 +55,15 @@ public class VoxelOctree : VoxelBehaviour
         targets = new NativeArray<OctreeTarget>(1, Allocator.Persistent);
         targets[0] = new OctreeTarget();
 
-        octreeNodesBuffer = new NativeHashSet<OctreeNode>[2];
+        octreeNodesHashSet = new NativeHashSet<OctreeNode>[2];
+        octreeNodesList = new NativeList<OctreeNode>[2];
 
         for (int i = 0; i < 2; i++)
         {
-            octreeNodesBuffer[i] = new NativeHashSet<OctreeNode>(1, Allocator.Persistent);
+            octreeNodesHashSet[i] = new NativeHashSet<OctreeNode>(1, Allocator.Persistent);
+            octreeNodesList[i] = new NativeList<OctreeNode>(Allocator.Persistent);
         }
-        
+
         pending = new NativeQueue<OctreeNode>(Allocator.Persistent);
 
         addedNodes = new NativeList<OctreeNode>(Allocator.Persistent);
@@ -117,38 +120,50 @@ public class VoxelOctree : VoxelBehaviour
             currentIndex = currentIndex % 2;
 
             // Ready up the allocations
-            NativeHashSet<OctreeNode> oldNodes = octreeNodesBuffer[1 - index];
-            NativeHashSet<OctreeNode> nodes = octreeNodesBuffer[index];
-            pending.Enqueue(OctreeNode.RootNode(maxDepth-1));
+            NativeList<OctreeNode> oldNodesList = octreeNodesList[1 - index];
+            NativeList<OctreeNode> newNodesList = octreeNodesList[index];
+            NativeHashSet<OctreeNode> oldNodesHashSet = octreeNodesHashSet[1 - index];
+            NativeHashSet<OctreeNode> newNodesHashSet = octreeNodesHashSet[index];
+
+            OctreeNode root = OctreeNode.RootNode(maxDepth - 1);
+            pending.Enqueue(root);
+            newNodesList.Add(root);
 
             SubdivideJob job = new SubdivideJob
             {
                 targets = targets,
-                nodes = nodes,
+                nodes = newNodesList,
                 pending = pending,
                 qualityPoints = qualityPointsNativeArray,
             };
 
+            ToHashSetJob hashSetJob = new ToHashSetJob
+            {
+                oldNodesList = oldNodesList,
+                oldNodesHashSet = oldNodesHashSet,
+                newNodesList = newNodesList,
+                newNodesHashSet = newNodesHashSet,
+            };
+
             DiffJob addedDiffJob = new DiffJob
             {
-                oldNodes = oldNodes,
-                nodes = nodes,
-                diffedNodes = addedNodes,
-                direction = false,
+                oldNodesHashSet = oldNodesHashSet,
+                newNodesHashSet = newNodesHashSet,
+                diffedNodes = removedNodes,
             };
 
             DiffJob removedDiffJob = new DiffJob
             {
-                oldNodes = oldNodes,
-                nodes = nodes,
-                diffedNodes = removedNodes,
-                direction = true,
+                oldNodesHashSet = newNodesHashSet,
+                newNodesHashSet = oldNodesHashSet,
+                diffedNodes = addedNodes,
             };
 
             JobHandle initial = job.Schedule();
 
-            JobHandle addedJob = addedDiffJob.Schedule(initial);
-            JobHandle removedJob = removedDiffJob.Schedule(initial);
+            JobHandle hashingHandle = hashSetJob.Schedule(initial);
+            JobHandle addedJob = addedDiffJob.Schedule(hashingHandle);
+            JobHandle removedJob = removedDiffJob.Schedule(hashingHandle);
 
             finalJobHandle = JobHandle.CombineDependencies(addedJob, removedJob);
             currentlyExecuting = true;
@@ -179,9 +194,10 @@ public class VoxelOctree : VoxelBehaviour
         removedNodes.Dispose();
         qualityPointsNativeArray.Dispose();
 
-        foreach (var item in octreeNodesBuffer)
+        for (int i = 0; i < 2; i++)
         {
-            item.Dispose();
+            octreeNodesHashSet[i].Dispose();
+            octreeNodesList[i].Dispose();
         }
     }
 }

@@ -8,41 +8,24 @@ using Unity.Burst;
 [BurstCompile(CompileSynchronously = true)]
 public struct DiffJob : IJob
 {
-    // The old nodes that where generated
     [ReadOnly]
-    public NativeHashSet<OctreeNode> oldNodes;
+    public NativeHashSet<OctreeNode> oldNodesHashSet;
 
-    // The total nodes that where generated
     [ReadOnly]
-    public NativeHashSet<OctreeNode> nodes;
+    public NativeHashSet<OctreeNode> newNodesHashSet;
 
     [WriteOnly]
     public NativeList<OctreeNode> diffedNodes;
-
-    public bool direction;
 
     public void Execute()
     {
         diffedNodes.Clear();
 
-        if (direction)
+        foreach (var node in oldNodesHashSet)
         {
-            foreach (var node in oldNodes)
+            if (!newNodesHashSet.Contains(node))
             {
-                if (!nodes.Contains(node))
-                {
-                    diffedNodes.Add(node);
-                }
-            }
-        }
-        else
-        {
-            foreach (var node in nodes)
-            {
-                if (!oldNodes.Contains(node))
-                {
-                    diffedNodes.Add(node);
-                }
+                diffedNodes.Add(node);
             }
         }
     }

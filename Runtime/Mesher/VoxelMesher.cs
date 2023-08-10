@@ -34,7 +34,7 @@ public class VoxelMesher : VoxelBehaviour
 
     // Used for collision
     private List<(JobHandle, VoxelChunk, VoxelMesh)> ongoingBakeJobs;
-
+    private int reservedEditingMeshJobs;
     Queue<(VoxelChunk, VoxelTempContainer, bool)> pendingMeshGenerationChunks;
 
     // Checks if the voxel mesher has completed all the work
@@ -52,11 +52,12 @@ public class VoxelMesher : VoxelBehaviour
     // Initialize the voxel mesher
     internal override void Init()
     {
-        handlers = new List<MeshJobHandler>(meshJobsPerFrame);
+        reservedEditingMeshJobs = GetComponent<VoxelEdits>().reservedMeshJobs;
+        handlers = new List<MeshJobHandler>(meshJobsPerFrame + reservedEditingMeshJobs);
         pendingMeshGenerationChunks = new Queue<(VoxelChunk, VoxelTempContainer, bool)>();
         ongoingBakeJobs = new List<(JobHandle, VoxelChunk, VoxelMesh)>();
 
-        for (int i = 0; i < meshJobsPerFrame; i++)
+        for (int i = 0; i < meshJobsPerFrame + reservedEditingMeshJobs; i++)
         {
             handlers.Add(new MeshJobHandler());
         }
@@ -66,6 +67,12 @@ public class VoxelMesher : VoxelBehaviour
     public void GenerateMesh(VoxelChunk chunk, VoxelTempContainer container, bool computeCollisions)
     {
         pendingMeshGenerationChunks.Enqueue((chunk, container, computeCollisions && generateCollisions));
+    }
+
+    // Generate the mesh data immediately without putting the mesh through the queue
+    public void GenerateMeshImmediate(VoxelChunk chunk, VoxelTempContainer container, JobHandle jobHandle)
+    {
+
     }
 
     void Update()
@@ -106,7 +113,7 @@ public class VoxelMesher : VoxelBehaviour
                 handler.chunk = output.Item1;
                 handler.voxels = output.Item2;
                 handler.computeCollisions = output.Item3;
-                handler.BeginJob();
+                handler.BeginJob(new JobHandle());
             }
         }
 

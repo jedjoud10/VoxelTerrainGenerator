@@ -46,6 +46,10 @@ public struct VertexJob : IJobParallelFor
     [ReadOnly]
     public NativeArray<Voxel> voxels;
 
+    // Used for fast traversal
+    [ReadOnly]
+    public NativeArray<byte> enabled;
+
     // Contains 3D data of the indices of the vertices
     [WriteOnly]
     [NativeDisableParallelForRestriction]
@@ -76,6 +80,11 @@ public struct VertexJob : IJobParallelFor
 
         float3 vertex = float3.zero;
         uint count = 0;
+
+        if (enabled[index] == 0)
+        {
+            return;
+        }
 
         // Iterate over the edges in the cube
         for (int edge = 0; edge < 12; edge++)
