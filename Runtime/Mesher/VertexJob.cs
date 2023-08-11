@@ -5,7 +5,7 @@ using Unity.Mathematics;
 
 
 // Surface mesh job that will generate the isosurface mesh vertices
-[BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, OptimizeFor = OptimizeFor.Performance)]
+[BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast, OptimizeFor = OptimizeFor.Performance)]
 public struct VertexJob : IJobParallelFor
 {
     // Positions of the first vertex in edges

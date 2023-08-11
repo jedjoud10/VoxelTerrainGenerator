@@ -173,7 +173,7 @@ public class VoxelTerrain : MonoBehaviour
 
         foreach (var item in added)
         {
-            if (item.childBaseIndex == -1)
+            if (item.childBaseIndex == -1 && item.depth == (item.maxDepth))
             {
                 float size = item.ScalingFactor();
                 GameObject obj = Instantiate(chunkPrefab, item.WorldPosition(), Quaternion.identity, this.transform);

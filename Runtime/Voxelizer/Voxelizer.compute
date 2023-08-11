@@ -61,13 +61,13 @@ void CSVoxelizer (uint3 id : SV_DispatchThreadID)
     //density = -1;
     
     // Pack the voxel density and material
+    float boxDensity = sdBox(position, float3(10, 10, 10));
     //density = max(density, -boxDensity);
-    density = position.y + random(position);
+    density = snoise(position * 0.1) * 5.0 + position.y;
 
     uint packedDensity = f32tof16(density);
     uint packedMaterial = 0;
 
-    float boxDensity = sdBox(position, float3(10, 10, 10));
     if (boxDensity < 0) {
         packedMaterial = 1;
     } else if (position.y > 0) {

@@ -6,7 +6,7 @@ using Unity.Burst;
 
 
 // Surface mesh job that will generate the isosurface quads, and thus, the triangles
-[BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, OptimizeFor = OptimizeFor.Performance)]
+[BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Deterministic, OptimizeFor = OptimizeFor.Performance)]
 public struct QuadJob : IJobParallelFor
 {
     // Voxel native array
@@ -78,9 +78,9 @@ public struct QuadJob : IJobParallelFor
         Voxel endVoxel = voxels[endIndex];
         Voxel startVoxel = voxels[baseIndex];
 
-        if (endVoxel.density < 0.0 ^ startVoxel.density < 0.0)
+        if ((endVoxel.density < 0.0) ^ (startVoxel.density < 0.0))
         {
-            bool flip = (endVoxel.density > 0.0);
+            bool flip = (endVoxel.density >= 0.0);
             ushort material = flip ? startVoxel.material : endVoxel.material;
 
             // Fetch the indices of the vertex positions

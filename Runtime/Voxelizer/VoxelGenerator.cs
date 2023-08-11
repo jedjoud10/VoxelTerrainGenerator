@@ -124,8 +124,8 @@ public class VoxelGenerator : VoxelBehaviour
             if (pendingVoxelGenerationChunks.TryDequeue(out chunk)) {
                 // Set chunk only parameters
                 Vector3 offset = Vector3.one * (chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) * 0.5F;
-                voxelShader.SetVector("chunkOffset", (chunk.transform.position - offset) / VoxelUtils.VoxelSize);
-                voxelShader.SetFloat("chunkScale", (chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) / VoxelUtils.VoxelSize);
+                voxelShader.SetVector("chunkOffset", chunk.transform.position);
+                voxelShader.SetFloat("chunkScale", 1.0F);
 
                 // Generate the voxel data for the chunk
                 int count = VoxelUtils.Size / 4;
