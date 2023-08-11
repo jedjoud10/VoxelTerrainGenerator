@@ -56,7 +56,7 @@ internal class MeshJobHandler
         };
 
         // Filters out completely empty segments
-        FilterJob filterJob = new FilterJob
+        CornerJob filterJob = new CornerJob
         {
             voxels = voxels.voxels,
             enabled = enabled,

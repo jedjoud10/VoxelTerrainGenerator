@@ -1,11 +1,14 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 // Edit job that will change the voxel data for a single chunk
+[BurstCompile(CompileSynchronously = true)]
 struct VoxelEditJob<T> : IJobParallelFor
     where T : struct, IVoxelEdit
 {

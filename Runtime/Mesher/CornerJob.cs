@@ -4,9 +4,9 @@ using Unity.Jobs;
 using Unity.Mathematics;
 
 
-// Fiter job that will store the locations of completely empty / filled segments in the mesh to speed up meshing
+// Fiter job that will store the locations of completely empty / filled cells in the mesh to speed up meshing
 [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, OptimizeFor = OptimizeFor.Performance)]
-public struct FilterJob : IJobParallelFor
+public struct CornerJob : IJobParallelFor
 {
     // List of enabled corners like in MC
     [WriteOnly]

@@ -5,12 +5,13 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-[assembly: RegisterGenericJobType(typeof(VoxelEditJob<SphereEdit>))]
+[assembly: RegisterGenericJobType(typeof(VoxelEditJob<AddEdit>))]
 
-// Simple sphere edit that edits the chunk in a specific radius
-public struct SphereEdit : IVoxelEdit
+// Will either add / remove matter from the terrain
+public struct AddEdit : IVoxelEdit
 {
     public float3 center;
+    public float strength;
     public float radius;
 
     public float3 GetWorldCenter()
@@ -26,12 +27,11 @@ public struct SphereEdit : IVoxelEdit
     public Voxel Modify(Voxel input, float3 position)
     {
         float density = math.length(position - center) - radius;
-        
-        if (density < 0.0)
+
+        if (density < 0)
         {
-            input.density = math.half(math.max(input.density, -density));
+            input.density += math.half(strength);
         }
-        
 
         return input;
     }

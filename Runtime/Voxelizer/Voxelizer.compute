@@ -62,6 +62,8 @@ void CSVoxelizer (uint3 id : SV_DispatchThreadID)
     
     // Pack the voxel density and material
     //density = max(density, -boxDensity);
+    density = position.y + random(position);
+
     uint packedDensity = f32tof16(density);
     uint packedMaterial = 0;
 
