@@ -35,7 +35,7 @@ public class VoxelEdits : VoxelBehaviour
         }
 
         // Get the edit's world AABB
-        float3 extents = edit.GetWorldExtents();
+        float3 extents = edit.GetWorldExtents() + math.float3(VoxelUtils.VoxelSize * 2.0);
         float3 center = edit.GetWorldCenter();
 
         float3 min = center - extents / 2;
@@ -48,19 +48,20 @@ public class VoxelEdits : VoxelBehaviour
         {
             // Fetch chunk offsets + scale (like for compute shader)
             VoxelChunk chunk = terrain.Chunks[output.Value[i]];
-            Vector3 offset = Vector3.one * (chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) * 0.5F;
-            Vector3 chunkOffset = (chunk.transform.position - offset) / VoxelUtils.VoxelSize;
-
-            float scale = ((chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) / VoxelUtils.VoxelSize);
+            Vector3 offset = Vector3.one * (chunk.transform.localScale.x / ((float)VoxelUtils.Size)) * 0.5F;
+            Vector3 chunkOffset = (chunk.transform.position / VoxelUtils.VoxelSize) / VoxelUtils.VertexScaling - offset;
+            float scale = chunk.transform.localScale.x;
 
             // Begin the jobs for the affected chunks (synchronous)
             var job = new VoxelEditJob<T>
             {
                 edit = edit,
                 chunkOffset = new float3(chunkOffset.x, chunkOffset.y, chunkOffset.z),
-                scale = scale,
+                chunkScale = scale,
                 worldScale = VoxelUtils.VoxelSize,
-                voxels = chunk.voxels
+                size = (float)VoxelUtils.Size,
+                voxels = chunk.voxels,
+                vertexScaling = VoxelUtils.VertexScaling,
             }.Schedule(VoxelUtils.Volume, 512);
 
             // try generating the mesh immediately
@@ -76,6 +77,7 @@ public class VoxelEdits : VoxelBehaviour
 
     private void OnDrawGizmos()
     {
+        /*
         if (terrain == null || !terrain.started) { return; }
 
         var gm = GameObject.FindGameObjectWithTag("cueb");
@@ -102,5 +104,6 @@ public class VoxelEdits : VoxelBehaviour
 
             output.Value.Dispose();
         }
+        */
     }
 }

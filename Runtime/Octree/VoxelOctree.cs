@@ -39,18 +39,11 @@ public class VoxelOctree : VoxelBehaviour
     // Final job handle that we must wait for
     JobHandle finalJobHandle;
 
-    // Used to make sure we only generate the octree when we are free
-    VoxelMesher mesher;
-    VoxelGenerator generator;
-
-    private bool currentlyExecuting = false;
     private bool mustUpdate = false;
 
     // Intialize octree memory
     internal override void Init()
     {
-        generator = GetComponent<VoxelGenerator>();
-        mesher = GetComponent<VoxelMesher>();
 
         targets = new NativeArray<OctreeTarget>(1, Allocator.Persistent);
         targets[0] = new OctreeTarget();
@@ -104,14 +97,8 @@ public class VoxelOctree : VoxelBehaviour
     // Loop over all the octree loaders and generate the octree for them
     void Update()
     {
-        if (currentlyExecuting && finalJobHandle.IsCompleted)
-        {
-            currentlyExecuting = false;
-        }
-
         // Make sure we are free for octree generation
-        bool free = mesher.Free && generator.Free;
-        if (finalJobHandle.IsCompleted && free && !currentlyExecuting && mustUpdate)
+        if (terrain.Free && mustUpdate)
         {
             mustUpdate = false;
             int index = currentIndex;
@@ -167,7 +154,6 @@ public class VoxelOctree : VoxelBehaviour
             JobHandle removedJob = removedDiffJob.Schedule(hashingHandle);
 
             finalJobHandle = JobHandle.CombineDependencies(addedJob, removedJob);
-            currentlyExecuting = true;
 
             finalJobHandle.Complete();
 
@@ -182,12 +168,6 @@ public class VoxelOctree : VoxelBehaviour
     // Returns false if the octree is currently updating (and thus cannot handle the request)
     public bool TryCheckAABBIntersection(Vector3 min, Vector3 max, out NativeList<OctreeNode>? output)
     {
-        if (currentlyExecuting)
-        {
-            output = null;
-            return false;
-        }
-
         NativeQueue<int> pendingQueue = new NativeQueue<int>(Allocator.TempJob);
         pendingQueue.Enqueue(0);
         NativeList<OctreeNode> intersectLeafs = new NativeList<OctreeNode>(Allocator.TempJob);

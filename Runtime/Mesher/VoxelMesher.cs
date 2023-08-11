@@ -34,7 +34,6 @@ public class VoxelMesher : VoxelBehaviour
 
     // Used for collision
     private List<(JobHandle, VoxelChunk, VoxelMesh)> ongoingBakeJobs;
-    private int reservedEditingMeshJobs;
     Queue<PendingMeshJob> pendingMeshJobs;
 
     // Checks if the voxel mesher has completed all the work
@@ -78,7 +77,7 @@ public class VoxelMesher : VoxelBehaviour
     // Might fail in case there aren't enough free handlers to handle the job
     public bool TryGenerateMeshImmediate(VoxelChunk chunk, VoxelTempContainer container, bool computeCollisions, out JobHandle job, JobHandle dependency = new JobHandle())
     {
-        for (int i = 0; i < meshJobsPerFrame + reservedEditingMeshJobs; i++)
+        for (int i = 0; i < meshJobsPerFrame; i++)
         {
             if (handlers[i].Free)
             {

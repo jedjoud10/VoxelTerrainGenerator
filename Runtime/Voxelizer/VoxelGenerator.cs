@@ -39,7 +39,7 @@ public class VoxelGenerator : VoxelBehaviour
     internal BitArray freeVoxelNativeArrays;
 
     // Chunks that we must generate the voxels for
-    internal Queue<VoxelChunk> pendingVoxelGenerationChunks = new Queue<VoxelChunk>();
+    internal Queue<VoxelChunk> pendingVoxelGenerationChunks;
 
     // Checks if we completed voxel generation
     public bool Free
@@ -69,7 +69,7 @@ public class VoxelGenerator : VoxelBehaviour
     {
         readbackTexture = VoxelUtils.CreateRenderTexture(VoxelUtils.Size, GraphicsFormat.R32_UInt);        
         freeVoxelNativeArrays = new BitArray(asyncReadbacks, true);
-
+        pendingVoxelGenerationChunks = new Queue<VoxelChunk>();
         voxelNativeArrays = new List<NativeArray<Voxel>>(asyncReadbacks);
         for (int i = 0; i < asyncReadbacks; i++)
         {
@@ -102,6 +102,7 @@ public class VoxelGenerator : VoxelBehaviour
         voxelShader.SetInts("permuationSeed", new int[] { permutationSeed.x, permutationSeed.y, permutationSeed.z });
         voxelShader.SetInts("moduloSeed", new int[] { moduloSeed.x, moduloSeed.y, moduloSeed.z });
         voxelShader.SetInt("size", VoxelUtils.Size);
+        voxelShader.SetFloat("vertexScaling", VoxelUtils.VertexScaling);
         voxelShader.SetTexture(0, "voxels", readbackTexture);
     }
 
@@ -123,9 +124,9 @@ public class VoxelGenerator : VoxelBehaviour
             VoxelChunk chunk = null;
             if (pendingVoxelGenerationChunks.TryDequeue(out chunk)) {
                 // Set chunk only parameters
-                Vector3 offset = Vector3.one * (chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) * 0.5F;
-                voxelShader.SetVector("chunkOffset", chunk.transform.position);
-                voxelShader.SetFloat("chunkScale", 1.0F);
+                Vector3     offset = Vector3.one * (chunk.transform.localScale.x / ((float)VoxelUtils.Size)) * 0.5F;
+                voxelShader.SetVector("chunkOffset", (chunk.transform.position / VoxelUtils.VoxelSize) / VoxelUtils.VertexScaling - offset);
+                voxelShader.SetFloat("chunkScale", chunk.transform.localScale.x);
 
                 // Generate the voxel data for the chunk
                 int count = VoxelUtils.Size / 4;

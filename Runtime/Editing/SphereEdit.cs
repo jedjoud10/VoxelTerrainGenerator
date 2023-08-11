@@ -12,6 +12,7 @@ public struct SphereEdit : IVoxelEdit
 {
     public float3 center;
     public float radius;
+    public bool add;
 
     public float3 GetWorldCenter()
     {
@@ -26,13 +27,10 @@ public struct SphereEdit : IVoxelEdit
     public Voxel Modify(Voxel input, float3 position)
     {
         float density = math.length(position - center) - radius;
-        
-        if (density < 0.0)
-        {
-            input.density = math.half(math.max(input.density, -density));
-        }
-        
 
+        float added = math.half(math.min(input.density, density));
+        float removed = math.half(math.max(input.density, -density));
+        input.density = (half)math.select(added, removed, add);
         return input;
     }
 }

@@ -117,6 +117,7 @@ public struct VertexJob : IJobParallelFor
 
         // Output vertex in object space
         float3 outputVertex = (vertex / (float)count) + position;
+        //float3 outputVertex = position + math.float3(0.5F);
         vertices[vertexIndex] = outputVertex * vertexScale * voxelScale;
     }
 }

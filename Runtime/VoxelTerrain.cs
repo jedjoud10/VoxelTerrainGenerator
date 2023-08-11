@@ -47,8 +47,8 @@ public class VoxelTerrain : MonoBehaviour
     public delegate void ChunkGenerationDone();
     public event ChunkGenerationDone onChunkGenerationDone;
 
-    // Did the terrain finish all its tasks
-    public bool Free { get; private set; } = false;
+    private bool free = true;
+    public bool Free { get; private set; } = true;
 
     internal bool started = false;
 
@@ -126,8 +126,8 @@ public class VoxelTerrain : MonoBehaviour
 
     private void Update()
     {
-        if (!Free && VoxelGenerator.Free && VoxelMesher.Free && toMakeVisible.Count > 0) {
-            Free = true;
+        if (!free && VoxelGenerator.Free && VoxelMesher.Free && toMakeVisible.Count > 0) {
+            free = true;
 
             onChunkGenerationDone?.Invoke();
 
@@ -138,6 +138,8 @@ public class VoxelTerrain : MonoBehaviour
                 Initial = true;
             }
         }
+
+        Free = free && VoxelGenerator.Free && VoxelMesher.Free;
     }
 
     // Deswpans the chunks that we do not need of and makes the new ones visible
@@ -173,7 +175,7 @@ public class VoxelTerrain : MonoBehaviour
 
         foreach (var item in added)
         {
-            if (item.childBaseIndex == -1 && item.depth == (item.maxDepth))
+            if (item.childBaseIndex == -1)
             {
                 float size = item.ScalingFactor();
                 GameObject obj = Instantiate(chunkPrefab, item.WorldPosition(), Quaternion.identity, this.transform);
@@ -188,7 +190,7 @@ public class VoxelTerrain : MonoBehaviour
             }
         }
 
-        Free = false;
+        free = false;
     }
 
     // When we finish generating the voxel data, begin the mesh generation
@@ -215,7 +217,7 @@ public class VoxelTerrain : MonoBehaviour
     // Request all the chunks to regenerate their meshes
     public void RequestAll(bool disableColliders = true, bool tempHide = false)
     {
-        if (Free && VoxelGenerator.Free && VoxelMesher.Free)
+        if (free && VoxelGenerator.Free && VoxelMesher.Free)
         {
             foreach (var item in Chunks)
             {
