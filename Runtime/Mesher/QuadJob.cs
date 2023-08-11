@@ -81,7 +81,7 @@ public struct QuadJob : IJobParallelFor
         if (endVoxel.density < 0.0 ^ startVoxel.density < 0.0)
         {
             bool flip = (endVoxel.density > 0.0);
-            ushort material = flip ? endVoxel.material : startVoxel.material;
+            ushort material = flip ? startVoxel.material : endVoxel.material;
 
             // Fetch the indices of the vertex positions
             int index0 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4]);

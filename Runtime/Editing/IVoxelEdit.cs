@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -7,21 +8,15 @@ using UnityEngine;
 // Interface for voxel edits that has a unique job for modifying currently stored voxel data
 public interface IVoxelEdit
 {
-    // Get the currently stored voxel edit job handles
-    public JobHandle[] GetJobHandles();
-
-    // Begin the voxel edit job for the given voxel data 
-    public void BeginEditJobs(VoxelChunk[] chunks);
+    // Modify the given voxels
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Voxel Modify(Voxel input, float3 position);
 
     // Get the center of the voxel edit
-    public Vector3 GetWorldCenter();
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public float3 GetWorldCenter();
 
     // Get the extent of the voxel edit
-    public Vector3 GetWorldExtents();
-
-    // Check if a node is affected by this voxel edit
-    public bool IntersectNode(OctreeNode node)
-    {
-        throw new System.NotImplementedException();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public float3 GetWorldExtents();
 }

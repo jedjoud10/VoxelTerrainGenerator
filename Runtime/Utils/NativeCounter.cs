@@ -6,9 +6,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs.LowLevel.Unsafe;
-using static UnityEditor.FilePathAttribute;
-using Unity.VisualScripting.YamlDotNet.Core.Tokens;
 
 [StructLayout(LayoutKind.Sequential)]
 [NativeContainer]

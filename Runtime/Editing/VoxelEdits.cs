@@ -8,10 +8,6 @@ using UnityEngine;
 // Handles keeping track of voxel edits in the world
 public class VoxelEdits : VoxelBehaviour
 {
-    // Maximum number of mesh jobs reserved for editing
-    [Range(1, 8)]
-    public int reservedMeshJobs = 1;
-
     // Indirection texture that contains the index of the textures at specific points in space
     private Texture3D indirectionTexture;
 
@@ -30,44 +26,77 @@ public class VoxelEdits : VoxelBehaviour
     }
 
     // Apply a voxel edit to the terrain world immediately
-    public void ApplyVoxelEdit(IVoxelEdit edit)
+    public void ApplyVoxelEdit<T>(T edit) where T : struct, IVoxelEdit
     {
         // Get the edit's world AABB
-        Vector3 extents = edit.GetWorldExtents();
-        Vector3 center = edit.GetWorldCenter();
+        float3 extents = edit.GetWorldExtents();
+        float3 center = edit.GetWorldCenter();
 
-        float3 centerFloat3 = new float3(center.x, center.y, center.z);
-        float3 extentsFloat3 = new float3(extents.x, extents.y, extents.z);
-
-        float3 min = centerFloat3 - extentsFloat3 / 2;
-        float3 max = centerFloat3 + extentsFloat3 / 2;
+        float3 min = center - extents / 2;
+        float3 max = center + extents / 2;
 
         // Find the chunks affected by the edit
         if (terrain.VoxelOctree.TryCheckAABBIntersection(min, max, out var output))
         {
-            VoxelChunk[] chunks = new VoxelChunk[output.Value.Length];
             for (int i = 0; i < output.Value.Length; i++)
             {
-                chunks[i] = terrain.Chunks[output.Value[i]];
+                // Fetch chunk offsets + scale (like for compute shader)
+                VoxelChunk chunk = terrain.Chunks[output.Value[i]];
+                Vector3 offset = Vector3.one * (chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) * 0.5F;
+                Vector3 chunkOffset = (chunk.transform.position - offset) / VoxelUtils.VoxelSize;
+
+                float scale = ((chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) / VoxelUtils.VoxelSize);
+
+                // Begin the jobs for the affected chunks (synchronous)
+                var job = new VoxelEditJob<T>
+                {
+                    chunkOffset = new float3(chunkOffset.x, chunkOffset.y, chunkOffset.z),
+                    scale = scale,
+                    voxels = chunk.voxels,
+                    edit = edit,
+                    worldScale = VoxelUtils.VoxelSize,
+                }.Schedule(VoxelUtils.Volume, 512);
+
+                // try generating the mesh immediately
+                if (!terrain.VoxelMesher.TryGenerateMeshImmediate(chunk, chunk.AsContainer(), true, out _, job))
+                {
+                    // if not possible, fallback to async
+                    terrain.VoxelMesher.GenerateMesh(chunk, chunk.AsContainer(), true, job);
+                }
             }
 
-            // Begin the jobs for the affected chunks (synchronous)
-            edit.BeginEditJobs(chunks);
-            output?.Dispose();
-            NativeArray<JobHandle> handles = new NativeArray<JobHandle>(edit.GetJobHandles(), Allocator.Temp);
-
-            // Wait for completion immediately
-            JobHandle.CompleteAll(handles);
-
-            foreach (var chunk in chunks)
-            {
-                terrain.VoxelMesher.GenerateMesh(chunk, chunk.AsContainer(), true);
-            }
+            output.Value.Dispose();
 
             Debug.Log("Appled immediate voxel edit");
-
-            handles.Dispose();
         }
 
+    }
+
+    private void OnDrawGizmos()
+    {
+        /*
+        var gm = GameObject.FindGameObjectWithTag("cueb");
+
+        var edit = new SphereEdit {
+            center = new float3(gm.transform.position.x, gm.transform.position.y, gm.transform.position.z),
+            radius = 5
+        };
+
+        float3 extents = edit.GetWorldExtents();
+        float3 center = edit.GetWorldCenter();
+
+        float3 min = center - extents / 2;
+        float3 max = center + extents / 2;
+
+        if (terrain.VoxelOctree.TryCheckAABBIntersection(min, max, out var output))
+        {
+            foreach (var item in output)
+            {
+                Gizmos.DrawWireCube(item.WorldCenter(), item.WorldSize());
+            }
+
+            output.Value.Dispose();
+        }
+        */
     }
 }

@@ -37,7 +37,7 @@ internal class MeshJobHandler
     public bool Free { get; private set; } = true;
 
     // Begin the vertex + quad job that will generate the mesh
-    internal void BeginJob(JobHandle dependency)
+    internal JobHandle BeginJob(JobHandle dependency)
     {
         countersQuad.Reset();
         counter.Count = 0;
@@ -105,6 +105,7 @@ internal class MeshJobHandler
 
         this.vertexJobHandle = vertexJobHandle;
         this.quadJobHandle = quadJobHandle;
+        return quadJobHandle;
     }
 
     // Complete the jobs and return a mesh

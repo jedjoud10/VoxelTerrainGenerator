@@ -114,7 +114,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
     {
         float3 nodeMin = math.float3(position);
         float3 nodeMax = math.float3(position) + math.float3(size);
-        return math.all(min <= nodeMax) && math.all(nodeMin < max);
+        return math.all(min <= nodeMax) && math.all(nodeMin <= max);
     }
 
     // Check if we can subdivide this node (and also if we should generate collisions)
