@@ -52,7 +52,7 @@ public class VoxelMesher : VoxelBehaviour
     // Initialize the voxel mesher
     internal override void Init()
     {
-        reservedEditingMeshJobs = GetComponent<VoxelEdits>().reservedMeshJobs;
+        reservedEditingMeshJobs = terrain.VoxelEdits.reservedMeshJobs;
         handlers = new List<MeshJobHandler>(meshJobsPerFrame + reservedEditingMeshJobs);
         pendingMeshGenerationChunks = new Queue<(VoxelChunk, VoxelTempContainer, bool)>();
         ongoingBakeJobs = new List<(JobHandle, VoxelChunk, VoxelMesh)>();
@@ -132,6 +132,7 @@ public class VoxelMesher : VoxelBehaviour
     {
         foreach (MeshJobHandler handler in handlers) 
         {
+            handler.Complete(voxelMaterials);
             handler.Dispose();
         }
     }

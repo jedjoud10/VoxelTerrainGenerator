@@ -8,4 +8,10 @@ public struct VoxelMesh
 
     // Materials that must be set when setting the mesh
     public Material[] materials;
+
+    public static VoxelMesh Empty = new VoxelMesh
+    {
+        mesh = null,
+        materials = null
+    };
 }

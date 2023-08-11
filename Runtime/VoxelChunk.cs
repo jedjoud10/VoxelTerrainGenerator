@@ -13,4 +13,17 @@ public class VoxelChunk : MonoBehaviour
 
     // Keep track of the voxel data for this voxel chunk
     public NativeArray<Voxel> voxels;
+
+    // As voxel chunk container
+    public VoxelChunkContainer AsContainer()
+    {
+        return new VoxelChunkContainer { chunk = this, voxels = voxels };
+    }
+}
+
+public class VoxelChunkContainer : VoxelTempContainer
+{
+    public override void TempDispose()
+    {
+    }
 }

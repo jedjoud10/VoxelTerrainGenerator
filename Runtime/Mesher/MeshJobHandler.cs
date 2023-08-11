@@ -5,7 +5,8 @@ using UnityEngine;
 
 // Contains the allocation data for a single job
 // There are multiple instances of this class stored inside the voxel mesher to saturate the other threads
-internal class MeshJobHandler {
+internal class MeshJobHandler
+{
     public NativeArray<int> indices;
     public NativeArray<float3> vertices;
     public NativeArray<byte> enabled;
@@ -36,7 +37,8 @@ internal class MeshJobHandler {
     public bool Free { get; private set; } = true;
 
     // Begin the vertex + quad job that will generate the mesh
-    internal void BeginJob(JobHandle dependency) {
+    internal void BeginJob(JobHandle dependency)
+    {
         countersQuad.Reset();
         counter.Count = 0;
         materialCounter.Count = 0;
@@ -63,7 +65,8 @@ internal class MeshJobHandler {
 
         // Generate the vertices of the mesh
         // Executed only onces, and shared by multiple submeshes
-        VertexJob vertexJob = new VertexJob {
+        VertexJob vertexJob = new VertexJob
+        {
             enabled = enabled,
             voxels = voxels.voxels,
             indices = indices,
@@ -76,7 +79,8 @@ internal class MeshJobHandler {
 
         // Generate the quads of the mesh
         // Executed for EACH material in the mesh
-        QuadJob quadJob = new QuadJob {
+        QuadJob quadJob = new QuadJob
+        {
             enabled = enabled,
             voxels = voxels.voxels,
             vertexIndices = indices,
@@ -88,23 +92,29 @@ internal class MeshJobHandler {
         };
 
         // Start the material + filter job
-        JobHandle materialJobHandle = materialJob.Schedule(VoxelUtils.Volume, 4096, dependency);
-        JobHandle filterJobHandle = filterJob.Schedule(VoxelUtils.Volume, 4096, dependency);
+        JobHandle materialJobHandle = materialJob.Schedule(VoxelUtils.Volume, 1024, dependency);
+        JobHandle filterJobHandle = filterJob.Schedule(VoxelUtils.Volume, 1024, dependency);
 
         // Start the vertex job
         JobHandle vertexDep = JobHandle.CombineDependencies(filterJobHandle, dependency);
-        JobHandle vertexJobHandle = vertexJob.Schedule(VoxelUtils.Volume, 4096, vertexDep);
-        
+        JobHandle vertexJobHandle = vertexJob.Schedule(VoxelUtils.Volume, 1024, vertexDep);
+
         // Start the quad job
         JobHandle merged = JobHandle.CombineDependencies(materialJobHandle, vertexJobHandle, filterJobHandle);
-        JobHandle quadJobHandle = quadJob.Schedule(VoxelUtils.Volume, 4096, merged);
+        JobHandle quadJobHandle = quadJob.Schedule(VoxelUtils.Volume, 1024, merged);
 
         this.vertexJobHandle = vertexJobHandle;
-        this.quadJobHandle = quadJobHandle;     
+        this.quadJobHandle = quadJobHandle;
     }
 
     // Complete the jobs and return a mesh
-    internal VoxelMesh Complete(Material[] orderedMaterials) {
+    internal VoxelMesh Complete(Material[] orderedMaterials)
+    {
+        if (voxels == null || chunk == null)
+        {
+            return VoxelMesh.Empty;
+        }
+
         quadJobHandle.Complete();
         Free = true;
 
@@ -139,7 +149,8 @@ internal class MeshJobHandler {
     }
 
     // Dispose of the underlying memory allocations
-    internal void Dispose() {
+    internal void Dispose()
+    {
         indices.Dispose();
         vertices.Dispose();
         counter.Dispose();
@@ -148,5 +159,6 @@ internal class MeshJobHandler {
         materialCounter.Dispose();
         materialHashMap.Dispose();
         materialHashSet.Dispose();
+        enabled.Dispose();
     }
 }

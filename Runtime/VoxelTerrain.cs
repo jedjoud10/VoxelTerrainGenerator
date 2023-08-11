@@ -13,6 +13,16 @@ using UnityEngine;
 [RequireComponent(typeof(VoxelEdits))]
 public class VoxelTerrain : MonoBehaviour
 {
+    // Singleton pattern heheheha
+    public static VoxelTerrain Instance { get; private set; }
+
+    // Common components added onto the terrain
+    public VoxelGenerator VoxelGenerator { get; private set; }
+    public VoxelMesher VoxelMesher { get; private set; }
+    public VoxelOctree VoxelOctree { get; private set; }
+    public VoxelEdits VoxelEdits { get; private set; }
+
+
     [Header("Main Settings")]
     [Min(16)]
     public int resolution = 32;
@@ -21,10 +31,7 @@ public class VoxelTerrain : MonoBehaviour
     public int voxelSizeReduction = 0;
     
     public GameObject chunkPrefab;
-    private Dictionary<OctreeNode, VoxelChunk> chunks;
-    private VoxelGenerator voxelGenerator;
-    private VoxelMesher voxelMesher;
-    private VoxelOctree voxelOctree;
+    public Dictionary<OctreeNode, VoxelChunk> Chunks { get; private set; }
 
     // Pending chunks that we will have to hide eventually
     private List<OctreeNode> toRemove = new List<OctreeNode>();
@@ -57,46 +64,76 @@ public class VoxelTerrain : MonoBehaviour
         }
     }
 
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(this);
+        }
+        else
+        {
+            Instance = this;
+        }
+    }
+
     void Start() {
         // Initialize the generator and mesher
         started = true;
-        voxelGenerator = GetComponent<VoxelGenerator>(); 
-        voxelMesher = GetComponent<VoxelMesher>();
-        voxelOctree = GetComponent<VoxelOctree>();
+        VoxelGenerator = GetComponent<VoxelGenerator>(); 
+        VoxelMesher = GetComponent<VoxelMesher>();
+        VoxelOctree = GetComponent<VoxelOctree>();
+        VoxelEdits = GetComponent<VoxelEdits>();
+        
+        // Set the voxel utils static class
         VoxelUtils.Size = resolution;
         VoxelUtils.VoxelSizeReduction = voxelSizeReduction;
-        voxelGenerator.Init();
-        voxelMesher.Init();
-        voxelOctree.Init();
+
+        // Set self inside voxel behavior
+        VoxelGenerator.terrain = this;
+        VoxelMesher.terrain = this;
+        VoxelOctree.terrain = this;
+        VoxelEdits.terrain = this;
+
+        VoxelGenerator.Init();
+        VoxelMesher.Init();
+        VoxelOctree.Init();
+        VoxelEdits.Init();
 
         // Register the events
-        voxelGenerator.onVoxelGenerationComplete += OnVoxelGenerationComplete;
-        voxelMesher.onVoxelMeshingComplete += OnVoxelMeshingComplete;
-        voxelMesher.onCollisionBakingComplete += OnCollisionBakingComplete;
-        voxelOctree.onOctreeChanged += OnOctreeChanged;
+        VoxelGenerator.onVoxelGenerationComplete += OnVoxelGenerationComplete;
+        VoxelMesher.onVoxelMeshingComplete += OnVoxelMeshingComplete;
+        VoxelMesher.onCollisionBakingComplete += OnCollisionBakingComplete;
+        VoxelOctree.onOctreeChanged += OnOctreeChanged;
         onChunkGenerationDone += SwapsChunk;
 
         // Init local vars
-        chunks = new Dictionary<OctreeNode, VoxelChunk>();
+        Chunks = new Dictionary<OctreeNode, VoxelChunk>();
     }
 
     // Dispose of all the voxel behaviours
     private void OnApplicationQuit()
     {
-        voxelGenerator.Dispose();
-        voxelMesher.Dispose();
-        voxelOctree.Dispose();
+        VoxelOctree.Dispose();
+        VoxelMesher.Dispose();
+        VoxelEdits.Dispose();
+        VoxelGenerator.Dispose();
+
+        foreach (var item in Chunks)
+        {
+            item.Value.voxels.Dispose();
+        }
     }
 
     private void Update()
     {
-        if (!Free && voxelGenerator.Free && voxelMesher.Free) {
+        if (!Free && VoxelGenerator.Free && VoxelMesher.Free && toMakeVisible.Count > 0) {
             Free = true;
 
             onChunkGenerationDone?.Invoke();
 
             if (!Initial)
             {
+                Debug.Log("Initial generation done");
                 onInitialGenerationDone?.Invoke();
                 Initial = true;
             }
@@ -108,10 +145,10 @@ public class VoxelTerrain : MonoBehaviour
     {
         foreach (var item in toRemove)
         {
-            if (chunks.TryGetValue(item, out VoxelChunk value))
+            if (Chunks.TryGetValue(item, out VoxelChunk value))
             {
                 value.voxels.Dispose();
-                chunks.Remove(item);
+                Chunks.Remove(item);
                 Destroy(value.gameObject);
             }
         }
@@ -140,13 +177,13 @@ public class VoxelTerrain : MonoBehaviour
             {
                 float size = item.ScalingFactor();
                 GameObject obj = Instantiate(chunkPrefab, item.WorldPosition(), Quaternion.identity, this.transform);
-                //obj.GetComponent<MeshRenderer>().enabled = false;
+                obj.GetComponent<MeshRenderer>().enabled = false;
                 obj.transform.localScale = new Vector3(size, size, size);
                 VoxelChunk chunk = obj.GetComponent<VoxelChunk>();
                 chunk.voxels = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                 chunk.node = item;
-                voxelGenerator.GenerateVoxels(chunk);
-                chunks.TryAdd(item, chunk);
+                VoxelGenerator.GenerateVoxels(chunk);
+                Chunks.TryAdd(item, chunk);
                 toMakeVisible.Add(chunk);
             }
         }
@@ -178,9 +215,9 @@ public class VoxelTerrain : MonoBehaviour
     // Request all the chunks to regenerate their meshes
     public void RequestAll(bool disableColliders = true, bool tempHide = false)
     {
-        if (Free && voxelGenerator.Free && voxelMesher.Free)
+        if (Free && VoxelGenerator.Free && VoxelMesher.Free)
         {
-            foreach (var item in chunks)
+            foreach (var item in Chunks)
             {
                 if (disableColliders)
                 {
@@ -192,7 +229,7 @@ public class VoxelTerrain : MonoBehaviour
                     item.Value.GetComponent<MeshFilter>().mesh = null;
                 }
 
-                voxelGenerator.GenerateVoxels(item.Value);
+                VoxelGenerator.GenerateVoxels(item.Value);
             }
         }
     }

@@ -70,8 +70,6 @@ public class VoxelGenerator : VoxelBehaviour
     // Initialize the voxel generator
     internal override void Init()
     {
-
-        
         readbackTexture = VoxelUtils.CreateRenderTexture(VoxelUtils.Size, GraphicsFormat.R32_UInt);        
         freeVoxelNativeArrays = new BitArray(asyncReadbacks, true);
 
@@ -128,8 +126,8 @@ public class VoxelGenerator : VoxelBehaviour
             VoxelChunk chunk = null;
             if (pendingVoxelGenerationChunks.TryDequeue(out chunk)) {
                 // Set chunk only parameters
-                Vector3 test = Vector3.one * (chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) * 0.5F;
-                voxelShader.SetVector("chunkOffset", (chunk.transform.position - test) / VoxelUtils.VoxelSize);
+                Vector3 offset = Vector3.one * (chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) * 0.5F;
+                voxelShader.SetVector("chunkOffset", (chunk.transform.position - offset) / VoxelUtils.VoxelSize);
                 voxelShader.SetFloat("chunkScale", (chunk.node.WorldSize().x / ((float)VoxelUtils.Size - 2.0F)) / VoxelUtils.VoxelSize);
 
                 // Generate the voxel data for the chunk

@@ -24,7 +24,6 @@ public struct SubdivideJob : IJob
 
     public void Execute()
     {
-        nodes.Clear();
         while (pending.TryDequeue(out OctreeNode node)) {
             node.TrySubdivide(ref targets, ref nodes, ref pending, ref qualityPoints);
         }

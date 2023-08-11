@@ -10,22 +10,37 @@ using static UnityEngine.GraphicsBuffer;
 public struct IntersectJob : IJob
 {
     // The input AABB (in octree space)
-    public float3 min;
-    public float3 max;
+    [ReadOnly] public float3 min;
+    [ReadOnly] public float3 max;
+
+    // Nodes currently stored in the octree
+    [ReadOnly]
+    public NativeList<OctreeNode> nodes;
 
     // Leaf nodes that intersected the AABB
-    NativeList<OctreeNode> intersectLeafs;
+    [WriteOnly]
+    public NativeList<OctreeNode> intersectLeafs;
 
     // Currently pending nodes for generation
-    public NativeQueue<OctreeNode> pending;
+    public NativeQueue<int> pending;
 
     public void Execute()
     {
-        intersectLeafs.Clear();
-        while (pending.TryDequeue(out OctreeNode node))
+        while (pending.TryDequeue(out int index))
         {
+            var node = nodes[index];
             if (node.IntersectsAABB(min, max))
             {
+                if (node.childBaseIndex != -1)
+                {
+                    for (int i = 0; i < 8; i++)
+                    {
+                        pending.Enqueue(node.childBaseIndex + i);
+                    }
+                } else
+                {
+                    intersectLeafs.Add(node);
+                }
             }
         }
     }

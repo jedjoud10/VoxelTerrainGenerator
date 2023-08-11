@@ -12,6 +12,9 @@ using UnityEngine.Rendering;
 // Used internally by the classes that handle terrain
 public abstract class VoxelBehaviour : MonoBehaviour
 {
+    // Fetch the parent terrain heheheha
+    internal protected VoxelTerrain terrain;
+
     // Initialize the voxel behaviour (called from the voxel terrain)
     internal abstract void Init();
 

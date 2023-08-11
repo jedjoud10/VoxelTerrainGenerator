@@ -80,12 +80,11 @@ public class VoxelOctree : VoxelBehaviour
     // Force the octree to update due to an octree loader moving
     public void UpdateOctreeLoader(OctreeLoader loader)
     {
-        float offset = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
         targets[0] = new OctreeTarget
         {
             generateCollisions = loader.generateCollisions,
-            center = loader.transform.position / offset,
-            radius = loader.radius / offset,
+            center = loader.transform.position / VoxelUtils.OctreeDividor,
+            radius = loader.radius / VoxelUtils.OctreeDividor,
         };
         mustUpdate = true;
     }
@@ -126,7 +125,9 @@ public class VoxelOctree : VoxelBehaviour
             NativeHashSet<OctreeNode> newNodesHashSet = octreeNodesHashSet[index];
 
             OctreeNode root = OctreeNode.RootNode(maxDepth - 1);
+            pending.Clear();
             pending.Enqueue(root);
+            newNodesList.Clear();
             newNodesList.Add(root);
 
             SubdivideJob job = new SubdivideJob
@@ -177,13 +178,36 @@ public class VoxelOctree : VoxelBehaviour
         }
     }
 
-    /*
-    // Check if an AABB intersects the octree, and return a native list of the intersected leaf nodes (using an async job)
-    public bool TryCheckAABBIntersection(Vector3 min, Vector3 max, ref NativeList<OctreeNode> output, out JobHandle handle)
+    // Check if an AABB intersects the octree, and return a native list of the intersected leaf nodes
+    // Returns false if the octree is currently updating (and thus cannot handle the request)
+    public bool TryCheckAABBIntersection(Vector3 min, Vector3 max, out NativeList<OctreeNode>? output)
     {
+        if (currentlyExecuting)
+        {
+            output = null;
+            return false;
+        }
 
+        NativeQueue<int> pendingQueue = new NativeQueue<int>(Allocator.TempJob);
+        pendingQueue.Enqueue(0);
+        NativeList<OctreeNode> intersectLeafs = new NativeList<OctreeNode>(Allocator.TempJob);
+
+        var handle = new IntersectJob
+        {
+            min = min / VoxelUtils.OctreeDividor,
+            max = max / VoxelUtils.OctreeDividor,
+            pending = pendingQueue,
+            nodes = octreeNodesList[currentIndex],
+            intersectLeafs = intersectLeafs
+        }.Schedule();
+
+        pendingQueue.Dispose(handle);
+
+        handle.Complete();
+
+        output = intersectLeafs;
+        return true;
     }
-    */
 
     // Dispose the octree memory
     internal override void Dispose()

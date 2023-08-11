@@ -16,23 +16,6 @@ public struct FilterJob : IJobParallelFor
     [ReadOnly]
     public NativeArray<Voxel> voxels;
 
-    /*
-    // Offsets of the corners
-    [ReadOnly]
-    static readonly uint3[] offsets =
-    {
-        new uint3(0, 0, 0),
-        new uint3(1, 0, 0),
-        new uint3(0, 1, 0),
-        new uint3(1, 1, 0),
-
-        new uint3(0, 0, 1),
-        new uint3(1, 0, 1),
-        new uint3(0, 1, 1),
-        new uint3(1, 1, 1),
-    };
-    */
-
     [ReadOnly]
     static readonly uint4x3[] offsets =
     {
@@ -54,39 +37,30 @@ public struct FilterJob : IJobParallelFor
 
     public void Execute(int index)
     {
-        uint3 position = VoxelUtils.IndexToPos(index, size);
+        uint3 position = VoxelUtils.IndexToPos(index);
 
         if (math.any(position > math.uint3(size - 2)))
             return;
 
 
-        int4 indices = math.int4(Morton.EncodeMorton32(offsets[0].c0, offsets[0].c1, offsets[0].c2));
+        int4 indices = math.int4(Morton.EncodeMorton32(offsets[0].c0 + position.x, offsets[0].c1 + position.y, offsets[0].c2 + position.z));
         float4 test = math.float4(0.0F);
-
         test.x = voxels[indices.x].density;
         test.y = voxels[indices.y].density;
         test.z = voxels[indices.z].density;
         test.w = voxels[indices.w].density;
 
-        int4 indices2 = math.int4(Morton.EncodeMorton32(offsets[1].c0, offsets[1].c1, offsets[1].c2));
+        int4 indices2 = math.int4(Morton.EncodeMorton32(offsets[1].c0 + position.x, offsets[1].c1 + position.y, offsets[1].c2 + position.z));
         float4 test2 = math.float4(0.0F);
-
         test2.x = voxels[indices2.x].density;
         test2.y = voxels[indices2.y].density;
         test2.z = voxels[indices2.z].density;
         test2.w = voxels[indices2.w].density;
 
-        int value = 0;
+        bool4 check1 = test < math.float4(0.0);
+        bool4 check2 = test2 < math.float4(0.0);
 
-        for (int i = 0; i < 4; i++)
-        {
-            value |= ((test[i] < 0.0) ? 1 : 0) << i;
-        }
-
-        for (int i = 0; i < 4; i++)
-        {
-            value |= ((test2[i] < 0.0) ? 1 : 0) << (i + 4);
-        }
+        int value = math.bitmask(check1) | (math.bitmask(check2) << 4);
 
         enabled[index] = (byte)value;
     }

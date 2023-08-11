@@ -8,7 +8,7 @@ using UnityEngine;
 public interface IVoxelEdit
 {
     // Get the currently stored voxel edit job handles
-    public List<JobHandle> GetJobHandles();
+    public JobHandle[] GetJobHandles();
 
     // Begin the voxel edit job for the given voxel data 
     public void BeginEditJobs(VoxelChunk[] chunks);
