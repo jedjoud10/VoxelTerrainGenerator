@@ -102,6 +102,7 @@ public class VoxelGenerator : VoxelBehaviour
         voxelShader.SetInts("permuationSeed", new int[] { permutationSeed.x, permutationSeed.y, permutationSeed.z });
         voxelShader.SetInts("moduloSeed", new int[] { moduloSeed.x, moduloSeed.y, moduloSeed.z });
         voxelShader.SetInt("size", VoxelUtils.Size);
+        voxelShader.SetFloat("voxelSize", VoxelUtils.VoxelSize);
         voxelShader.SetFloat("vertexScaling", VoxelUtils.VertexScaling);
         voxelShader.SetTexture(0, "voxels", readbackTexture);
     }

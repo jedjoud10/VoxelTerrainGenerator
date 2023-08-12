@@ -30,7 +30,7 @@ public struct SphereEdit : IVoxelEdit
 
         float added = math.half(math.min(input.density, density));
         float removed = math.half(math.max(input.density, -density));
-        input.density = (half)math.select(added, removed, add);
+        input.density = (half)math.select(removed, added, add);
         return input;
     }
 }

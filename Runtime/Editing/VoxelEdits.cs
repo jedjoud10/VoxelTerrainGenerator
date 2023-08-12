@@ -25,6 +25,14 @@ public class VoxelEdits : VoxelBehaviour
     {
     }
 
+    // Get a edit command buffer that we can write our edits into
+
+    // Apply an edit command buffer and update all the meshes affected by these edits
+
+    // Add a voxel edit to the world
+
+    // Apply all the cached voxel edits in order
+
     // Apply a voxel edit to the terrain world immediately
     public void ApplyVoxelEdit<T>(T edit) where T : struct, IVoxelEdit
     {
@@ -35,7 +43,7 @@ public class VoxelEdits : VoxelBehaviour
         }
 
         // Get the edit's world AABB
-        float3 extents = edit.GetWorldExtents() + math.float3(VoxelUtils.VoxelSize * 2.0);
+        float3 extents = edit.GetWorldExtents() + math.float3(VoxelUtils.VoxelSize * 4.0);
         float3 center = edit.GetWorldCenter();
 
         float3 min = center - extents / 2;
@@ -58,7 +66,7 @@ public class VoxelEdits : VoxelBehaviour
                 edit = edit,
                 chunkOffset = new float3(chunkOffset.x, chunkOffset.y, chunkOffset.z),
                 chunkScale = scale,
-                worldScale = VoxelUtils.VoxelSize,
+                voxelScale = VoxelUtils.VoxelSize,
                 size = (float)VoxelUtils.Size,
                 voxels = chunk.voxels,
                 vertexScaling = VoxelUtils.VertexScaling,

@@ -17,11 +17,7 @@ int3 moduloSeed;
 // Voxel resolution
 int size;
 float vertexScaling;
-
-// GPU representation of what a voxel is
-// Density: first 2 bytes
-// Material: 3rd byte
-// Free: 4th byte
+float voxelSize;
 
 #include "./noises.cginc"
 #include "./sdf.cginc"
@@ -39,6 +35,7 @@ void CSVoxelizer (uint3 id : SV_DispatchThreadID)
     position *= vertexScaling;
     position *= worldScale;
     position += worldOffset;
+    position -= voxelSize / 2.0;
 
     // Density value for biome 1
     float density1 = -fbmCellular(position * 0.002 * float3(1, 1.9, 1), 6, 0.49, 2.1).x * 100;
@@ -67,6 +64,8 @@ void CSVoxelizer (uint3 id : SV_DispatchThreadID)
     if (sdBox(position, float3(10, 10, 10)) < 0) {
         packedMaterial = 2;
     }
+
+    //density = min(density, sdSphere(position - float3(0, 20, 0), 8.0));
 
     //uint packedMaterial = 0;
     uint packedDensity = f32tof16(density);

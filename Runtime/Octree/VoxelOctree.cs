@@ -23,7 +23,7 @@ public class VoxelOctree : VoxelBehaviour
     // Native hashmap for keeping track of the current nodes in the tree
     private NativeHashSet<OctreeNode>[] octreeNodesHashSet;
     private NativeList<OctreeNode>[] octreeNodesList;
-    private int currentIndex;
+    private int lastIndex;
 
     // Native arrays to diff the octree nodes
     private NativeList<OctreeNode> addedNodes;
@@ -101,9 +101,9 @@ public class VoxelOctree : VoxelBehaviour
         if (terrain.Free && mustUpdate)
         {
             mustUpdate = false;
-            int index = currentIndex;
-            currentIndex += 1;
-            currentIndex = currentIndex % 2;
+            int index = lastIndex;
+            lastIndex += 1;
+            lastIndex = lastIndex % 2;
 
             // Ready up the allocations
             NativeList<OctreeNode> oldNodesList = octreeNodesList[1 - index];
@@ -177,7 +177,7 @@ public class VoxelOctree : VoxelBehaviour
             min = min / VoxelUtils.OctreeDividor,
             max = max / VoxelUtils.OctreeDividor,
             pending = pendingQueue,
-            nodes = octreeNodesList[currentIndex],
+            nodes = octreeNodesList[1 - lastIndex],
             intersectLeafs = intersectLeafs
         }.Schedule();
 
