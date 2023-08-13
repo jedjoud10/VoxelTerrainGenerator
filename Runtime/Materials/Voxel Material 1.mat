@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Voxel Material 1
-  m_Shader: {fileID: -6465566751694194690, guid: d0ef69fe5c20f614d9be3e3a23295316,
+  m_Shader: {fileID: -6465566751694194690, guid: 889e36322ddbaeb469d76930c31e6c18,
     type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -62,7 +62,9 @@ Material:
     - _DstBlend: 0
     - _EnableBlendModePreserveSpecularLighting: 1
     - _EnableFogOnTransparent: 1
+    - _Factor: 200
     - _Metallic: 0
+    - _Offset: -166.23
     - _OpaqueCullMode: 2
     - _RayTracing: 0
     - _ReceivesSSR: 1
@@ -98,6 +100,8 @@ Material:
     - _ZWrite: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 0}
+    - _Color_1: {r: 0.26415092, g: 0.26415092, b: 0.26415092, a: 0}
+    - _Color_2: {r: 1, g: 1, b: 1, a: 0}
     - _DoubleSidedConstants: {r: 1, g: 1, b: -1, a: 0}
     - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

@@ -19,6 +19,7 @@ public class VoxelMesher : VoxelBehaviour
     public int meshJobsPerFrame = 1;
 
     public bool generateCollisions = false;
+    public bool smoothing = true;
     public Material[] voxelMaterials;
 
     // List of persistently allocated mesh data
@@ -73,9 +74,9 @@ public class VoxelMesher : VoxelBehaviour
         });
     }
 
-    // Generate the mesh data immediately without putting the mesh through the queue
+    // Begin generating the mesh data immediately without putting the mesh through the queue
     // Might fail in case there aren't enough free handlers to handle the job
-    public bool TryGenerateMeshImmediate(VoxelChunk chunk, VoxelTempContainer container, bool computeCollisions, out JobHandle job, JobHandle dependency = new JobHandle())
+    public bool TryGenerateMeshImmediate(VoxelChunk chunk, VoxelTempContainer container, bool computeCollisions, JobHandle dependency = new JobHandle())
     {
         for (int i = 0; i < meshJobsPerFrame; i++)
         {
@@ -85,13 +86,41 @@ public class VoxelMesher : VoxelBehaviour
                 handler.chunk = chunk;
                 handler.voxels = container;
                 handler.computeCollisions = computeCollisions && generateCollisions;
-                job = handler.BeginJob(dependency);
+                var job = handler.BeginJob(dependency, smoothing);
+
+                VoxelMesh voxelMesh = handler.Complete(voxelMaterials);
+
+                onVoxelMeshingComplete?.Invoke(chunk, voxelMesh);
+
+                if (handler.computeCollisions)
+                {
+                    HandleVoxelMeshCollision(chunk, voxelMesh);
+                }
+
                 return true;
             }
         }
 
-        job = new JobHandle();
         return false;
+    }
+
+
+    private void HandleVoxelMeshCollision(VoxelChunk chunk, VoxelMesh voxelMesh)
+    {
+        if (voxelMesh.mesh.vertexCount > 0 && voxelMesh.mesh.triangles.Length > 0)
+        {
+            BakeJob bakeJob = new BakeJob
+            {
+                meshId = voxelMesh.mesh.GetInstanceID(),
+            };
+
+            var handle = bakeJob.Schedule();
+            ongoingBakeJobs.Add((handle, chunk, voxelMesh));
+        }
+        else
+        {
+            onCollisionBakingComplete?.Invoke(chunk, VoxelMesh.Empty);
+        }
     }
 
     void Update()
@@ -107,20 +136,7 @@ public class VoxelMesher : VoxelBehaviour
                 
                 if (handler.computeCollisions)
                 {
-                    if (voxelMesh.mesh.vertexCount > 0 && voxelMesh.mesh.triangles.Length > 0)
-                    {
-                        BakeJob bakeJob = new BakeJob
-                        {
-                            meshId = voxelMesh.mesh.GetInstanceID(),
-                        };
-
-                        var handle = bakeJob.Schedule();
-                        ongoingBakeJobs.Add((handle, chunk, voxelMesh));
-                    }
-                    else
-                    {
-                        onCollisionBakingComplete?.Invoke(chunk, VoxelMesh.Empty);
-                    }
+                    HandleVoxelMeshCollision(chunk, voxelMesh);
                 }
             }
         }
@@ -140,7 +156,7 @@ public class VoxelMesher : VoxelBehaviour
                 handler.chunk = output.chunk;
                 handler.voxels = output.container;
                 handler.computeCollisions = output.computeCollisions;
-                handler.BeginJob(output.dependency);
+                handler.BeginJob(output.dependency, smoothing);
             }
         }
 

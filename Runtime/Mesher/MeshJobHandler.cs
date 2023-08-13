@@ -37,7 +37,7 @@ internal class MeshJobHandler
     public bool Free { get; private set; } = true;
 
     // Begin the vertex + quad job that will generate the mesh
-    internal JobHandle BeginJob(JobHandle dependency)
+    internal JobHandle BeginJob(JobHandle dependency, bool smoothing)
     {
         countersQuad.Reset();
         counter.Count = 0;
@@ -75,6 +75,7 @@ internal class MeshJobHandler
             voxelScale = VoxelUtils.VoxelSize,
             vertexScale = VoxelUtils.VertexScaling,
             size = VoxelUtils.Size,
+            smoothing = smoothing,
         };
 
         // Generate the quads of the mesh

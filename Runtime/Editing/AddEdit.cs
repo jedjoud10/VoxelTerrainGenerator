@@ -10,9 +10,9 @@ using UnityEngine;
 // Will either add / remove matter from the terrain
 public struct AddEdit : IVoxelEdit
 {
-    public float3 center;
-    public float strength;
-    public float radius;
+    [ReadOnly] public float3 center;
+    [ReadOnly] public float strength;
+    [ReadOnly] public float radius;
 
     public float3 GetWorldCenter()
     {

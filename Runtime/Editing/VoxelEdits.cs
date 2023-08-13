@@ -6,18 +6,22 @@ using Unity.Mathematics;
 using UnityEngine;
 
 // Handles keeping track of voxel edits in the world
+
+// Everytime we edit a chunk (LOD0), we keep a copy of the edited voxel data on the CPU
+// Everytime we generate a new chunk, we look at the CPU voxel data and use it to overwrite the data if needed
+// This makes it so that the data that needs to be serialized / deserialized scales with the number of chunks edited
+// and not the number of edits in the world
 public class VoxelEdits : VoxelBehaviour
 {
     // Indirection texture that contains the index of the textures at specific points in space
     private Texture3D indirectionTexture;
 
     // List of texture "segments" that will be sparsely stored in the world
-    private List<Texture3D> editedVoxels;
+    private List<Voxel> editedVoxels;
 
     // Initialize the voxel edits handler
     internal override void Init()
     {
-        editedVoxels = new List<Texture3D>();
     }
 
     // Dispose of any memory
@@ -25,25 +29,21 @@ public class VoxelEdits : VoxelBehaviour
     {
     }
 
-    // Get a edit command buffer that we can write our edits into
-
-    // Apply an edit command buffer and update all the meshes affected by these edits
-
-    // Add a voxel edit to the world
-
-    // Apply all the cached voxel edits in order
-
-    // Apply a voxel edit to the terrain world immediately
-    public void ApplyVoxelEdit<T>(T edit) where T : struct, IVoxelEdit
+    // Apply a voxel edit to the terrain world either immediately or asynchronously
+    public void ApplyVoxelEdit<T>(T edit, bool immediate = false) where T : struct, IVoxelEdit
     {
         if (!terrain.Free)
         {
-            Debug.LogWarning("Terrain currently active!");
+            // We can't really do much if the terrain is busy and we need an immediate edit
+            Debug.LogWarning("Terrain currently active!");            
             return;
         }
 
+        // Idk why we have to do this bruh this shit don't make no sense 
+        float extentOffset = VoxelUtils.VoxelSize * 4.0F;
+
         // Get the edit's world AABB
-        float3 extents = edit.GetWorldExtents() + math.float3(VoxelUtils.VoxelSize * 4.0);
+        float3 extents = edit.GetWorldExtents() + math.float3(extentOffset);
         float3 center = edit.GetWorldCenter();
 
         float3 min = center - extents / 2;
@@ -67,51 +67,19 @@ public class VoxelEdits : VoxelBehaviour
                 chunkOffset = new float3(chunkOffset.x, chunkOffset.y, chunkOffset.z),
                 chunkScale = scale,
                 voxelScale = VoxelUtils.VoxelSize,
-                size = (float)VoxelUtils.Size,
                 voxels = chunk.voxels,
                 vertexScaling = VoxelUtils.VertexScaling,
-            }.Schedule(VoxelUtils.Volume, 512);
+            }.Schedule(VoxelUtils.Volume, 2048);
 
-            // try generating the mesh immediately
-            if (!terrain.VoxelMesher.TryGenerateMeshImmediate(chunk, chunk.AsContainer(), true, out _, job))
+            if (immediate)
             {
-                // if not possible, fallback to async
+                terrain.VoxelMesher.TryGenerateMeshImmediate(chunk, chunk.AsContainer(), true, job);
+            } else
+            {
                 terrain.VoxelMesher.GenerateMesh(chunk, chunk.AsContainer(), true, job);
             }
         }
 
         output.Value.Dispose();
-    }
-
-    private void OnDrawGizmos()
-    {
-        /*
-        if (terrain == null || !terrain.started) { return; }
-
-        var gm = GameObject.FindGameObjectWithTag("cueb");
-
-        var edit = new SphereEdit {
-            center = new float3(gm.transform.position.x, gm.transform.position.y, gm.transform.position.z),
-            radius = 2.0F
-        };
-
-        Gizmos.DrawSphere(gm.transform.position, edit.radius);
-
-        float3 extents = edit.GetWorldExtents();
-        float3 center = edit.GetWorldCenter();
-
-        float3 min = center - extents / 2;
-        float3 max = center + extents / 2;
-
-        if (terrain.VoxelOctree.TryCheckAABBIntersection(min, max, out var output))
-        {
-            foreach (var item in output)
-            {
-                Gizmos.DrawWireCube(item.WorldCenter(), item.WorldSize());
-            }
-
-            output.Value.Dispose();
-        }
-        */
     }
 }

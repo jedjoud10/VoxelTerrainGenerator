@@ -12,11 +12,10 @@ using UnityEngine.UIElements;
 struct VoxelEditJob<T> : IJobParallelFor
     where T : struct, IVoxelEdit
 {
-    public float3 chunkOffset;
-    public float chunkScale;
-    public float voxelScale;
-    public float size;
-    public float vertexScaling;
+    [ReadOnly] public float3 chunkOffset;
+    [ReadOnly] public float chunkScale;
+    [ReadOnly] public float voxelScale;
+    [ReadOnly] public float vertexScaling;
 
     public T edit;
 

@@ -5,13 +5,13 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-[assembly: RegisterGenericJobType(typeof(VoxelEditJob<SphereEdit>))]
+[assembly: RegisterGenericJobType(typeof(VoxelEditJob<CuboidEdit>))]
 
-// Simple sphere edit that edits the chunk in a specific radius
-public struct SphereEdit : IVoxelEdit
+// Simple cuboid edit that edits the chunk in a specific extent
+public struct CuboidEdit : IVoxelEdit
 {
     [ReadOnly] public float3 center;
-    [ReadOnly] public float radius;
+    [ReadOnly] public float3 extent;
     [ReadOnly] public bool add;
     [ReadOnly] public ushort material;
     [ReadOnly] public bool writeMaterial;
@@ -23,12 +23,13 @@ public struct SphereEdit : IVoxelEdit
 
     public float3 GetWorldExtents()
     {
-        return new Vector3(radius, radius, radius) * 2.0F; 
+        return extent;
     }
 
     public Voxel Modify(Voxel input, float3 position)
     {
-        float density = math.length(position - center) - radius;
+        float3 q = math.abs(position - center) - (extent / 2.0F);
+        float density = math.length(math.max(q, 0.0F)) + math.min(math.max(q.x, math.max(q.y, q.z)), 0.0F);
 
         float added = math.half(math.min(input.density, density));
         float removed = math.half(math.max(input.density, -density));

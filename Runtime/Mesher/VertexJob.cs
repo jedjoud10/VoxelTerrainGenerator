@@ -67,6 +67,7 @@ public struct VertexJob : IJobParallelFor
     [ReadOnly] public int size;
     [ReadOnly] public float vertexScale;
     [ReadOnly] public float voxelScale;
+    [ReadOnly] public bool smoothing;
 
     // Excuted for each cell within the grid
     public void Execute(int index)
@@ -78,7 +79,7 @@ public struct VertexJob : IJobParallelFor
             return;
         }
 
-        float3 vertex = float3.zero;
+        float3 vertex = math.select(math.float3(0.5F), float3.zero, smoothing);
 
         // Fetch the byte that contains the number of corners active
         uint enabledCorners = enabled[index];
@@ -90,25 +91,32 @@ public struct VertexJob : IJobParallelFor
         ushort code = VoxelUtils.EdgeMasks[enabledCorners];
         int count = 0;
 
-        for (int edge = 0; edge < 12; edge++)
+        if (smoothing)
         {
-            // Continue if the edge isn't inside
-            if (((code >> edge) & 1) == 0) continue;
+            for (int edge = 0; edge < 12; edge++)
+            {
+                // Continue if the edge isn't inside
+                if (((code >> edge) & 1) == 0) continue;
 
-            uint3 startOffset = edgePositions0[edge];
-            uint3 endOffset = edgePositions1[edge];
+                uint3 startOffset = edgePositions0[edge];
+                uint3 endOffset = edgePositions1[edge];
 
-            int startIndex = VoxelUtils.PosToIndex(startOffset + position);
-            int endIndex = VoxelUtils.PosToIndex(endOffset + position);
+                int startIndex = VoxelUtils.PosToIndex(startOffset + position);
+                int endIndex = VoxelUtils.PosToIndex(endOffset + position);
 
-            // Get the Voxels of the edge
-            Voxel startVoxel = voxels[startIndex];
-            Voxel endVoxel = voxels[endIndex];
+                // Get the Voxels of the edge
+                Voxel startVoxel = voxels[startIndex];
+                Voxel endVoxel = voxels[endIndex];
 
-            // Create a vertex on the line of the edge
-            float value = math.unlerp(startVoxel.density, endVoxel.density, 0);
-            vertex += math.lerp(startOffset, endOffset, value) - math.float3(0.5);
-            count += 1;
+                // Create a vertex on the line of the edge
+                float value = math.unlerp(startVoxel.density, endVoxel.density, 0);
+                vertex += math.lerp(startOffset, endOffset, value) - math.float3(0.5);
+                count += 1;
+            }
+        }
+        else
+        {
+            count = 1;
         }
 
         // Must be offset by vec3(1, 1, 1)
@@ -117,7 +125,6 @@ public struct VertexJob : IJobParallelFor
 
         // Output vertex in object space
         float3 outputVertex = (vertex / (float)count) + position;
-        //float3 outputVertex = position + math.float3(0.5F);
         vertices[vertexIndex] = outputVertex * vertexScale * voxelScale;
     }
 }

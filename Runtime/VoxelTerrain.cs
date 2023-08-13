@@ -29,7 +29,8 @@ public class VoxelTerrain : MonoBehaviour
 
     [Min(0)]
     public int voxelSizeReduction = 0;
-    
+
+
     public GameObject chunkPrefab;
     public Dictionary<OctreeNode, VoxelChunk> Chunks { get; private set; }
 
@@ -87,7 +88,7 @@ public class VoxelTerrain : MonoBehaviour
         // Set the voxel utils static class
         VoxelUtils.Size = resolution;
         VoxelUtils.VoxelSizeReduction = voxelSizeReduction;
-
+        
         // Set self inside voxel behavior
         VoxelGenerator.terrain = this;
         VoxelMesher.terrain = this;
