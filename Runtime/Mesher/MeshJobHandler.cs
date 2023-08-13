@@ -55,8 +55,8 @@ internal class MeshJobHandler
             materialCounter = materialCounter,
         };
 
-        // Filters out completely empty segments
-        CornerJob filterJob = new CornerJob
+        // Handles fetching MC corners for the SN edges
+        CornerJob cornerJob = new CornerJob
         {
             voxels = voxels.voxels,
             enabled = enabled,
@@ -93,16 +93,16 @@ internal class MeshJobHandler
         };
 
         // Start the material + filter job
-        JobHandle materialJobHandle = materialJob.Schedule(VoxelUtils.Volume, 1024, dependency);
-        JobHandle filterJobHandle = filterJob.Schedule(VoxelUtils.Volume, 1024, dependency);
+        JobHandle materialJobHandle = materialJob.Schedule(VoxelUtils.Volume, 2048, dependency);
+        JobHandle cornerJobHandle = cornerJob.Schedule(VoxelUtils.Volume, 2048, dependency);
 
         // Start the vertex job
-        JobHandle vertexDep = JobHandle.CombineDependencies(filterJobHandle, dependency);
-        JobHandle vertexJobHandle = vertexJob.Schedule(VoxelUtils.Volume, 1024, vertexDep);
+        JobHandle vertexDep = JobHandle.CombineDependencies(cornerJobHandle, dependency);
+        JobHandle vertexJobHandle = vertexJob.Schedule(VoxelUtils.Volume, 2048, vertexDep);
 
         // Start the quad job
-        JobHandle merged = JobHandle.CombineDependencies(materialJobHandle, vertexJobHandle, filterJobHandle);
-        JobHandle quadJobHandle = quadJob.Schedule(VoxelUtils.Volume, 1024, merged);
+        JobHandle merged = JobHandle.CombineDependencies(materialJobHandle, vertexJobHandle, cornerJobHandle);
+        JobHandle quadJobHandle = quadJob.Schedule(VoxelUtils.Volume, 2048, merged);
 
         this.vertexJobHandle = vertexJobHandle;
         this.quadJobHandle = quadJobHandle;

@@ -84,10 +84,10 @@ public struct QuadJob : IJobParallelFor
             ushort material = flip ? startVoxel.material : endVoxel.material;
 
             // Fetch the indices of the vertex positions
-            int index0 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4]);
-            int index1 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 1]);
-            int index2 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 2]);
-            int index3 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 3]);
+            int index0 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4] - math.uint3(1));
+            int index1 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 1] - math.uint3(1));
+            int index2 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 2] - math.uint3(1));
+            int index3 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 3] - math.uint3(1));
 
             // Fetch the actual indices of the vertices
             int vertex0 = vertexIndices[index0];

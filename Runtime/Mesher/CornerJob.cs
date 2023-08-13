@@ -76,7 +76,6 @@ public struct CornerJob : IJobParallelFor
         test2.y = voxels[indices2.y].density;
         test2.z = voxels[indices2.z].density;
         test2.w = voxels[indices2.w].density;
-        
 
         bool4 check1 = test < math.float4(0.0);
         bool4 check2 = test2 < math.float4(0.0);

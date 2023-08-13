@@ -52,7 +52,6 @@ public struct VertexJob : IJobParallelFor
 
     // Contains 3D data of the indices of the vertices
     [WriteOnly]
-    [NativeDisableParallelForRestriction]
     public NativeArray<int> indices;
 
     // Vertices that we generated
@@ -88,8 +87,8 @@ public struct VertexJob : IJobParallelFor
         if (enabledCorners == 0 || enabledCorners == 255) return;
 
         // Doing some marching cube shit here
-        ushort code = VoxelUtils.EdgeMasks[enabledCorners];
-        int count = 0;
+        uint code = VoxelUtils.EdgeMasks[enabledCorners];
+        int count = math.countbits(code);
 
         if (smoothing)
         {
@@ -111,7 +110,6 @@ public struct VertexJob : IJobParallelFor
                 // Create a vertex on the line of the edge
                 float value = math.unlerp(startVoxel.density, endVoxel.density, 0);
                 vertex += math.lerp(startOffset, endOffset, value) - math.float3(0.5);
-                count += 1;
             }
         }
         else
@@ -121,7 +119,7 @@ public struct VertexJob : IJobParallelFor
 
         // Must be offset by vec3(1, 1, 1)
         int vertexIndex = counter.Increment();
-        indices[VoxelUtils.PosToIndex(position + 1)] = vertexIndex;
+        indices[index] = vertexIndex;
 
         // Output vertex in object space
         float3 outputVertex = (vertex / (float)count) + position;
