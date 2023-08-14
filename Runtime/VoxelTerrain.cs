@@ -3,12 +3,14 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 
 // Voxel terrain that handles generating the chunks and handling detail generation
 // generate chunks -> generate voxels -> generate mesh -> generate mesh collider
 [RequireComponent(typeof(VoxelGenerator))]
 [RequireComponent(typeof(VoxelMesher))]
+[RequireComponent(typeof(VoxelCollisions))]
 [RequireComponent(typeof(VoxelOctree))]
 [RequireComponent(typeof(VoxelEdits))]
 public class VoxelTerrain : MonoBehaviour
@@ -19,6 +21,7 @@ public class VoxelTerrain : MonoBehaviour
     // Common components added onto the terrain
     public VoxelGenerator VoxelGenerator { get; private set; }
     public VoxelMesher VoxelMesher { get; private set; }
+    public VoxelCollisions VoxelCollisions { get; private set; }
     public VoxelOctree VoxelOctree { get; private set; }
     public VoxelEdits VoxelEdits { get; private set; }
 
@@ -48,7 +51,6 @@ public class VoxelTerrain : MonoBehaviour
     public delegate void ChunkGenerationDone();
     public event ChunkGenerationDone onChunkGenerationDone;
 
-    private bool free = true;
     public bool Free { get; private set; } = true;
 
     internal bool started = false;
@@ -82,28 +84,25 @@ public class VoxelTerrain : MonoBehaviour
         started = true;
         VoxelGenerator = GetComponent<VoxelGenerator>(); 
         VoxelMesher = GetComponent<VoxelMesher>();
+        VoxelCollisions = GetComponent<VoxelCollisions>();
         VoxelOctree = GetComponent<VoxelOctree>();
         VoxelEdits = GetComponent<VoxelEdits>();
-        
+
         // Set the voxel utils static class
         VoxelUtils.Size = resolution;
         VoxelUtils.VoxelSizeReduction = voxelSizeReduction;
-        
-        // Set self inside voxel behavior
-        VoxelGenerator.terrain = this;
-        VoxelMesher.terrain = this;
-        VoxelOctree.terrain = this;
-        VoxelEdits.terrain = this;
 
-        VoxelGenerator.Init();
-        VoxelMesher.Init();
-        VoxelOctree.Init();
-        VoxelEdits.Init();
+        // Initialize all the behaviors
+        VoxelGenerator.InitWith(this);
+        VoxelMesher.InitWith(this);
+        VoxelCollisions.InitWith(this);
+        VoxelOctree.InitWith(this);
+        VoxelEdits.InitWith(this);
 
         // Register the events
         VoxelGenerator.onVoxelGenerationComplete += OnVoxelGenerationComplete;
         VoxelMesher.onVoxelMeshingComplete += OnVoxelMeshingComplete;
-        VoxelMesher.onCollisionBakingComplete += OnCollisionBakingComplete;
+        VoxelCollisions.onCollisionBakingComplete += OnCollisionBakingComplete;
         VoxelOctree.onOctreeChanged += OnOctreeChanged;
         onChunkGenerationDone += SwapsChunk;
 
@@ -118,6 +117,7 @@ public class VoxelTerrain : MonoBehaviour
         VoxelMesher.Dispose();
         VoxelEdits.Dispose();
         VoxelGenerator.Dispose();
+        VoxelCollisions.Dispose();
 
         foreach (var item in Chunks)
         {
@@ -127,8 +127,8 @@ public class VoxelTerrain : MonoBehaviour
 
     private void Update()
     {
-        if (!free && VoxelGenerator.Free && VoxelMesher.Free && toMakeVisible.Count > 0) {
-            free = true;
+        if (!Free && VoxelGenerator.Free && VoxelMesher.Free && toMakeVisible.Count > 0) {
+            Free = true;
 
             onChunkGenerationDone?.Invoke();
 
@@ -139,8 +139,6 @@ public class VoxelTerrain : MonoBehaviour
                 Initial = true;
             }
         }
-
-        Free = free && VoxelGenerator.Free && VoxelMesher.Free;
     }
 
     // Deswpans the chunks that we do not need of and makes the new ones visible
@@ -176,10 +174,10 @@ public class VoxelTerrain : MonoBehaviour
 
         foreach (var item in added)
         {
-            if (item.childBaseIndex == -1)
+            if (item.ChildBaseIndex == -1)
             {
-                float size = item.ScalingFactor();
-                GameObject obj = Instantiate(chunkPrefab, item.WorldPosition(), Quaternion.identity, this.transform);
+                float size = item.ScalingFactor;
+                GameObject obj = Instantiate(chunkPrefab, item.Position, Quaternion.identity, this.transform);
                 obj.GetComponent<MeshRenderer>().enabled = false;
                 obj.transform.localScale = new Vector3(size, size, size);
                 VoxelChunk chunk = obj.GetComponent<VoxelChunk>();
@@ -191,7 +189,7 @@ public class VoxelTerrain : MonoBehaviour
             }
         }
 
-        free = false;
+        Free = false;
     }
 
     // When we finish generating the voxel data, begin the mesh generation
@@ -199,7 +197,7 @@ public class VoxelTerrain : MonoBehaviour
     {
         VoxelMesher voxelMesher = GetComponent<VoxelMesher>();
         chunk.voxels.CopyFrom(request.voxels);
-        voxelMesher.GenerateMesh(chunk, request, chunk.node.generateCollisions);
+        voxelMesher.GenerateMesh(chunk, request, chunk.node.GenerateCollisions);
     }
 
     // Update the mesh of the given chunk when we generate it
@@ -218,7 +216,7 @@ public class VoxelTerrain : MonoBehaviour
     // Request all the chunks to regenerate their meshes
     public void RequestAll(bool disableColliders = true, bool tempHide = false)
     {
-        if (free && VoxelGenerator.Free && VoxelMesher.Free)
+        if (Free && VoxelGenerator.Free && VoxelMesher.Free)
         {
             foreach (var item in Chunks)
             {

@@ -8,6 +8,7 @@ using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using static GluonGui.WorkspaceWindow.Views.WorkspaceExplorer.Configuration.ConfigurationTreeNodeCheck;
 
 // Common voxel utility methods
 public static class VoxelUtils
@@ -22,9 +23,6 @@ public static class VoxelUtils
     // Current chunk resolution
     public static int Size { get; internal set; }
     public static uint UintSize => (uint)Size;
-
-    // Used for octree scaling
-    public static float OctreeDividor => (float) Size * VoxelSize;
 
     // Total number of voxels in a volume
     public static int Volume => Size * Size * Size;

@@ -81,7 +81,7 @@ public struct CornerJob : IJobParallelFor
         bool4 check2 = test2 < math.float4(0.0);
 
         int value = math.bitmask(check1) | (math.bitmask(check2) << 4);
-
+    
         enabled[index] = (byte)value;
     }
 }

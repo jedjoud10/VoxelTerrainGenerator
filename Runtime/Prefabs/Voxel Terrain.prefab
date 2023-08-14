@@ -9,11 +9,13 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5657487588625869454}
+  - component: {fileID: 8572855768852968992}
+  - component: {fileID: 7193759343885691420}
   - component: {fileID: 7158265105977027013}
   - component: {fileID: 305494748139102449}
-  - component: {fileID: 8572855768852968992}
+  - component: {fileID: 7541423554628836651}
+  - component: {fileID: 6535033683702868775}
   - component: {fileID: 3468452622346475171}
-  - component: {fileID: 7193759343885691420}
   m_Layer: 0
   m_Name: Voxel Terrain
   m_TagString: Untagged
@@ -36,6 +38,43 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8572855768852968992
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5247181259204451943}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 00e1ff5fc0a7fe64db46a425293b5b1f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  resolution: 64
+  voxelSizeReduction: 1
+  chunkPrefab: {fileID: 6177338312385691531, guid: 4d388002189c96345901f85821f1a600,
+    type: 3}
+--- !u!114 &7193759343885691420
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5247181259204451943}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e787133040bb3d45acfc35df2b68f88, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxDepth: 7
+  curvePoints:
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
 --- !u!114 &7158265105977027013
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -50,10 +89,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   worldOffset: {x: 0, y: 0, z: 0}
   worldScale: {x: 1, y: 1, z: 1}
+  permutationSeed: {x: 0, y: 0, z: 0}
+  moduloSeed: {x: 0, y: 0, z: 0}
   isosurfaceOffset: 0
   voxelShader: {fileID: 7200000, guid: e462ac5da1eeb174ca7f61e9b72917b9, type: 3}
-  voxelTexture: {fileID: 0}
-  asyncReadbacks: 1
+  readbackTexture: {fileID: 0}
+  asyncReadbacks: 8
 --- !u!114 &305494748139102449
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -66,8 +107,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 998d14371a252d844953b5096474c997, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  meshJobsPerFrame: 1
---- !u!114 &8572855768852968992
+  meshJobsPerFrame: 4
+  smoothing: 1
+  voxelMaterials:
+  - {fileID: 2100000, guid: 05d1c9c5df2aebb4a8358c2343a838d5, type: 2}
+  - {fileID: 2100000, guid: 40d4a243869c25a48ab2f2de89d94dcd, type: 2}
+  - {fileID: 2100000, guid: 62cb0288a0a6372468fe6da7d4a84aa1, type: 2}
+--- !u!114 &7541423554628836651
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -76,14 +122,22 @@ MonoBehaviour:
   m_GameObject: {fileID: 5247181259204451943}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 00e1ff5fc0a7fe64db46a425293b5b1f, type: 3}
+  m_Script: {fileID: 11500000, guid: d5bef0f1433829e458439ecec3acd6bc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  resolution: 64
-  voxelSizeReduction: 0
-  computeCollision: 0
-  material: {fileID: 2100000, guid: 4f75e93d90f56374c9e6ff9c6d95945d, type: 2}
-  chunkPrefab: {fileID: 0}
+  computeCollisions: 1
+--- !u!114 &6535033683702868775
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5247181259204451943}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a218ca44eaa006d4a8992f3d71327c68, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &3468452622346475171
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -96,44 +150,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: efb0edf5fd1e01a4283d253eaa649b4e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &7193759343885691420
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5247181259204451943}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6e787133040bb3d45acfc35df2b68f88, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  maxTargetCount: 1
-  maxDepth: 5
-  curve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 34
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 34
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  minNodeGenerationDepth: 0
-  lodDistanceScaling: 1
-  drawGizmos: 1

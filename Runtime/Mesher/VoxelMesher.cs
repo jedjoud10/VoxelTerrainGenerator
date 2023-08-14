@@ -18,7 +18,6 @@ public class VoxelMesher : VoxelBehaviour
     [Range(1, 8)]
     public int meshJobsPerFrame = 1;
 
-    public bool generateCollisions = false;
     public bool smoothing = true;
     public Material[] voxelMaterials;
 
@@ -29,12 +28,7 @@ public class VoxelMesher : VoxelBehaviour
     public delegate void OnVoxelMeshingComplete(VoxelChunk chunk, VoxelMesh mesh);
     public event OnVoxelMeshingComplete onVoxelMeshingComplete;
 
-    // Called when a chunk's mesh gets its collision data
-    public delegate void OnCollisionBakingComplete(VoxelChunk chunk, VoxelMesh mesh);
-    public event OnCollisionBakingComplete onCollisionBakingComplete;
-
     // Used for collision
-    private List<(JobHandle, VoxelChunk, VoxelMesh)> ongoingBakeJobs;
     Queue<PendingMeshJob> pendingMeshJobs;
 
     // Checks if the voxel mesher has completed all the work
@@ -42,10 +36,9 @@ public class VoxelMesher : VoxelBehaviour
     {
         get
         {
-            bool bakeJobs = ongoingBakeJobs.Count == 0;
             bool pending = pendingMeshJobs.Count == 0;
             bool handlersFree = handlers.All(x => x.Free);
-            return bakeJobs && pending && handlersFree;
+            return pending && handlersFree;
         }
     }
 
@@ -54,7 +47,6 @@ public class VoxelMesher : VoxelBehaviour
     {
         handlers = new List<MeshJobHandler>(meshJobsPerFrame);
         pendingMeshJobs = new Queue<PendingMeshJob>();
-        ongoingBakeJobs = new List<(JobHandle, VoxelChunk, VoxelMesh)>();
 
         for (int i = 0; i < meshJobsPerFrame; i++)
         {
@@ -69,7 +61,7 @@ public class VoxelMesher : VoxelBehaviour
         {
             chunk = chunk,
             container = container,
-            computeCollisions = computeCollisions && generateCollisions,
+            computeCollisions = computeCollisions,
             dependency = dependency,
         });
     }
@@ -85,42 +77,18 @@ public class VoxelMesher : VoxelBehaviour
                 MeshJobHandler handler = handlers[i];
                 handler.chunk = chunk;
                 handler.voxels = container;
-                handler.computeCollisions = computeCollisions && generateCollisions;
+                handler.computeCollisions = computeCollisions;
                 var job = handler.BeginJob(dependency, smoothing);
 
                 VoxelMesh voxelMesh = handler.Complete(voxelMaterials);
 
                 onVoxelMeshingComplete?.Invoke(chunk, voxelMesh);
 
-                if (handler.computeCollisions)
-                {
-                    HandleVoxelMeshCollision(chunk, voxelMesh);
-                }
-
                 return true;
             }
         }
 
         return false;
-    }
-
-
-    private void HandleVoxelMeshCollision(VoxelChunk chunk, VoxelMesh voxelMesh)
-    {
-        if (voxelMesh.mesh.vertexCount > 0 && voxelMesh.mesh.triangles.Length > 0)
-        {
-            BakeJob bakeJob = new BakeJob
-            {
-                meshId = voxelMesh.mesh.GetInstanceID(),
-            };
-
-            var handle = bakeJob.Schedule();
-            ongoingBakeJobs.Add((handle, chunk, voxelMesh));
-        }
-        else
-        {
-            onCollisionBakingComplete?.Invoke(chunk, VoxelMesh.Empty);
-        }
     }
 
     void Update()
@@ -133,11 +101,6 @@ public class VoxelMesher : VoxelBehaviour
                 VoxelChunk chunk = handler.chunk;
                 VoxelMesh voxelMesh = handler.Complete(voxelMaterials);
                 onVoxelMeshingComplete?.Invoke(chunk, voxelMesh);
-                
-                if (handler.computeCollisions)
-                {
-                    HandleVoxelMeshCollision(chunk, voxelMesh);
-                }
             }
         }
 
@@ -159,16 +122,6 @@ public class VoxelMesher : VoxelBehaviour
                 handler.BeginJob(output.dependency, smoothing);
             }
         }
-
-        // Complete the baking jobs
-        foreach (var (handle, chunk, mesh) in ongoingBakeJobs) 
-        {
-            if (handle.IsCompleted) {
-                handle.Complete();
-                onCollisionBakingComplete?.Invoke(chunk, mesh);
-            }
-        }
-        ongoingBakeJobs.RemoveAll(item => item.Item1.IsCompleted);
     }
 
     internal override void Dispose()

@@ -76,8 +76,8 @@ public class VoxelOctree : VoxelBehaviour
         targets[0] = new OctreeTarget
         {
             generateCollisions = loader.generateCollisions,
-            center = loader.transform.position / VoxelUtils.OctreeDividor,
-            radius = loader.radius / VoxelUtils.OctreeDividor,
+            center = loader.transform.position,
+            radius = loader.radius,
         };
         mustUpdate = true;
     }
@@ -174,8 +174,8 @@ public class VoxelOctree : VoxelBehaviour
 
         var handle = new IntersectJob
         {
-            min = min / VoxelUtils.OctreeDividor,
-            max = max / VoxelUtils.OctreeDividor,
+            min = min,
+            max = max,
             pending = pendingQueue,
             nodes = octreeNodesList[1 - lastIndex],
             intersectLeafs = intersectLeafs

@@ -24,75 +24,52 @@ public struct OctreeNode: IEquatable<OctreeNode>
     };
 
     // Start position (0, 0, 0) of the octree node
-    public int3 position;
+    public float3 Position { get; private set; }
 
     // Inverse Depth of the node starting from maxDepth
-    public int depth;
+    public int Depth { get; private set; }
 
     // Max depth propagated from the main octree node
-    public int maxDepth;
+    internal int maxDepth;
 
     // The full size of the node
-    public int size;
+    public float Size { get; private set; }
 
     // Should we generate collisions from this node
-    public bool generateCollisions;
+    public bool GenerateCollisions { get; internal set; }
 
     // Index of the current node inside the array
-    public int index;
+    public int Index { get; internal set; }
 
     // Index of the children nodes
-    public int childBaseIndex;
+    public int ChildBaseIndex { get; internal set; }
+
+    // Center of the node
+    public float3 Center => math.float3(Position) + math.float3(Size) / 2.0F;
+
+    // Scaling factor applied to chunks 
+    public float ScalingFactor => math.pow(2.0F, (float)maxDepth - Depth);
 
     // Create the root node
     public static OctreeNode RootNode(int maxDepth)
     {
-        int size = (int)(math.pow(2.0F, (float)(maxDepth))) * 1;
+        float size = (int)(math.pow(2.0F, (float)(maxDepth))) * VoxelUtils.Size * VoxelUtils.VoxelSize;
         OctreeNode node = new OctreeNode();
-        node.position = -math.int3(size / 2);
-        node.depth = 0;
+        node.Position = -math.int3(size / 2);
+        node.Depth = 0;
         node.maxDepth = maxDepth;
-        node.size = size;
-        node.index = 0;
-        node.childBaseIndex = 1;
+        node.Size = size;
+        node.Index = 0;
+        node.ChildBaseIndex = 1;
         return node;
-    }
-
-    // Calculate the world center position of the octree node
-    public Vector3 WorldCenter()
-    {
-        float scaling = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
-        float3 center = math.float3(position) + math.float3((float)size / 2.0F);
-        return new Vector3(center.x, center.y, center.z) * scaling;
-    }
-
-    // Calculate the world position of the octree node
-    public Vector3 WorldPosition()
-    {
-        float scaling = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
-        float3 _position = math.float3(position);
-        return new Vector3(_position.x, _position.y, _position.z) * scaling;
-    }
-
-    // Calculate the scaling factor that must be applied to the chunks
-    public float ScalingFactor()
-    {
-        return (math.pow(2.0F, (float)(maxDepth - depth)));
-    }
-
-    // Calculate the world size of the octree node
-    public Vector3 WorldSize()
-    {
-        float scaling = (float)VoxelUtils.Size * VoxelUtils.VoxelSize;
-        return new Vector3((float)size * scaling, (float)size * scaling, (float)size * scaling);
     }
 
     public bool Equals(OctreeNode other)
     {
-        return math.all(this.position == other.position) &&
-            this.depth == other.depth &&
-            this.size == other.size &&
-            (this.childBaseIndex == -1) == (other.childBaseIndex == -1);
+        return math.all(this.Position == other.Position) &&
+            this.Depth == other.Depth &&
+            this.Size == other.Size &&
+            (this.ChildBaseIndex == -1) == (other.ChildBaseIndex == -1);
     }
 
     // https://forum.unity.com/threads/burst-error-bc1091-external-and-internal-calls-are-not-allowed-inside-static-constructors.1347293/
@@ -101,10 +78,10 @@ public struct OctreeNode: IEquatable<OctreeNode>
         unchecked
         {
             int hash = 17;
-            hash = hash * 23 + position.GetHashCode();
-            hash = hash * 23 + depth.GetHashCode();
-            hash = hash * 23 + childBaseIndex.GetHashCode();
-            hash = hash * 23 + size.GetHashCode();
+            hash = hash * 23 + Position.GetHashCode();
+            hash = hash * 23 + Depth.GetHashCode();
+            hash = hash * 23 + ChildBaseIndex.GetHashCode();
+            hash = hash * 23 + Size.GetHashCode();
             return hash;
         }
     }
@@ -112,8 +89,8 @@ public struct OctreeNode: IEquatable<OctreeNode>
     // Check if this node intersects the given AABB
     public bool IntersectsAABB(float3 min, float3 max)
     {
-        float3 nodeMin = math.float3(position);
-        float3 nodeMax = math.float3(position) + math.float3(size);
+        float3 nodeMin = math.float3(Position);
+        float3 nodeMax = math.float3(Position) + math.float3(Size);
         return math.all(min <= nodeMax) && math.all(nodeMin <= max);
     }
 
@@ -125,11 +102,11 @@ public struct OctreeNode: IEquatable<OctreeNode>
 
         foreach (var target in targets)
         {
-            float3 minBounds = math.float3(position);
-            float3 maxBounds = math.float3(position) + math.float3(size);
+            float3 minBounds = math.float3(Position);
+            float3 maxBounds = math.float3(Position) + math.float3(Size);
             float3 clamped = math.clamp(target.center, minBounds, maxBounds);
 
-            bool local = math.distance(clamped, target.center) < target.radius * ScalingFactor() * qualityPoints[depth];
+            bool local = math.distance(clamped, target.center) < target.radius * ScalingFactor * qualityPoints[Depth];
             subdivide |= local;
             generateCollisions |= local && target.generateCollisions;
         }
@@ -140,29 +117,29 @@ public struct OctreeNode: IEquatable<OctreeNode>
     // Try to subdivide the current node into 8 octants
     public void TrySubdivide(ref NativeArray<OctreeTarget> targets, ref NativeList<OctreeNode> nodes, ref NativeQueue<OctreeNode> pending, ref NativeArray<float> qualityPoints)
     {
-        if (ShouldSubdivide(ref targets, ref qualityPoints, out bool generateChildrenCollisions) && depth < maxDepth)
+        if (ShouldSubdivide(ref targets, ref qualityPoints, out bool generateChildrenCollisions) && Depth < maxDepth)
         {
-            childBaseIndex = nodes.Length;
+            ChildBaseIndex = nodes.Length;
 
             for (int i = 0; i < 8; i++)
             {
-                int3 offset = offsets[i];
+                float3 offset = math.float3(offsets[i]);
                 OctreeNode node = new OctreeNode
                 {
-                    position = offset * (size / 2) + this.position,
-                    depth = depth + 1,
-                    size = size / 2,
+                    Position = offset * (Size / 2.0F) + this.Position,
+                    Depth = Depth + 1,
+                    Size = Size / 2,
                     maxDepth = maxDepth,
-                    index = childBaseIndex + i,
-                    childBaseIndex = -1,
-                    generateCollisions = generateChildrenCollisions && depth == (maxDepth-1),
+                    Index = ChildBaseIndex + i,
+                    ChildBaseIndex = -1,
+                    GenerateCollisions = generateChildrenCollisions && Depth == (maxDepth-1),
                 };
 
                 pending.Enqueue(node);
                 nodes.Add(node);
             }
 
-            nodes[this.index] = this;
+            nodes[this.Index] = this;
         }
     }
 }

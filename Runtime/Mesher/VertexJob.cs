@@ -78,7 +78,7 @@ public struct VertexJob : IJobParallelFor
             return;
         }
 
-        float3 vertex = math.select(math.float3(0.5F), float3.zero, smoothing);
+        float3 vertex = math.select(math.float3(0.0F), float3.zero, smoothing);
 
         // Fetch the byte that contains the number of corners active
         uint enabledCorners = enabled[index];

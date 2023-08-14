@@ -9,9 +9,13 @@ public struct VoxelMesh
     // Materials that must be set when setting the mesh
     public Material[] materials;
 
+    // Should we compute collisions for this voxel mesh?
+    public bool computeCollisions;
+
     public static VoxelMesh Empty = new VoxelMesh
     {
         mesh = null,
-        materials = null
+        materials = null,
+        computeCollisions = false
     };
 }

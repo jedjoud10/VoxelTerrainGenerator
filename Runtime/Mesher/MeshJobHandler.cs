@@ -147,6 +147,7 @@ internal class MeshJobHandler
         {
             mesh = mesh,
             materials = materials,
+            computeCollisions = computeCollisions,
         };
     }
 

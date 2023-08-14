@@ -31,11 +31,11 @@ public struct IntersectJob : IJob
             var node = nodes[index];
             if (node.IntersectsAABB(min, max))
             {
-                if (node.childBaseIndex != -1)
+                if (node.ChildBaseIndex != -1)
                 {
                     for (int i = 0; i < 8; i++)
                     {
-                        pending.Enqueue(node.childBaseIndex + i);
+                        pending.Enqueue(node.ChildBaseIndex + i);
                     }
                 } else
                 {

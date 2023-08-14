@@ -11,13 +11,17 @@ using UnityEngine;
 // Everytime we generate a new chunk, we look at the CPU voxel data and use it to overwrite the data if needed
 // This makes it so that the data that needs to be serialized / deserialized scales with the number of chunks edited
 // and not the number of edits in the world
+
+// there are two types of edits
+// 1: edits that read back the voxel data, and modify it
+// 2: edits that apply an offset (an potentially a material overwite) to voxel data
+// we can apply edits of type 1 only on chunks that are at LOD0 (otherwise we'd need to generate a shit ton more voxel data)
+
 public class VoxelEdits : VoxelBehaviour
 {
-    // Indirection texture that contains the index of the textures at specific points in space
-    private Texture3D indirectionTexture;
-
-    // List of texture "segments" that will be sparsely stored in the world
-    private List<Voxel> editedVoxels;
+    // Max number of chunks we should edit at the same time (should be less than or equal to max mesh jobs)
+    [Range(1, 8)]
+    public int maxMeshEditJobsPerEdit = 1;
 
     // Initialize the voxel edits handler
     internal override void Init()
@@ -32,7 +36,7 @@ public class VoxelEdits : VoxelBehaviour
     // Apply a voxel edit to the terrain world either immediately or asynchronously
     public void ApplyVoxelEdit<T>(T edit, bool immediate = false) where T : struct, IVoxelEdit
     {
-        if (!terrain.Free)
+        if (!terrain.Free || !terrain.VoxelGenerator.Free || !terrain.VoxelMesher.Free)
         {
             // We can't really do much if the terrain is busy and we need an immediate edit
             Debug.LogWarning("Terrain currently active!");            
@@ -71,9 +75,13 @@ public class VoxelEdits : VoxelBehaviour
                 vertexScaling = VoxelUtils.VertexScaling,
             }.Schedule(VoxelUtils.Volume, 2048);
 
-            if (immediate)
+            if (immediate && i < maxMeshEditJobsPerEdit)
             {
-                terrain.VoxelMesher.TryGenerateMeshImmediate(chunk, chunk.AsContainer(), true, job);
+                if(!terrain.VoxelMesher.TryGenerateMeshImmediate(chunk, chunk.AsContainer(), true, job))
+                {
+                    // Technically this should never happen but in case it does this is here
+                    terrain.VoxelMesher.GenerateMesh(chunk, chunk.AsContainer(), true, job);
+                }
             } else
             {
                 terrain.VoxelMesher.GenerateMesh(chunk, chunk.AsContainer(), true, job);
