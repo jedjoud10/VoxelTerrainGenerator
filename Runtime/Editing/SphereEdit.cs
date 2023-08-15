@@ -30,7 +30,7 @@ public struct SphereEdit : IVoxelEdit
     {
         float density = math.length(position - center) - radius;
         input.material = (density < 0.0F && writeMaterial) ? material : input.material;
-        input.density = (density < 0.0F) ? (half)(density * strength) : input.density;
+        input.density = (density < 0.0F) ? (half)(density * -strength) : input.density;
         return input;
     }
 }

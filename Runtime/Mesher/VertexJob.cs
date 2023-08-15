@@ -1,7 +1,9 @@
+using System.Buffers.Text;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEngine.UIElements;
 
 
 // Surface mesh job that will generate the isosurface mesh vertices
@@ -74,12 +76,13 @@ public struct VertexJob : IJobParallelFor
     public void Execute(int index)
     {
         uint3 position = VoxelUtils.IndexToPos(index);
+        indices[index] = int.MaxValue;
 
         // Idk bruh
         if (math.any(position > math.uint3(size - 2)))
             return;
 
-        float3 vertex = math.select(math.float3(0.0F), float3.zero, smoothing);
+        float3 vertex = float3.zero;
 
         // Check if we will use this vertex for skirting purposes
         bool3 base_ = (position == math.uint3(0)) & skirtsBase;
@@ -92,7 +95,7 @@ public struct VertexJob : IJobParallelFor
         uint enabledCorners = enabled[index];
 
         // Early check to quit if the cell if full / empty
-        if (enabledCorners == 0 || enabledCorners == 255) return;
+        if ((enabledCorners == 0 || enabledCorners == 255) && !math.any(skirts)) return;
 
         // Doing some marching cube shit here
         uint code = VoxelUtils.EdgeMasks[enabledCorners];

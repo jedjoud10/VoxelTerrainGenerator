@@ -125,7 +125,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5bef0f1433829e458439ecec3acd6bc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  computeCollisions: 1
+  generateCollisions: 1
 --- !u!114 &6535033683702868775
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -138,6 +138,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a218ca44eaa006d4a8992f3d71327c68, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  maxImmediateMeshEditJobsPerEdit: 1
 --- !u!114 &3468452622346475171
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -1,8 +1,7 @@
-using UnityEngine;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
-using Unity.Burst;
 
 
 // Surface mesh job that will generate the isosurface quads, and thus, the triangles
@@ -24,7 +23,8 @@ public struct QuadJob : IJobParallelFor
 
     // Forward direction of each quad
     [ReadOnly]
-    static readonly uint3[] quadForwardDirection = new uint3[3] {
+    static readonly uint3[] quadForwardDirection = new uint3[3]
+    {
         new uint3(1, 0, 0),
         new uint3(0, 1, 0),
         new uint3(0, 0, 1),
@@ -32,7 +32,8 @@ public struct QuadJob : IJobParallelFor
 
     // Quad vertices offsets based on direction
     [ReadOnly]
-    static readonly uint3[] quadPerpendicularOffsets = new uint3[12] {
+    static readonly uint3[] quadPerpendicularOffsets = new uint3[12]
+    {
         new uint3(0, 0, 0),
         new uint3(0, 1, 0),
         new uint3(0, 1, 1),
@@ -47,6 +48,13 @@ public struct QuadJob : IJobParallelFor
         new uint3(1, 0, 0),
         new uint3(1, 1, 0),
         new uint3(0, 1, 0)
+    };
+
+    // Bit shift used to check for edges
+    [ReadOnly]
+    static readonly int[] shifts = new int[3]
+    {
+        0, 3, 8
     };
 
     // Used for fast traversal
@@ -66,10 +74,12 @@ public struct QuadJob : IJobParallelFor
     public NativeParallelHashMap<ushort, int>.ReadOnly materialHashMap;
 
     // Static settings
-    public int size;
+    [ReadOnly] public int size;
+    [ReadOnly] public bool3 skirtsBase;
+    [ReadOnly] public bool3 skirtsEnd;
 
     // Check and edge and check if we must generate a quad in it's forward facing direction
-    void CheckEdge(uint3 basePosition, int index)
+    void CheckEdge(uint3 basePosition, int index, bool forceDir, bool dir)
     {
         uint3 forward = quadForwardDirection[index];
         int baseIndex = VoxelUtils.PosToIndex(basePosition);
@@ -77,20 +87,30 @@ public struct QuadJob : IJobParallelFor
 
         Voxel endVoxel = voxels[endIndex];
         Voxel startVoxel = voxels[baseIndex];
+
         bool flip = (endVoxel.density >= 0.0);
+
+        if (forceDir)
+            flip = dir;
+
         ushort material = flip ? startVoxel.material : endVoxel.material;
 
+        uint3 offset = basePosition + forward - math.uint3(1);
+
         // Fetch the indices of the vertex positions
-        int index0 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4] - math.uint3(1));
-        int index1 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 1] - math.uint3(1));
-        int index2 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 2] - math.uint3(1));
-        int index3 = VoxelUtils.PosToIndex(basePosition + forward + quadPerpendicularOffsets[index * 4 + 3] - math.uint3(1));
+        int index0 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4]);
+        int index1 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4 + 1]);
+        int index2 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4 + 2]);
+        int index3 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4 + 3]);
 
         // Fetch the actual indices of the vertices
         int vertex0 = vertexIndices[index0];
         int vertex1 = vertexIndices[index1];
         int vertex2 = vertexIndices[index2];
         int vertex3 = vertexIndices[index3];
+
+        if ((vertex0 | vertex1 | vertex2 | vertex3) == int.MaxValue)
+            return;
 
         // Get the triangle index base
         int packedMaterialIndex = materialHashMap[material];
@@ -114,21 +134,35 @@ public struct QuadJob : IJobParallelFor
     {
         uint3 position = VoxelUtils.IndexToPos(index);
 
-        if (math.any((position > new uint3(size-2))) || math.any((position == new uint3(0))))
-            return;
-
+        // Allows us to save two voxel fetches (very important)
         ushort enabledEdges = VoxelUtils.EdgeMasks[enabled[index]];
 
-        // 0
-        if ((enabledEdges & 1) == 1)
-            CheckEdge(position, 0);
+        // Used for skirts
+        float density = voxels[index].density;
+        bool3 base_ = (position == math.uint3(1)) & skirtsBase;
+        bool3 end_ = (position == math.uint3(size - 2)) & skirtsEnd;
+        bool3 forceEdgeSkirt = math.bool3(false);
+        //forceEdgeSkirt = base_ | end_;
+        bool valPos = math.all((position < math.uint3(size - 1))) && math.all((position > math.uint3(0)));
 
-        // 3
-        if (((enabledEdges >> 3) & 1) == 1) 
-            CheckEdge(position, 1);
 
-        // 8
-        if (((enabledEdges >> 8) & 1) == 1)
-            CheckEdge(position, 2);
+        if (!valPos)
+            return;
+
+        for (int i = 0; i < 3; i++)
+        {
+            // Handle creating the quad normally
+            if (((enabledEdges >> shifts[i]) & 1) == 1 && !forceEdgeSkirt[i])
+            {
+                CheckEdge(position, i, false, false);
+            }
+            
+            // Handle creating the skirt 
+            if (forceEdgeSkirt[i] && density < 0.0F)
+            {
+                bool flip = forceEdgeSkirt[i] != base_[i];
+            }
+                //CheckEdge(position, i, true, flip);
+        }
     }
 }

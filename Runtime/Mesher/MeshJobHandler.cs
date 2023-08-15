@@ -76,8 +76,8 @@ internal class MeshJobHandler
             vertexScale = VoxelUtils.VertexScaling,
             size = VoxelUtils.Size,
             smoothing = smoothing,
-            skirtsBase = math.bool3(false),
-            skirtsEnd = math.bool3(false),
+            skirtsBase = math.bool3(true),
+            skirtsEnd = math.bool3(true),
         };
 
         // Generate the quads of the mesh
@@ -92,6 +92,8 @@ internal class MeshJobHandler
             materialHashMap = materialHashMap.AsReadOnly(),
             materialCounter = materialCounter,
             size = VoxelUtils.Size,
+            skirtsBase = math.bool3(true),
+            skirtsEnd = math.bool3(true),
         };
 
         // Start the material + filter job
