@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Codice.Client.BaseCommands;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -41,6 +42,9 @@ public struct OctreeNode: IEquatable<OctreeNode>
     // Index of the current node inside the array
     public int Index { get; internal set; }
 
+    // Index of the parent node (-1 if root)
+    public int ParentIndex { get; internal set; }
+
     // Index of the children nodes
     public int ChildBaseIndex { get; internal set; }
 
@@ -49,6 +53,11 @@ public struct OctreeNode: IEquatable<OctreeNode>
 
     // Scaling factor applied to chunks 
     public float ScalingFactor => math.pow(2.0F, (float)maxDepth - Depth);
+
+    // Directions in which skirts should be enabled
+    // First 3 bits depict the "base" skirts (x = 0, etc...)
+    // Next 3 bits depict the "end" skirts (x = size - 2, etc...)
+    public int Skirts { get; internal set; }
 
     // Create the root node
     public static OctreeNode RootNode(int maxDepth)
@@ -60,6 +69,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
         node.maxDepth = maxDepth;
         node.Size = size;
         node.Index = 0;
+        node.ParentIndex = -1;
         node.ChildBaseIndex = 1;
         return node;
     }
@@ -92,6 +102,14 @@ public struct OctreeNode: IEquatable<OctreeNode>
         float3 nodeMin = math.float3(Position);
         float3 nodeMax = math.float3(Position) + math.float3(Size);
         return math.all(min <= nodeMax) && math.all(nodeMin <= max);
+    }
+
+    // Check if this node contains a point
+    internal bool ContainsPoint(float3 point)
+    {
+        float3 nodeMin = math.float3(Position);
+        float3 nodeMax = math.float3(Position) + math.float3(Size);
+        return math.all(nodeMin <= point) && math.all(point <= nodeMax);
     }
 
     // Check if we can subdivide this node (and also if we should generate collisions)
@@ -130,6 +148,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
                     Depth = Depth + 1,
                     Size = Size / 2,
                     maxDepth = maxDepth,
+                    ParentIndex = this.Index,
                     Index = ChildBaseIndex + i,
                     ChildBaseIndex = -1,
                     GenerateCollisions = generateChildrenCollisions && Depth == (maxDepth-1),

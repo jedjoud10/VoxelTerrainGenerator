@@ -12,7 +12,7 @@ public struct SphereEdit : IVoxelEdit
 {
     [ReadOnly] public float3 center;
     [ReadOnly] public float radius;
-    [ReadOnly] public bool add;
+    [ReadOnly] public float strength;
     [ReadOnly] public ushort material;
     [ReadOnly] public bool writeMaterial;
 
@@ -29,16 +29,8 @@ public struct SphereEdit : IVoxelEdit
     public Voxel Modify(Voxel input, float3 position)
     {
         float density = math.length(position - center) - radius;
-
-        float added = math.half(math.min(input.density, density));
-        float removed = math.half(math.max(input.density, -density));
-        input.density = (half)math.select(removed, added, add);
-
-        if (writeMaterial && density < 0)
-        {
-            input.material = material;
-        }
-
+        input.material = (density < 0.0F && writeMaterial) ? material : input.material;
+        input.density = (density < 0.0F) ? (half)(density * strength) : input.density;
         return input;
     }
 }

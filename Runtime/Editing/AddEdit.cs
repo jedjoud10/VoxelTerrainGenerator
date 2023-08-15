@@ -13,6 +13,8 @@ public struct AddEdit : IVoxelEdit
     [ReadOnly] public float3 center;
     [ReadOnly] public float strength;
     [ReadOnly] public float radius;
+    [ReadOnly] public ushort material;
+    [ReadOnly] public bool writeMaterial;
 
     public float3 GetWorldCenter()
     {
@@ -27,12 +29,8 @@ public struct AddEdit : IVoxelEdit
     public Voxel Modify(Voxel input, float3 position)
     {
         float density = math.length(position - center) - radius;
-
-        if (density < 0)
-        {
-            input.density += math.half(strength);
-        }
-
+        input.density = (density < 0.0F) ? (half)(input.density + strength) : input.density;
+        input.material = (density < 0.0F && writeMaterial) ? material : input.material;
         return input;
     }
 }

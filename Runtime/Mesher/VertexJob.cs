@@ -67,18 +67,26 @@ public struct VertexJob : IJobParallelFor
     [ReadOnly] public float vertexScale;
     [ReadOnly] public float voxelScale;
     [ReadOnly] public bool smoothing;
+    [ReadOnly] public bool3 skirtsBase;
+    [ReadOnly] public bool3 skirtsEnd;
 
     // Excuted for each cell within the grid
     public void Execute(int index)
     {
         uint3 position = VoxelUtils.IndexToPos(index);
 
+        // Idk bruh
         if (math.any(position > math.uint3(size - 2)))
-        {
             return;
-        }
 
         float3 vertex = math.select(math.float3(0.0F), float3.zero, smoothing);
+
+        // Check if we will use this vertex for skirting purposes
+        bool3 base_ = (position == math.uint3(0)) & skirtsBase;
+        bool3 end_ = (position == math.uint3(size - 2)) & skirtsEnd;
+        
+        // Love me some cute femboys in skirts >.<
+        bool3 skirts = base_ | end_;
 
         // Fetch the byte that contains the number of corners active
         uint enabledCorners = enabled[index];
@@ -90,7 +98,7 @@ public struct VertexJob : IJobParallelFor
         uint code = VoxelUtils.EdgeMasks[enabledCorners];
         int count = math.countbits(code);
 
-        if (smoothing)
+        if (smoothing && !math.any(skirts))
         {
             for (int edge = 0; edge < 12; edge++)
             {
@@ -122,7 +130,12 @@ public struct VertexJob : IJobParallelFor
         indices[index] = vertexIndex;
 
         // Output vertex in object space
-        float3 outputVertex = (vertex / (float)count) + position;
+        float3 offset = (vertex / (float)count);
+
+        // Handle constricting the vertices in the axii
+        offset = math.select(offset, 0.0F, skirts);
+
+        float3 outputVertex = offset + position;
         vertices[vertexIndex] = outputVertex * vertexScale * voxelScale;
     }
 }

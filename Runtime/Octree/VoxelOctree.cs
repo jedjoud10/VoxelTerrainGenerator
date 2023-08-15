@@ -186,7 +186,7 @@ public class VoxelOctree : VoxelBehaviour
         handle.Complete();
 
         output = intersectLeafs;
-        return true;
+        return intersectLeafs.Length > 0;
     }
 
     // Dispose the octree memory

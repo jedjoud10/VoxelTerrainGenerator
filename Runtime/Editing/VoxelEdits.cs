@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -17,15 +18,22 @@ using UnityEngine;
 // 2: edits that apply an offset (an potentially a material overwite) to voxel data
 // we can apply edits of type 1 only on chunks that are at LOD0 (otherwise we'd need to generate a shit ton more voxel data)
 
+// todo: 1-2 edge, select the closes one (knitting)
+
 public class VoxelEdits : VoxelBehaviour
 {
     // Max number of chunks we should edit at the same time (should be less than or equal to max mesh jobs)
-    [Range(1, 8)]
-    public int maxMeshEditJobsPerEdit = 1;
+    [Range(0, 8)]
+    public int maxImmediateMeshEditJobsPerEdit = 1;
+
+    // Sparse array of voxel edits to be applied to new chunks
+    // TODO: Implement some sort of streaming system so we don't have to keep these in memory all the time
+    private List<SparseVoxelData> sparseVoxelData;
 
     // Initialize the voxel edits handler
     internal override void Init()
     {
+        sparseVoxelData = new List<SparseVoxelData>();
     }
 
     // Dispose of any memory
@@ -36,12 +44,8 @@ public class VoxelEdits : VoxelBehaviour
     // Apply a voxel edit to the terrain world either immediately or asynchronously
     public void ApplyVoxelEdit<T>(T edit, bool immediate = false) where T : struct, IVoxelEdit
     {
-        if (!terrain.Free || !terrain.VoxelGenerator.Free || !terrain.VoxelMesher.Free)
-        {
-            // We can't really do much if the terrain is busy and we need an immediate edit
-            Debug.LogWarning("Terrain currently active!");            
+        if (!terrain.Free || !terrain.VoxelGenerator.Free || !terrain.VoxelMesher.Free)       
             return;
-        }
 
         // Idk why we have to do this bruh this shit don't make no sense 
         float extentOffset = VoxelUtils.VoxelSize * 4.0F;
@@ -54,7 +58,15 @@ public class VoxelEdits : VoxelBehaviour
         float3 max = center + extents / 2;
 
         // Find the chunks affected by the edit
-        terrain.VoxelOctree.TryCheckAABBIntersection(min, max, out var output);
+        if (!terrain.VoxelOctree.TryCheckAABBIntersection(min, max, out var output))
+            return;
+
+        // We don't support editing non LOD0 chunks atm
+        if (output.Value.AsArray().AsReadOnlySpan().ToArray().Any(x => x.Depth != x.maxDepth))
+        {
+            Debug.LogError("Editing non LOD0 chunks is not supported yet. Blame Jed");
+            return;
+        }
 
         for(int i = 0; i < output.Value.Length; i++)
         {
@@ -75,7 +87,7 @@ public class VoxelEdits : VoxelBehaviour
                 vertexScaling = VoxelUtils.VertexScaling,
             }.Schedule(VoxelUtils.Volume, 2048);
 
-            if (immediate && i < maxMeshEditJobsPerEdit)
+            if (immediate && i < maxImmediateMeshEditJobsPerEdit)
             {
                 if(!terrain.VoxelMesher.TryGenerateMeshImmediate(chunk, chunk.AsContainer(), true, job))
                 {

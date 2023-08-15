@@ -16,18 +16,6 @@ public struct Voxel
     public ushort material;
 }
 
-public struct Voxel4
-{
-    public half density0;
-    public ushort material0;
-    public half density1;
-    public ushort material1;
-    public half density2;
-    public ushort material2;
-    public half density3;
-    public ushort material3;
-}
-
 // Voxel container with custom dispose methods
 // (implemented for voxel readback request and voxel edit request)
 public abstract class VoxelTempContainer

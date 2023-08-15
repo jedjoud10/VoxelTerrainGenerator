@@ -44,7 +44,7 @@ public class VoxelCollisions : VoxelBehaviour
 
     private void HandleVoxelMeshCollision(VoxelChunk chunk, VoxelMesh voxelMesh)
     {
-        if (voxelMesh.mesh.vertexCount > 0 && voxelMesh.mesh.triangles.Length > 0)
+        if (voxelMesh.mesh.vertexCount > 0 && voxelMesh.mesh.triangles.Length > 0 && voxelMesh.computeCollisions)
         {
             BakeJob bakeJob = new BakeJob
             {
