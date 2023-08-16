@@ -4,7 +4,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 
 
-// Fiter job that will store the locations of completely empty / filled cells in the mesh to speed up meshing
+// Corner job that will store the locations of completely empty / filled cells in the mesh to speed up meshing
 [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, OptimizeFor = OptimizeFor.Performance)]
 public struct CornerJob : IJobParallelFor
 {

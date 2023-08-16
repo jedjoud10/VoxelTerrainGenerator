@@ -11,6 +11,19 @@ using static UnityEngine.GraphicsBuffer;
 // Stored as a struct for performance reasons and to be able to use it within jobs
 public struct OctreeNode: IEquatable<OctreeNode>
 {
+    // Invalid type octree node
+    public static OctreeNode Invalid = new OctreeNode
+    {
+        ParentIndex = -1,
+        Index = -1,
+        Depth = -1,
+        maxDepth = -1,
+        Position = float3.zero,
+        Size = 0,
+        ChildBaseIndex = -1,
+        Skirts = -1,
+    };
+
     // Position offsets
     public static readonly int3[] offsets = 
     {

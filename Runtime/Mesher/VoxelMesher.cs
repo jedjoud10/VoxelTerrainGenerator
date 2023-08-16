@@ -18,6 +18,8 @@ public class VoxelMesher : VoxelBehaviour
     [Range(1, 8)]
     public int meshJobsPerFrame = 1;
 
+    public float minSkirtDensityThreshold = -10.0F;
+
     public bool smoothing = true;
     public Material[] voxelMaterials;
 
@@ -47,6 +49,8 @@ public class VoxelMesher : VoxelBehaviour
     {
         handlers = new List<MeshJobHandler>(meshJobsPerFrame);
         pendingMeshJobs = new Queue<PendingMeshJob>();
+        VoxelUtils.MinSkirtDensityThreshold = minSkirtDensityThreshold;
+        VoxelUtils.Smoothing = smoothing;
 
         for (int i = 0; i < meshJobsPerFrame; i++)
         {
@@ -78,7 +82,7 @@ public class VoxelMesher : VoxelBehaviour
                 handler.chunk = chunk;
                 handler.voxels = container;
                 handler.computeCollisions = computeCollisions;
-                var job = handler.BeginJob(dependency, smoothing);
+                var job = handler.BeginJob(dependency, chunk.node);
 
                 VoxelMesh voxelMesh = handler.Complete(voxelMaterials);
 
@@ -115,11 +119,17 @@ public class VoxelMesher : VoxelBehaviour
                     continue;
                 }
 
+                /*
+                VoxelChunk chunk = output.chunk;
+                output.container.TempDispose();
+                onVoxelMeshingComplete?.Invoke(chunk, VoxelMesh.Empty);
+                */
+
                 MeshJobHandler handler = handlers[i];
                 handler.chunk = output.chunk;
                 handler.voxels = output.container;
                 handler.computeCollisions = output.computeCollisions;
-                handler.BeginJob(output.dependency, smoothing);
+                handler.BeginJob(output.dependency, output.chunk.node);
             }
         }
     }

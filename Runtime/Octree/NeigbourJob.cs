@@ -63,20 +63,30 @@ public struct NeighbourJob : IJobParallelFor
             // Start going down the tree base on the parent index
             OctreeNode selectedParent = inputNodes[parentIndex];
             float3 estimatedNeighbouringNodeCenter = math.float3(node.Position) + math.float3(node.Size) / 2.0F + math.float3(node.Size * directions[i]);
-            int nextChildIndex = -1;
+            int nextChildIndex = 0;
 
             // Recursively pick the child that intersects the "neigbouring node" estimated center
+            /*
             while (true)
             {
                 for (int k = 0; k < 8; k++)
                 {
-                    if (inputNodes[nextChildIndex].ContainsPoint(estimatedNeighbouringNodeCenter))
+                    OctreeNode cur = inputNodes[nextChildIndex + k];
+
+                    if (cur.ContainsPoint(estimatedNeighbouringNodeCenter))
                     {
                         nextChildIndex = selectedParent.ChildBaseIndex + k;
+
+                        if (cur.Depth == cur.maxDepth)
+                        {
+                            break;
+                        }
                     }
                 }
             }
+            */
 
         }
+
     }
 }

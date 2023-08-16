@@ -181,7 +181,11 @@ public class VoxelTerrain : MonoBehaviour
                 obj.GetComponent<MeshRenderer>().enabled = false;
                 obj.transform.localScale = new Vector3(size, size, size);
                 VoxelChunk chunk = obj.GetComponent<VoxelChunk>();
-                chunk.voxels = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+
+                if (item.Depth == item.maxDepth)
+                {
+                    chunk.voxels = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                }
                 chunk.node = item;
                 VoxelGenerator.GenerateVoxels(chunk);
                 Chunks.TryAdd(item, chunk);
@@ -196,21 +200,35 @@ public class VoxelTerrain : MonoBehaviour
     void OnVoxelGenerationComplete(VoxelChunk chunk, VoxelReadbackRequest request)
     {
         VoxelMesher voxelMesher = GetComponent<VoxelMesher>();
-        chunk.voxels.CopyFrom(request.voxels);
+
+        if (chunk.voxels.IsCreated)
+            chunk.voxels.CopyFrom(request.voxels);
+        
         voxelMesher.GenerateMesh(chunk, request, chunk.node.GenerateCollisions);
     }
 
     // Update the mesh of the given chunk when we generate it
     void OnVoxelMeshingComplete(VoxelChunk chunk, VoxelMesh voxelMesh)
     {
-        chunk.GetComponent<MeshFilter>().mesh = voxelMesh.mesh;
-        chunk.GetComponent<MeshRenderer>().materials = voxelMesh.materials;
+        var filter = chunk.GetComponent<MeshFilter>();
+        var renderer = chunk.GetComponent<MeshRenderer>();
+
+        // Set mesh and renderer settings
+        filter.mesh = voxelMesh.Mesh;
+        renderer.materials = voxelMesh.Materials;
+
+        // Set renderer bounds
+        renderer.bounds = new Bounds
+        {
+            min = chunk.node.Position,
+            max = chunk.node.Position + chunk.node.Size,
+        };
     }
 
     // Update the mesh collider when we finish collision baking
     void OnCollisionBakingComplete(VoxelChunk chunk, VoxelMesh voxelMesh) 
     {
-        chunk.GetComponent<MeshCollider>().sharedMesh = voxelMesh.mesh;
+        chunk.GetComponent<MeshCollider>().sharedMesh = voxelMesh.Mesh;
     }
 
     // Request all the chunks to regenerate their meshes

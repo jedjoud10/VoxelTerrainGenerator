@@ -81,11 +81,11 @@ public struct VertexJob : IJobParallelFor
         // Idk bruh
         if (math.any(position > math.uint3(size - 2)))
             return;
-
+        
         float3 vertex = float3.zero;
 
         // Check if we will use this vertex for skirting purposes
-        bool3 base_ = (position == math.uint3(0)) & skirtsBase;
+        bool3 base_ = (position <= math.uint3(1)) & skirtsBase;
         bool3 end_ = (position == math.uint3(size - 2)) & skirtsEnd;
         
         // Love me some cute femboys in skirts >.<
@@ -136,7 +136,8 @@ public struct VertexJob : IJobParallelFor
         float3 offset = (vertex / (float)count);
 
         // Handle constricting the vertices in the axii
-        offset = math.select(offset, 0.0F, skirts);
+        float3 skirtOffset = math.select(0F, -1F, (position == math.uint3(1)));
+        offset = math.select(offset, skirtOffset, skirts);
 
         float3 outputVertex = offset + position;
         vertices[vertexIndex] = outputVertex * vertexScale * voxelScale;

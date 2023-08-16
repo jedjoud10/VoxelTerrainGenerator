@@ -67,7 +67,7 @@ void CSVoxelizer (uint3 id : SV_DispatchThreadID)
 
     uint packedMaterial = 0;
     if (sdBox(position, float3(10, 10, 10)) < 0) {
-        packedMaterial = 2;
+        //packedMaterial = 2;
     }
 
     //density = min(density, sdBox(position - float3(10, 10, 10), float3(8, 8, 8)));

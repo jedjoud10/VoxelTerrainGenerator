@@ -77,6 +77,7 @@ public struct QuadJob : IJobParallelFor
     [ReadOnly] public int size;
     [ReadOnly] public bool3 skirtsBase;
     [ReadOnly] public bool3 skirtsEnd;
+    [ReadOnly] public float minSkirtDensityThreshold;
 
     // Check and edge and check if we must generate a quad in it's forward facing direction
     void CheckEdge(uint3 basePosition, int index, bool forceDir, bool dir)
@@ -141,28 +142,24 @@ public struct QuadJob : IJobParallelFor
         float density = voxels[index].density;
         bool3 base_ = (position == math.uint3(1)) & skirtsBase;
         bool3 end_ = (position == math.uint3(size - 2)) & skirtsEnd;
-        bool3 forceEdgeSkirt = math.bool3(false);
-        //forceEdgeSkirt = base_ | end_;
+        bool3 forceEdgeSkirt = base_ | end_;
         bool valPos = math.all((position < math.uint3(size - 1))) && math.all((position > math.uint3(0)));
-
-
-        if (!valPos)
-            return;
+        bool valPosSkirts = math.all((position < math.uint3(size - 1))) && math.all((position > math.uint3(0)));
 
         for (int i = 0; i < 3; i++)
         {
             // Handle creating the quad normally
-            if (((enabledEdges >> shifts[i]) & 1) == 1 && !forceEdgeSkirt[i])
+            if (((enabledEdges >> shifts[i]) & 1) == 1 && valPos)
             {
                 CheckEdge(position, i, false, false);
             }
             
             // Handle creating the skirt 
-            if (forceEdgeSkirt[i] && density < 0.0F)
+            if (forceEdgeSkirt[i] && density < 0.0F && density > minSkirtDensityThreshold && valPosSkirts)
             {
                 bool flip = forceEdgeSkirt[i] != base_[i];
+                CheckEdge(position, i, true, flip);
             }
-                //CheckEdge(position, i, true, flip);
         }
     }
 }

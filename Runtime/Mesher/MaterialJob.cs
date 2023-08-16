@@ -6,7 +6,7 @@ using Unity.Burst;
 using UnityEngine.UIElements;
 
 
-// Filter job that will count the number of unique materials for the mesh
+// Material job that will count the number of unique materials for the mesh
 [BurstCompile(CompileSynchronously = true)]
 public struct MaterialJob : IJobParallelFor
 {

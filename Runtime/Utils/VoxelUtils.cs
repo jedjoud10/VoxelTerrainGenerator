@@ -27,6 +27,12 @@ public static class VoxelUtils
     // Total number of voxels in a volume
     public static int Volume => Size * Size * Size;
 
+    // Minimum density at which we enable skirting
+    public static float MinSkirtDensityThreshold { get; internal set; }
+
+    // Should we enable smoothing when meshing?
+    public static bool Smoothing { get; internal set; }
+
     // Stolen from https://gist.github.com/dwilliamson/c041e3454a713e58baf6e4f8e5fffecd
     public static readonly ushort[] EdgeMasks = new ushort[] {
         0x0, 0x109, 0x203, 0x30a, 0x80c, 0x905, 0xa0f, 0xb06,

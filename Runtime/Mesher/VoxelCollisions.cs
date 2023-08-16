@@ -44,11 +44,11 @@ public class VoxelCollisions : VoxelBehaviour
 
     private void HandleVoxelMeshCollision(VoxelChunk chunk, VoxelMesh voxelMesh)
     {
-        if (voxelMesh.mesh.vertexCount > 0 && voxelMesh.mesh.triangles.Length > 0 && voxelMesh.computeCollisions && generateCollisions)
+        if (voxelMesh.Mesh != null && voxelMesh.VertexCount > 0 && voxelMesh.TriangleCount > 0 && voxelMesh.ComputeCollisions && generateCollisions)
         {
             BakeJob bakeJob = new BakeJob
             {
-                meshId = voxelMesh.mesh.GetInstanceID(),
+                meshId = voxelMesh.Mesh.GetInstanceID(),
             };
 
             var handle = bakeJob.Schedule();
