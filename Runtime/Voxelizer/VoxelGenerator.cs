@@ -97,12 +97,12 @@ public class VoxelGenerator : VoxelBehaviour
     public void UpdateStaticComputeFields()
     {
         voxelShader.SetVector("worldOffset", worldOffset);
-        voxelShader.SetVector("worldScale", worldScale * VoxelUtils.VoxelSize);
+        voxelShader.SetVector("worldScale", worldScale * VoxelUtils.VoxelSizeFactor);
         voxelShader.SetFloat("isosurfaceOffset", isosurfaceOffset);
         voxelShader.SetInts("permuationSeed", new int[] { permutationSeed.x, permutationSeed.y, permutationSeed.z });
         voxelShader.SetInts("moduloSeed", new int[] { moduloSeed.x, moduloSeed.y, moduloSeed.z });
         voxelShader.SetInt("size", VoxelUtils.Size);
-        voxelShader.SetFloat("voxelSize", VoxelUtils.VoxelSize);
+        voxelShader.SetFloat("voxelSize", VoxelUtils.VoxelSizeFactor);
         voxelShader.SetFloat("vertexScaling", VoxelUtils.VertexScaling);
         voxelShader.SetTexture(0, "voxels", readbackTexture);
     }
@@ -125,8 +125,7 @@ public class VoxelGenerator : VoxelBehaviour
             VoxelChunk chunk = null;
             if (pendingVoxelGenerationChunks.TryDequeue(out chunk)) {
                 // Set chunk only parameters
-                Vector3     offset = Vector3.one * (chunk.transform.localScale.x / ((float)VoxelUtils.Size)) * 0.5F;
-                voxelShader.SetVector("chunkOffset", (chunk.transform.position / VoxelUtils.VoxelSize) / VoxelUtils.VertexScaling - offset);
+                voxelShader.SetVector("chunkOffset", chunk.transform.position);
                 voxelShader.SetFloat("chunkScale", chunk.transform.localScale.x);
 
                 // Generate the voxel data for the chunk

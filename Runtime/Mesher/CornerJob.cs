@@ -46,36 +46,18 @@ public struct CornerJob : IJobParallelFor
         int4 indices = math.int4(Morton.EncodeMorton32(offsets[0].c0 + position.x, offsets[0].c1 + position.y, offsets[0].c2 + position.z));
         float4 test = math.float4(0.0F);
 
-        /*
         for (int i = 0; i < 4; i++)
         {
             test[i] = voxels[indices[i]].density;
         }
-        */
-        
-
-        
-        test.x = voxels[indices.x].density;
-        test.y = voxels[indices.y].density;
-        test.z = voxels[indices.z].density;
-        test.w = voxels[indices.w].density;
-        
 
         int4 indices2 = math.int4(Morton.EncodeMorton32(offsets[1].c0 + position.x, offsets[1].c1 + position.y, offsets[1].c2 + position.z));
         float4 test2 = math.float4(0.0F);
 
-        /*
         for (int i = 0; i < 4; i++)
         {
             test2[i] = voxels[indices2[i]].density;
         }
-        */
-
-        
-        test2.x = voxels[indices2.x].density;
-        test2.y = voxels[indices2.y].density;
-        test2.z = voxels[indices2.z].density;
-        test2.w = voxels[indices2.w].density;
 
         bool4 check1 = test < math.float4(0.0);
         bool4 check2 = test2 < math.float4(0.0);

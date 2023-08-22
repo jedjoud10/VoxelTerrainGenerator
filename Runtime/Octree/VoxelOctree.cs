@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEngine;
 
 // Handles generating the octree for all octree loaders and creating the octree and detecting the delta
@@ -41,10 +42,13 @@ public class VoxelOctree : VoxelBehaviour
 
     private bool mustUpdate = false;
 
+    // Is the octree free to calculate a diff nodes?
+    public bool Free { get; private set; } = true;
+
     // Intialize octree memory
     internal override void Init()
     {
-
+        Free = true;
         targets = new NativeArray<OctreeTarget>(1, Allocator.Persistent);
         targets[0] = new OctreeTarget();
 
@@ -71,8 +75,11 @@ public class VoxelOctree : VoxelBehaviour
     }
 
     // Force the octree to update due to an octree loader moving
-    public void UpdateOctreeLoader(OctreeLoader loader)
+    public bool TryUpdateOctreeLoader(OctreeLoader loader)
     {
+        if (!Free)
+            return false;
+
         targets[0] = new OctreeTarget
         {
             generateCollisions = loader.generateCollisions,
@@ -80,6 +87,7 @@ public class VoxelOctree : VoxelBehaviour
             radius = loader.radius,
         };
         mustUpdate = true;
+        return true;
     }
 
     // Make sure the number of quality levels is equal the octree depth
@@ -98,7 +106,7 @@ public class VoxelOctree : VoxelBehaviour
     void Update()
     {
         // Make sure we are free for octree generation
-        if (terrain.Free && mustUpdate)
+        if (terrain.Free && Free && mustUpdate)
         {
             mustUpdate = false;
             int index = lastIndex;
@@ -117,6 +125,7 @@ public class VoxelOctree : VoxelBehaviour
             newNodesList.Clear();
             newNodesList.Add(root);
 
+            // Creates the octree
             SubdivideJob job = new SubdivideJob
             {
                 targets = targets,
@@ -125,14 +134,55 @@ public class VoxelOctree : VoxelBehaviour
                 qualityPoints = qualityPointsNativeArray,
             };
 
-            ToHashSetJob hashSetJob = new ToHashSetJob
-            {
-                oldNodesList = oldNodesList,
-                oldNodesHashSet = oldNodesHashSet,
-                newNodesList = newNodesList,
-                newNodesHashSet = newNodesHashSet,
-            };
+            // Handle scheduling the jobs
+            JobHandle initial = job.Schedule();
 
+            // We don't need to execute the neighbour job if we have skirts disabled
+            JobHandle hashSetJobHandle;
+
+            if (VoxelUtils.Skirts)
+            {
+                initial.Complete();
+
+                // Temp copy of the added nodes
+                var copy = new NativeArray<OctreeNode>(newNodesList.Length, Allocator.TempJob);
+                copy.CopyFrom(newNodesList.AsArray());
+
+                // Execute the neighbour checking job for added nodes
+                NeighbourJob neighbourJob = new NeighbourJob
+                {
+                    inputNodes = copy,
+                    outputNodes = newNodesList.AsArray(),
+                };
+
+                JobHandle neighbourJobHandle = neighbourJob.Schedule(newNodesList.Length, 8);
+                copy.Dispose(neighbourJobHandle);
+
+                // Converts the array into a hashlist
+                ToHashSetJob hashSetJob = new ToHashSetJob
+                {
+                    oldNodesList = oldNodesList,
+                    oldNodesHashSet = oldNodesHashSet,
+                    newNodesList = newNodesList,
+                    newNodesHashSet = newNodesHashSet,
+                };
+
+                hashSetJobHandle = hashSetJob.Schedule(neighbourJobHandle);
+            } else
+            {
+                // Converts the array into a hashlist
+                ToHashSetJob hashSetJob = new ToHashSetJob
+                {
+                    oldNodesList = oldNodesList,
+                    oldNodesHashSet = oldNodesHashSet,
+                    newNodesList = newNodesList,
+                    newNodesHashSet = newNodesHashSet,
+                };
+
+                hashSetJobHandle = hashSetJob.Schedule(initial);
+            }
+
+            // Job to check what we added
             DiffJob addedDiffJob = new DiffJob
             {
                 oldNodesHashSet = oldNodesHashSet,
@@ -140,6 +190,7 @@ public class VoxelOctree : VoxelBehaviour
                 diffedNodes = removedNodes,
             };
 
+            // Job to check what we removed
             DiffJob removedDiffJob = new DiffJob
             {
                 oldNodesHashSet = newNodesHashSet,
@@ -147,21 +198,24 @@ public class VoxelOctree : VoxelBehaviour
                 diffedNodes = addedNodes,
             };
 
-            JobHandle initial = job.Schedule();
+            JobHandle addedJob = addedDiffJob.Schedule(hashSetJobHandle);
+            JobHandle removedJob = removedDiffJob.Schedule(hashSetJobHandle);
+            finalJobHandle = JobHandle.CombineDependencies(addedJob, removedJob, initial);
+            Free = false;
+        }
 
-            JobHandle hashingHandle = hashSetJob.Schedule(initial);
-            JobHandle addedJob = addedDiffJob.Schedule(hashingHandle);
-            JobHandle removedJob = removedDiffJob.Schedule(hashingHandle);
-
-            finalJobHandle = JobHandle.CombineDependencies(addedJob, removedJob);
-
+        if (!Free && finalJobHandle.IsCompleted)
+        {
+            // Complete immediately
             finalJobHandle.Complete();
 
             if (addedNodes.Length > 0 || removedNodes.Length > 0)
             {
                 onOctreeChanged?.Invoke(ref addedNodes, ref removedNodes);
             }
-        }
+
+            Free = true;
+        } 
     }
 
     // Check if an AABB intersects the octree, and return a native list of the intersected leaf nodes

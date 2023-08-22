@@ -1,5 +1,4 @@
-﻿using Codice.Client.BaseCommands;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -75,7 +74,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
     // Create the root node
     public static OctreeNode RootNode(int maxDepth)
     {
-        float size = (int)(math.pow(2.0F, (float)(maxDepth))) * VoxelUtils.Size * VoxelUtils.VoxelSize;
+        float size = (int)(math.pow(2.0F, (float)(maxDepth))) * VoxelUtils.Size * VoxelUtils.VoxelSizeFactor;
         OctreeNode node = new OctreeNode();
         node.Position = -math.int3(size / 2);
         node.Depth = 0;
@@ -83,6 +82,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
         node.Size = size;
         node.Index = 0;
         node.ParentIndex = -1;
+        node.Skirts = 0;
         node.ChildBaseIndex = 1;
         return node;
     }
@@ -92,6 +92,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
         return math.all(this.Position == other.Position) &&
             this.Depth == other.Depth &&
             this.Size == other.Size &&
+            this.Skirts == other.Skirts &&
             (this.ChildBaseIndex == -1) == (other.ChildBaseIndex == -1);
     }
 
@@ -105,6 +106,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
             hash = hash * 23 + Depth.GetHashCode();
             hash = hash * 23 + ChildBaseIndex.GetHashCode();
             hash = hash * 23 + Size.GetHashCode();
+            hash = hash * 23 + Skirts.GetHashCode();
             return hash;
         }
     }
@@ -164,6 +166,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
                     ParentIndex = this.Index,
                     Index = ChildBaseIndex + i,
                     ChildBaseIndex = -1,
+                    Skirts = 0,
                     GenerateCollisions = generateChildrenCollisions && Depth == (maxDepth-1),
                 };
 

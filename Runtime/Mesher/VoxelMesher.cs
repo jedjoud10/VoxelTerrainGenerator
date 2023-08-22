@@ -21,6 +21,7 @@ public class VoxelMesher : VoxelBehaviour
     public float minSkirtDensityThreshold = -10.0F;
 
     public bool smoothing = true;
+    public bool skirts = true;
     public Material[] voxelMaterials;
 
     // List of persistently allocated mesh data
@@ -51,6 +52,7 @@ public class VoxelMesher : VoxelBehaviour
         pendingMeshJobs = new Queue<PendingMeshJob>();
         VoxelUtils.MinSkirtDensityThreshold = minSkirtDensityThreshold;
         VoxelUtils.Smoothing = smoothing;
+        VoxelUtils.Skirts = skirts;
 
         for (int i = 0; i < meshJobsPerFrame; i++)
         {
@@ -100,7 +102,7 @@ public class VoxelMesher : VoxelBehaviour
         // Complete the jobs that finished and create the meshes
         foreach(var handler in handlers) 
         {
-            if (handler.quadJobHandle.IsCompleted && !handler.Free)
+            if (handler.finalJobHandle.IsCompleted && !handler.Free)
             {
                 VoxelChunk chunk = handler.chunk;
                 VoxelMesh voxelMesh = handler.Complete(voxelMaterials);

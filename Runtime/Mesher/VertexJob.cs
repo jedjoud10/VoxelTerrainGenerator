@@ -93,16 +93,20 @@ public struct VertexJob : IJobParallelFor
 
         // Fetch the byte that contains the number of corners active
         uint enabledCorners = enabled[index];
+        bool empty = enabledCorners == 0 || enabledCorners == 255;
 
         // Early check to quit if the cell if full / empty
-        if ((enabledCorners == 0 || enabledCorners == 255) && !math.any(skirts)) return;
+        if (empty && !math.any(skirts)) return;
 
         // Doing some marching cube shit here
         uint code = VoxelUtils.EdgeMasks[enabledCorners];
         int count = math.countbits(code);
 
-        if (smoothing && !math.any(skirts))
+        // Use linear interpolation when smoothing
+        if (smoothing && !empty)
         {
+            // Create the smoothed vertex
+            // TODO: Test out QEF or other methods for smoothing here
             for (int edge = 0; edge < 12; edge++)
             {
                 // Continue if the edge isn't inside
@@ -125,7 +129,9 @@ public struct VertexJob : IJobParallelFor
         }
         else
         {
+            // Don't do any smoothing (or handle skirt vertex keko)
             count = 1;
+
         }
 
         // Must be offset by vec3(1, 1, 1)
@@ -136,7 +142,7 @@ public struct VertexJob : IJobParallelFor
         float3 offset = (vertex / (float)count);
 
         // Handle constricting the vertices in the axii
-        float3 skirtOffset = math.select(0F, -1F, (position == math.uint3(1)));
+        float3 skirtOffset = math.select(0.0F, 0.0F, (position == math.uint3(0)));
         offset = math.select(offset, skirtOffset, skirts);
 
         float3 outputVertex = offset + position;

@@ -26,7 +26,7 @@ public class OctreeLoader : MonoBehaviour
 
     void Start()
     {
-        octree.UpdateOctreeLoader(this);
+        octree.TryUpdateOctreeLoader(this);
         last = transform.position;
     }
 
@@ -34,8 +34,10 @@ public class OctreeLoader : MonoBehaviour
     {    
         if (Vector3.Distance(transform.position, last) > maxDistanceThreshold)
         {
-            last = transform.position;
-            octree.UpdateOctreeLoader(this);
+            if (octree.TryUpdateOctreeLoader(this))
+            {
+                last = transform.position;
+            }
         }
     }
 }

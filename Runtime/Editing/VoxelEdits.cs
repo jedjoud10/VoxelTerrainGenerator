@@ -7,18 +7,11 @@ using Unity.Mathematics;
 using UnityEngine;
 
 // Handles keeping track of voxel edits in the world
-
+// We will assume that the player can only edits the LOD0 chunks
 // Everytime we edit a chunk (LOD0), we keep a copy of the edited voxel data on the CPU
 // Everytime we generate a new chunk, we look at the CPU voxel data and use it to overwrite the data if needed
 // This makes it so that the data that needs to be serialized / deserialized scales with the number of chunks edited
 // and not the number of edits in the world
-
-// there are two types of edits
-// 1: edits that read back the voxel data, and modify it
-// 2: edits that apply an offset (an potentially a material overwite) to voxel data
-// we can apply edits of type 1 only on chunks that are at LOD0 (otherwise we'd need to generate a shit ton more voxel data)
-
-// todo: 1-2 edge, select the closes one (knitting)
 
 public class VoxelEdits : VoxelBehaviour
 {
@@ -44,11 +37,11 @@ public class VoxelEdits : VoxelBehaviour
     // Apply a voxel edit to the terrain world either immediately or asynchronously
     public void ApplyVoxelEdit<T>(T edit, bool immediate = false) where T : struct, IVoxelEdit
     {
-        if (!terrain.Free || !terrain.VoxelGenerator.Free || !terrain.VoxelMesher.Free)       
+        if (!terrain.Free || !terrain.VoxelGenerator.Free || !terrain.VoxelMesher.Free || !terrain.VoxelOctree.Free)       
             return;
 
         // Idk why we have to do this bruh this shit don't make no sense 
-        float extentOffset = VoxelUtils.VoxelSize * 4.0F;
+        float extentOffset = VoxelUtils.VoxelSizeFactor * 4.0F;
 
         // Get the edit's world AABB
         float3 extents = edit.GetWorldExtents() + math.float3(extentOffset);
@@ -64,7 +57,7 @@ public class VoxelEdits : VoxelBehaviour
         // We don't support editing non LOD0 chunks atm
         if (output.Value.AsArray().AsReadOnlySpan().ToArray().Any(x => x.Depth != x.maxDepth))
         {
-            Debug.LogError("Editing non LOD0 chunks is not supported yet. Blame Jed");
+            Debug.LogError("Editing non LOD0 chunks is not supported");
             return;
         }
 
@@ -73,7 +66,7 @@ public class VoxelEdits : VoxelBehaviour
             // Fetch chunk offsets + scale (like for compute shader)
             VoxelChunk chunk = terrain.Chunks[output.Value[i]];
             Vector3 offset = Vector3.one * (chunk.transform.localScale.x / ((float)VoxelUtils.Size)) * 0.5F;
-            Vector3 chunkOffset = (chunk.transform.position / VoxelUtils.VoxelSize) / VoxelUtils.VertexScaling - offset;
+            Vector3 chunkOffset = (chunk.transform.position / VoxelUtils.VoxelSizeFactor) / VoxelUtils.VertexScaling - offset;
             float scale = chunk.transform.localScale.x;
 
             // Begin the jobs for the affected chunks (synchronous)
@@ -82,7 +75,7 @@ public class VoxelEdits : VoxelBehaviour
                 edit = edit,
                 chunkOffset = new float3(chunkOffset.x, chunkOffset.y, chunkOffset.z),
                 chunkScale = scale,
-                voxelScale = VoxelUtils.VoxelSize,
+                voxelScale = VoxelUtils.VoxelSizeFactor,
                 voxels = chunk.voxels,
                 vertexScaling = VoxelUtils.VertexScaling,
             }.Schedule(VoxelUtils.Volume, 2048);

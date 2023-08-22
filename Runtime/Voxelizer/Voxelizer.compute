@@ -18,7 +18,6 @@ int3 moduloSeed;
 int size;
 float vertexScaling;
 float voxelSize;
-bool useMortonEncoding;
 
 #include "./noises.cginc"
 #include "./sdf.cginc"
@@ -32,13 +31,19 @@ RWTexture3D<uint> voxels;
 void CSVoxelizer (uint3 id : SV_DispatchThreadID)
 {
     // Calculate the main world position
-    float3 position = (float3(id.xzy) * chunkScale + chunkOffset);
-    position *= vertexScaling;
-    position *= worldScale;
-    position += worldOffset;
-    position -= voxelSize / 2.0;
+    float3 position = float3(id.xzy);
+    
+    // Needed for voxel size reduction
+    position *= voxelSize;
 
-    /*
+    // Chunk offsets + vertex scaling
+    position *= chunkScale;
+    position += (chunkOffset - ((chunkScale * 64.0) / 62.0) * 0.5) / vertexScaling;
+    position *= vertexScaling;
+
+    // World offset and scale
+    position = position * worldScale + worldOffset;
+    
     // Density value for biome 1
     float density1 = -fbmCellular(position * 0.002 * float3(1, 1.9, 1), 6, 0.49, 2.1).x * 100;
     density1 = opSmoothUnion(density1, position.y, 200);
@@ -61,9 +66,6 @@ void CSVoxelizer (uint3 id : SV_DispatchThreadID)
 
     // Calculate density
     float density = lerp(lerp(density1, density2, mixer), density3, mixer2) + position.y;
-    */
-
-    float density = position.y + snoise(position * 0.02) * 30;
 
     uint packedMaterial = 0;
     if (sdBox(position, float3(10, 10, 10)) < 0) {

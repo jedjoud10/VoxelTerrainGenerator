@@ -5,7 +5,7 @@ using Unity.Mathematics;
 using Unity.Burst;
 using UnityEngine.UIElements;
 
-// Sums up the material count indices to make proper offsets for each material segment shiz
+// Sum job that will add the offset of each material onto the last one to have a sequential native array
 [BurstCompile(CompileSynchronously = true)]
 public struct SumJob : IJobParallelFor
 {

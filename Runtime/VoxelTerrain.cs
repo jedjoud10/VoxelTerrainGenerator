@@ -127,7 +127,7 @@ public class VoxelTerrain : MonoBehaviour
 
     private void Update()
     {
-        if (!Free && VoxelGenerator.Free && VoxelMesher.Free && toMakeVisible.Count > 0) {
+        if (!Free && VoxelGenerator.Free && VoxelMesher.Free && VoxelOctree.Free && toMakeVisible.Count > 0) {
             Free = true;
 
             onChunkGenerationDone?.Invoke();

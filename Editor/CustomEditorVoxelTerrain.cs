@@ -15,7 +15,7 @@ public class CustomEditorVoxelTerrain : Editor
     {
         base.OnInspectorGUI();
 
-        float voxelSize = VoxelUtils.VoxelSize;
+        float voxelSize = VoxelUtils.VoxelSizeFactor;
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Voxel Size: " + voxelSize + "m");
 

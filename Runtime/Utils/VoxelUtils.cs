@@ -2,13 +2,13 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
-using static GluonGui.WorkspaceWindow.Views.WorkspaceExplorer.Configuration.ConfigurationTreeNodeCheck;
 
 // Common voxel utility methods
 public static class VoxelUtils
@@ -18,11 +18,16 @@ public static class VoxelUtils
 
     // Voxel scaling size
     public static int VoxelSizeReduction { get; internal set; }
-    public static float VoxelSize => 1F / Mathf.Pow(2F, VoxelSizeReduction);
+    
+    // Scaling factor when using voxel size reduction
+    // Doesn't actually represent the actual size of the voxel (since we do some scaling anyways)
+    public static float VoxelSizeFactor => 1F / Mathf.Pow(2F, VoxelSizeReduction);
 
     // Current chunk resolution
     public static int Size { get; internal set; }
-    public static uint UintSize => (uint)Size;
+
+    // Should we use skirts when meshing?
+    public static bool Skirts { get; internal set; }
 
     // Total number of voxels in a volume
     public static int Volume => Size * Size * Size;
@@ -32,6 +37,9 @@ public static class VoxelUtils
 
     // Should we enable smoothing when meshing?
     public static bool Smoothing { get; internal set; }
+
+    // Max possible number of materials supported by the terrain mesh
+    public const int MAX_MATERIAL_COUNT = 256;
 
     // Stolen from https://gist.github.com/dwilliamson/c041e3454a713e58baf6e4f8e5fffecd
     public static readonly ushort[] EdgeMasks = new ushort[] {
@@ -93,6 +101,7 @@ public static class VoxelUtils
     }
 
     // Convert an index to a 3D position
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static uint3 IndexToPos(int index)
     {
         return Morton.DecodeMorton32((uint)index);
@@ -100,37 +109,27 @@ public static class VoxelUtils
 
     // Convert a 3D position into an index
     [return: AssumeRange(0u, 262144)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int PosToIndex(uint3 position)
     {
         return (int)Morton.EncodeMorton32(position);
     }
 
-    // Convert a packed color material value to rgb color and uint material
-    public static void UnpackColorMaterial(in uint input, out float3 color, out byte material)
-    {
-        sbyte packedColorX = (sbyte)(input & 0xFF);
-        sbyte packedColorY = (sbyte)((input >> 8) & 0xFF);
-        sbyte packedColorZ = (sbyte)((input >> 16) & 0xFF);
-        material = (byte)((input >> 24) & 0xFF);
-        color = math.float3((float)packedColorX / 128.0F, (float)packedColorY / 128.0F, (float)packedColorZ / 128.0F);
-    }
-
     // Sampled the voxel grid using trilinear filtering
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static float SampleGridInterpolated(float3 position, ref NativeArray<half> densities, int size) {
-        return 0.0F;
-        /*
         float3 frac = math.frac(position);
         uint3 voxPos = (uint3)math.floor(position);
 
-        float d000 = densities[PosToIndex(voxPos, size)];
-        float d100 = densities[PosToIndex(voxPos, size) + 1];
-        float d010 = densities[PosToIndex(voxPos, size) + size * size];
-        float d110 = densities[PosToIndex(voxPos, size) + size * size + 1];
+        float d000 = densities[PosToIndex(voxPos)];
+        float d100 = densities[PosToIndex(voxPos + math.uint3(1, 0, 0))];
+        float d010 = densities[PosToIndex(voxPos + math.uint3(0, 1, 0))];
+        float d110 = densities[PosToIndex(voxPos + math.uint3(0, 0, 1))];
 
-        float d001 = densities[PosToIndex(voxPos, size) + size];
-        float d101 = densities[PosToIndex(voxPos, size) + 1 + size];
-        float d011 = densities[PosToIndex(voxPos, size) + size * size + size];
-        float d111 = densities[PosToIndex(voxPos, size) + size * size + 1 + size];
+        float d001 = densities[PosToIndex(voxPos + math.uint3(0, 0, 1))];
+        float d101 = densities[PosToIndex(voxPos + math.uint3(1, 0, 1))];
+        float d011 = densities[PosToIndex(voxPos + math.uint3(0, 1, 1))];
+        float d111 = densities[PosToIndex(voxPos + math.uint3(1, 1, 1))];
 
         float mixed0 = math.lerp(d000, d100, frac.x);
         float mixed1 = math.lerp(d010, d110, frac.x);
@@ -143,7 +142,6 @@ public static class VoxelUtils
         float mixed6 = math.lerp(mixed4, mixed5, frac.y);
 
         return mixed6;
-        */
     }
 
     // Calculate the ambient occlusion factor of a specific vertex based on its normals

@@ -13,10 +13,11 @@ internal class MeshJobHandler
     public NativeArray<byte> enabled;
     public NativeCounter counter;
     public NativeMultiCounter countersQuad;
+    public NativeMultiCounter materialQuadCounter;
+    public NativeArray<int> materialSegmentOffsets;
     public NativeCounter materialCounter;
     public NativeArray<int> triangles;
-    public JobHandle vertexJobHandle;
-    public JobHandle quadJobHandle;
+    public JobHandle finalJobHandle;
     public NativeParallelHashMap<ushort, int> materialHashMap;
     public NativeParallelHashSet<ushort> materialHashSet;
     public VoxelTempContainer voxels;
@@ -29,10 +30,12 @@ internal class MeshJobHandler
         vertices = new NativeArray<float3>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         enabled = new NativeArray<byte>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         counter = new NativeCounter(Allocator.Persistent);
-        countersQuad = new NativeMultiCounter(256, Allocator.Persistent);
+        countersQuad = new NativeMultiCounter(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
+        materialQuadCounter = new NativeMultiCounter(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
         triangles = new NativeArray<int>(VoxelUtils.Volume * 6 * 4, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        materialHashMap = new NativeParallelHashMap<ushort, int>(256, Allocator.Persistent);
-        materialHashSet = new NativeParallelHashSet<ushort>(256, Allocator.Persistent);
+        materialHashMap = new NativeParallelHashMap<ushort, int>(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
+        materialHashSet = new NativeParallelHashSet<ushort>(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
+        materialSegmentOffsets = new NativeArray<int>(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
         materialCounter = new NativeCounter(Allocator.Persistent);
     }
     public bool Free { get; private set; } = true;
@@ -46,6 +49,12 @@ internal class MeshJobHandler
         materialHashSet.Clear();
         materialHashMap.Clear();
         Free = false;
+
+        //bool3 skirtsBase = math.bool3((node.Skirts & 1) == 1, ((node.Skirts >> 1) & 1) == 1, ((node.Skirts >> 2) & 1) == 1) & VoxelUtils.Skirts;
+        //bool3 skirtsEnd = math.bool3(((node.Skirts >> 3) & 1) == 1, ((node.Skirts >> 4) & 1) == 1, ((node.Skirts >> 5) & 1) == 1) & VoxelUtils.Skirts;
+        bool3 skirtsBase = math.bool3(true, false, false);
+        bool3 skirtsEnd = math.bool3(true, false, false);
+
 
         // Handles fetching MC corners for the SN edges
         CornerJob cornerJob = new CornerJob
@@ -73,16 +82,15 @@ internal class MeshJobHandler
             indices = indices,
             vertices = vertices,
             counter = counter,
-            voxelScale = VoxelUtils.VoxelSize,
+            voxelScale = VoxelUtils.VoxelSizeFactor,
             vertexScale = VoxelUtils.VertexScaling,
             size = VoxelUtils.Size,
             smoothing = VoxelUtils.Smoothing,
-            skirtsBase = math.bool3(true),
-            skirtsEnd = math.bool3(true),
+            skirtsBase = skirtsBase,
+            skirtsEnd = skirtsEnd,
         };
 
-        // Generate the quads of the mesh
-        // Executed for EACH material in the mesh
+        // Generate the quads of the mesh (handles materials internally)
         QuadJob quadJob = new QuadJob
         {
             enabled = enabled,
@@ -93,9 +101,23 @@ internal class MeshJobHandler
             materialHashMap = materialHashMap.AsReadOnly(),
             materialCounter = materialCounter,
             size = VoxelUtils.Size,
-            skirtsBase = math.bool3(true),
-            skirtsEnd = math.bool3(true),
+            skirtsBase = skirtsBase,
+            skirtsEnd = skirtsEnd,
             minSkirtDensityThreshold = VoxelUtils.MinSkirtDensityThreshold
+        };
+
+        // Create sum job to calculate offsets for each material type 
+        SumJob sumJob = new SumJob
+        {
+            materialCounter = materialCounter,
+            materialSegmentOffsets = materialSegmentOffsets,
+            materialQuadCounter = materialQuadCounter
+        };
+
+        // Create a copy job that will copy temp memory to perm memory
+        CopyJob copyJob = new CopyJob
+        {
+
         };
 
         // Start the corner job
@@ -112,9 +134,14 @@ internal class MeshJobHandler
         JobHandle merged = JobHandle.CombineDependencies(materialJobHandle, vertexJobHandle, cornerJobHandle);
         JobHandle quadJobHandle = quadJob.Schedule(VoxelUtils.Volume, 2048, merged);
 
-        this.vertexJobHandle = vertexJobHandle;
-        this.quadJobHandle = quadJobHandle;
-        return quadJobHandle;
+        // Start the sum job 
+        JobHandle sumJobHandle = sumJob.Schedule(VoxelUtils.MAX_MATERIAL_COUNT, 32, quadJobHandle);
+
+        // Start the copy job
+        JobHandle copyJobHandle = copyJob.Schedule(triangles.Length, 2048, sumJobHandle);
+
+        finalJobHandle = copyJobHandle;
+        return finalJobHandle;
     }
 
     // Complete the jobs and return a mesh
@@ -125,7 +152,7 @@ internal class MeshJobHandler
             return VoxelMesh.Empty;
         }
 
-        quadJobHandle.Complete();
+        finalJobHandle.Complete();
         Free = true;
 
         /*
@@ -160,12 +187,14 @@ internal class MeshJobHandler
         }
 
         Mesh mesh = new Mesh();
-        float max = VoxelUtils.VoxelSize * VoxelUtils.Size;
+        float max = VoxelUtils.VoxelSizeFactor * VoxelUtils.Size;
         mesh.bounds = new Bounds
         {
             min = Vector3.zero,
             max = new Vector3(max, max, max)
         };
+
+        // TODO: Pool these mesh objects to reduce garbage collection memory
         mesh.SetVertexBufferParams(maxVertices, new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3));
         mesh.SetVertexBufferData(vertices.Reinterpret<Vector3>(), 0, 0, maxVertices);
         mesh.SetIndexBufferParams(maxIndices, IndexFormat.UInt32);
@@ -219,6 +248,8 @@ internal class MeshJobHandler
         materialCounter.Dispose();
         materialHashMap.Dispose();
         materialHashSet.Dispose();
+        materialSegmentOffsets.Dispose();
+        materialQuadCounter.Dispose();
         enabled.Dispose();
     }
 }

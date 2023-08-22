@@ -32,7 +32,7 @@ Transform:
   m_GameObject: {fileID: 5247181259204451943}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 160, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -108,6 +108,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   meshJobsPerFrame: 4
+  minSkirtDensityThreshold: -10
   smoothing: 1
   voxelMaterials:
   - {fileID: 2100000, guid: 05d1c9c5df2aebb4a8358c2343a838d5, type: 2}

@@ -80,9 +80,10 @@ public struct QuadJob : IJobParallelFor
     [ReadOnly] public float minSkirtDensityThreshold;
 
     // Check and edge and check if we must generate a quad in it's forward facing direction
-    void CheckEdge(uint3 basePosition, int index, bool forceDir, bool dir)
+    void CheckEdge(uint3 basePosition, int index, bool skirts, bool dir)
     {
         uint3 forward = quadForwardDirection[index];
+        float density = voxels[index].density;
         int baseIndex = VoxelUtils.PosToIndex(basePosition);
         int endIndex = VoxelUtils.PosToIndex(basePosition + forward);
 
@@ -91,7 +92,8 @@ public struct QuadJob : IJobParallelFor
 
         bool flip = (endVoxel.density >= 0.0);
 
-        if (forceDir)
+        // Force direction if we are skirting
+        if (skirts)
             flip = dir;
 
         ushort material = flip ? startVoxel.material : endVoxel.material;
@@ -103,6 +105,28 @@ public struct QuadJob : IJobParallelFor
         int index1 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4 + 1]);
         int index2 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4 + 2]);
         int index3 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4 + 3]);
+
+        float density0 = voxels[index0].density;
+        float density1 = voxels[index1].density;
+        float density2 = voxels[index2].density;
+        float density3 = voxels[index3].density;
+
+        float4 cock = math.float4(density0, density1, density2, density3);
+
+        if (skirts)
+        {
+            if (density > 0.0F || density < minSkirtDensityThreshold)
+            {
+                return;
+            }
+
+            /*
+            if (math.sign(math.cmin(cock)) != math.sign(math.cmax(cock)))
+            {
+                return;
+            }
+            */
+        }
 
         // Fetch the actual indices of the vertices
         int vertex0 = vertexIndices[index0];
@@ -143,7 +167,7 @@ public struct QuadJob : IJobParallelFor
         bool3 base_ = (position == math.uint3(1)) & skirtsBase;
         bool3 end_ = (position == math.uint3(size - 2)) & skirtsEnd;
         bool3 forceEdgeSkirt = base_ | end_;
-        bool valPos = math.all((position < math.uint3(size - 1))) && math.all((position > math.uint3(0)));
+        bool valPos = math.all((position < math.uint3(size - 1))) && math.all((position > math.uint3(1)));
         bool valPosSkirts = math.all((position < math.uint3(size - 1))) && math.all((position > math.uint3(0)));
 
         for (int i = 0; i < 3; i++)
@@ -155,7 +179,7 @@ public struct QuadJob : IJobParallelFor
             }
             
             // Handle creating the skirt 
-            if (forceEdgeSkirt[i] && density < 0.0F && density > minSkirtDensityThreshold && valPosSkirts)
+            if (forceEdgeSkirt[i] && /* density < 0.0F && density > minSkirtDensityThreshold && */ valPosSkirts)
             {
                 bool flip = forceEdgeSkirt[i] != base_[i];
                 CheckEdge(position, i, true, flip);
