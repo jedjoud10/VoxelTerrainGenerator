@@ -14,7 +14,7 @@ using UnityEngine.Experimental.Rendering;
 public static class VoxelUtils
 {
     // Scaling value applied to the vertices
-    public static float VertexScaling => (float)Size / ((float)Size - 2.0F);
+    public static float VertexScaling => (float)Size / ((float)Size - 3.0F);
 
     // Voxel scaling size
     public static int VoxelSizeReduction { get; internal set; }

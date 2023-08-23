@@ -71,6 +71,7 @@ public struct VertexJob : IJobParallelFor
     [ReadOnly] public bool smoothing;
     [ReadOnly] public bool3 skirtsBase;
     [ReadOnly] public bool3 skirtsEnd;
+    [ReadOnly] public float minSkirtDensityThreshold;
 
     // Excuted for each cell within the grid
     public void Execute(int index)
@@ -103,35 +104,53 @@ public struct VertexJob : IJobParallelFor
         int count = math.countbits(code);
 
         // Use linear interpolation when smoothing
-        if (smoothing && !empty)
+        if (!empty)
         {
-            // Create the smoothed vertex
-            // TODO: Test out QEF or other methods for smoothing here
-            for (int edge = 0; edge < 12; edge++)
+            if (smoothing)
             {
-                // Continue if the edge isn't inside
-                if (((code >> edge) & 1) == 0) continue;
+                {
+                    // Create the smoothed vertex
+                    // TODO: Test out QEF or other methods for smoothing here
+                    for (int edge = 0; edge < 12; edge++)
+                    {
+                        // Continue if the edge isn't inside
+                        if (((code >> edge) & 1) == 0) continue;
 
-                uint3 startOffset = edgePositions0[edge];
-                uint3 endOffset = edgePositions1[edge];
+                        uint3 startOffset = edgePositions0[edge];
+                        uint3 endOffset = edgePositions1[edge];
 
-                int startIndex = VoxelUtils.PosToIndex(startOffset + position);
-                int endIndex = VoxelUtils.PosToIndex(endOffset + position);
+                        int startIndex = VoxelUtils.PosToIndex(startOffset + position);
+                        int endIndex = VoxelUtils.PosToIndex(endOffset + position);
 
-                // Get the Voxels of the edge
-                Voxel startVoxel = voxels[startIndex];
-                Voxel endVoxel = voxels[endIndex];
+                        // Get the Voxels of the edge
+                        Voxel startVoxel = voxels[startIndex];
+                        Voxel endVoxel = voxels[endIndex];
 
-                // Create a vertex on the line of the edge
-                float value = math.unlerp(startVoxel.density, endVoxel.density, 0);
-                vertex += math.lerp(startOffset, endOffset, value) - math.float3(0.5);
+                        // Create a vertex on the line of the edge
+                        float value = math.unlerp(startVoxel.density, endVoxel.density, 0);
+                        vertex += math.lerp(startOffset, endOffset, value) - math.float3(0.5);
+                    }
+                }
+            }
+            else
+            {
+                // Don't do any smoothing
+                count = 1;
             }
         }
-        else
-        {
-            // Don't do any smoothing (or handle skirt vertex keko)
-            count = 1;
 
+        // Handle skirt vertex keko
+        if (math.any(skirts) && empty)
+        {
+            return;
+            if (voxels[index].density < 0.0 && voxels[index].density > minSkirtDensityThreshold)
+            {
+                //count = 1;
+            }
+            else
+            {
+                //return;
+            }
         }
 
         // Must be offset by vec3(1, 1, 1)
@@ -142,10 +161,9 @@ public struct VertexJob : IJobParallelFor
         float3 offset = (vertex / (float)count);
 
         // Handle constricting the vertices in the axii
-        float3 skirtOffset = math.select(0.0F, 0.0F, (position == math.uint3(0)));
-        offset = math.select(offset, skirtOffset, skirts);
+        offset = math.select(offset, math.float3(0.0F), skirts);
 
-        float3 outputVertex = offset + position;
+        float3 outputVertex = (offset - 1.0F) + position;
         vertices[vertexIndex] = outputVertex * vertexScale * voxelScale;
     }
 }

@@ -50,10 +50,10 @@ internal class MeshJobHandler
         materialHashMap.Clear();
         Free = false;
 
-        //bool3 skirtsBase = math.bool3((node.Skirts & 1) == 1, ((node.Skirts >> 1) & 1) == 1, ((node.Skirts >> 2) & 1) == 1) & VoxelUtils.Skirts;
-        //bool3 skirtsEnd = math.bool3(((node.Skirts >> 3) & 1) == 1, ((node.Skirts >> 4) & 1) == 1, ((node.Skirts >> 5) & 1) == 1) & VoxelUtils.Skirts;
-        bool3 skirtsBase = math.bool3(true, false, false);
-        bool3 skirtsEnd = math.bool3(true, false, false);
+        bool3 skirtsBase = math.bool3((node.Skirts & 1) == 1, ((node.Skirts >> 1) & 1) == 1, ((node.Skirts >> 2) & 1) == 1) & VoxelUtils.Skirts;
+        bool3 skirtsEnd = math.bool3(((node.Skirts >> 3) & 1) == 1, ((node.Skirts >> 4) & 1) == 1, ((node.Skirts >> 5) & 1) == 1) & VoxelUtils.Skirts;
+        //bool3 skirtsBase = math.bool3(true, false, false);
+        //bool3 skirtsEnd = math.bool3(true, false, false);
 
 
         // Handles fetching MC corners for the SN edges
@@ -88,6 +88,7 @@ internal class MeshJobHandler
             smoothing = VoxelUtils.Smoothing,
             skirtsBase = skirtsBase,
             skirtsEnd = skirtsEnd,
+            minSkirtDensityThreshold = VoxelUtils.MinSkirtDensityThreshold
         };
 
         // Generate the quads of the mesh (handles materials internally)
@@ -103,7 +104,6 @@ internal class MeshJobHandler
             size = VoxelUtils.Size,
             skirtsBase = skirtsBase,
             skirtsEnd = skirtsEnd,
-            minSkirtDensityThreshold = VoxelUtils.MinSkirtDensityThreshold
         };
 
         // Create sum job to calculate offsets for each material type 
