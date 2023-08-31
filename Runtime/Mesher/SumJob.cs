@@ -13,12 +13,12 @@ public struct SumJob : IJobParallelFor
     [WriteOnly]
     public NativeArray<int> materialSegmentOffsets;
 
-    [ReadOnly]
     // Multiple counters for each material type
-    public NativeMultiCounter materialQuadCounter;
-
     [ReadOnly]
+    public NativeMultiCounter countersQuad;
+
     // Global material counter
+    [ReadOnly]
     public NativeCounter materialCounter;
 
     public void Execute(int index)
@@ -26,13 +26,14 @@ public struct SumJob : IJobParallelFor
         if (index > materialCounter.Count)
             return;
 
+
         int sum = 0;
 
         for (int i = 0; i < index; i++)
         {
-            sum += materialQuadCounter[i];
+            sum += countersQuad[i];
         }
 
-        materialSegmentOffsets[index] = sum;
+        materialSegmentOffsets[index] = sum * 6;
     }
 }

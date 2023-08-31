@@ -8,31 +8,43 @@ using UnityEngine.Rendering;
 // There are multiple instances of this class stored inside the voxel mesher to saturate the other threads
 internal class MeshJobHandler
 {
-    public NativeArray<int> indices;
+    // Native buffers for mesh data
     public NativeArray<float3> vertices;
+    public NativeArray<int> tempTriangles;
+    public NativeArray<int> permTriangles;
+
+    // Native buffer for mesh generation data
+    public NativeArray<int> indices;
     public NativeArray<byte> enabled;
-    public NativeCounter counter;
     public NativeMultiCounter countersQuad;
-    public NativeMultiCounter materialQuadCounter;
-    public NativeArray<int> materialSegmentOffsets;
-    public NativeCounter materialCounter;
-    public NativeArray<int> triangles;
-    public JobHandle finalJobHandle;
+    public NativeCounter counter;
+
+    // Native buffer for handling multiple materials
     public NativeParallelHashMap<ushort, int> materialHashMap;
     public NativeParallelHashSet<ushort> materialHashSet;
+    public NativeArray<int> materialSegmentOffsets;
+    public NativeCounter materialCounter;
+
+    // Others
+    public JobHandle finalJobHandle;
     public VoxelTempContainer voxels;
     public VoxelChunk chunk;
     public bool computeCollisions = false;
 
     internal MeshJobHandler()
     {
-        indices = new NativeArray<int>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        // Native buffers for mesh data
         vertices = new NativeArray<float3>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        tempTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        permTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+
+        // Native buffer for mesh generation data
+        indices = new NativeArray<int>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         enabled = new NativeArray<byte>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        counter = new NativeCounter(Allocator.Persistent);
         countersQuad = new NativeMultiCounter(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
-        materialQuadCounter = new NativeMultiCounter(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
-        triangles = new NativeArray<int>(VoxelUtils.Volume * 6 * 4, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        counter = new NativeCounter(Allocator.Persistent);
+
+        // Native buffer for handling multiple materials
         materialHashMap = new NativeParallelHashMap<ushort, int>(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
         materialHashSet = new NativeParallelHashSet<ushort>(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
         materialSegmentOffsets = new NativeArray<int>(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
@@ -52,9 +64,6 @@ internal class MeshJobHandler
 
         bool3 skirtsBase = math.bool3((node.Skirts & 1) == 1, ((node.Skirts >> 1) & 1) == 1, ((node.Skirts >> 2) & 1) == 1) & VoxelUtils.Skirts;
         bool3 skirtsEnd = math.bool3(((node.Skirts >> 3) & 1) == 1, ((node.Skirts >> 4) & 1) == 1, ((node.Skirts >> 5) & 1) == 1) & VoxelUtils.Skirts;
-        //bool3 skirtsBase = math.bool3(true, false, false);
-        //bool3 skirtsEnd = math.bool3(true, false, false);
-
 
         // Handles fetching MC corners for the SN edges
         CornerJob cornerJob = new CornerJob
@@ -98,7 +107,7 @@ internal class MeshJobHandler
             voxels = voxels.voxels,
             vertexIndices = indices,
             counters = countersQuad,
-            triangles = triangles,
+            triangles = tempTriangles,
             materialHashMap = materialHashMap.AsReadOnly(),
             materialCounter = materialCounter,
             size = VoxelUtils.Size,
@@ -111,13 +120,17 @@ internal class MeshJobHandler
         {
             materialCounter = materialCounter,
             materialSegmentOffsets = materialSegmentOffsets,
-            materialQuadCounter = materialQuadCounter
+            countersQuad = countersQuad
         };
 
         // Create a copy job that will copy temp memory to perm memory
         CopyJob copyJob = new CopyJob
         {
-
+            materialSegmentOffsets = materialSegmentOffsets,
+            tempTriangles = tempTriangles,
+            permTriangles = permTriangles,
+            materialCounter = materialCounter,
+            counters = countersQuad,
         };
 
         // Start the corner job
@@ -138,7 +151,7 @@ internal class MeshJobHandler
         JobHandle sumJobHandle = sumJob.Schedule(VoxelUtils.MAX_MATERIAL_COUNT, 32, quadJobHandle);
 
         // Start the copy job
-        JobHandle copyJobHandle = copyJob.Schedule(triangles.Length, 2048, sumJobHandle);
+        JobHandle copyJobHandle = copyJob.Schedule(VoxelUtils.MAX_MATERIAL_COUNT, 1, sumJobHandle);
 
         finalJobHandle = copyJobHandle;
         return finalJobHandle;
@@ -155,38 +168,25 @@ internal class MeshJobHandler
         finalJobHandle.Complete();
         Free = true;
 
-        /*
+        // Get the max number of materials we generated for this mesh
+        int maxMaterials = materialCounter.Count;
+
+        // Get the max number of vertices (shared by submeshes)
         int maxVertices = counter.Count;
 
-        Mesh mesh = new Mesh();
-        mesh.subMeshCount = materialCounter.Count;
-        mesh.SetVertices(vertices.Reinterpret<Vector3>(), 0, maxVertices);
-
-        Material[] materials = new Material[materialCounter.Count];
-
-        foreach (var item in materialHashMap)
-        {
-            materials[item.Value] = orderedMaterials[item.Key];
-        }
-
-        for (int i = 0; i < materialCounter.Count; i++)
-        {
-            int countIndices = countersQuad[i] * 6;
-            int segmentOffset = (triangles.Length / materialCounter.Count) * i;
-            mesh.SetIndices(triangles, segmentOffset, countIndices, MeshTopology.Triangles, i);
-        }
-        */
-
-        int maxVertices = counter.Count;
-
+        // Count the max number of indices (sum of all submesh indices)
         int maxIndices = 0;
 
-        for (int i = 0; i < materialCounter.Count; i++)
+        // Count the number of indices we will have in maximum (all material indices combined)
+        for (int i = 0; i < maxMaterials; i++)
         {
             maxIndices += countersQuad[i] * 6;
         }
 
+        // TODO: Pool these mesh objects to reduce garbage collection memory
         Mesh mesh = new Mesh();
+        
+        // Set mesh bounds
         float max = VoxelUtils.VoxelSizeFactor * VoxelUtils.Size;
         mesh.bounds = new Bounds
         {
@@ -194,14 +194,17 @@ internal class MeshJobHandler
             max = new Vector3(max, max, max)
         };
 
-        // TODO: Pool these mesh objects to reduce garbage collection memory
+        // Set mesh shared vertices
         mesh.SetVertexBufferParams(maxVertices, new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3));
         mesh.SetVertexBufferData(vertices.Reinterpret<Vector3>(), 0, 0, maxVertices);
+        
+        // Set mesh indices
         mesh.SetIndexBufferParams(maxIndices, IndexFormat.UInt32);
-        mesh.SetIndexBufferData(triangles, 0, 0, maxIndices);
-        mesh.subMeshCount = materialCounter.Count;
+        mesh.SetIndexBufferData(permTriangles, 0, 0, maxIndices);
+        mesh.subMeshCount = maxMaterials;
 
-        Material[] materials = new Material[materialCounter.Count];
+        // Create a material array for the new materials
+        Material[] materials = new Material[maxMaterials];
 
         // Convert material index to material *count* index
         foreach (var item in materialHashMap)
@@ -209,19 +212,21 @@ internal class MeshJobHandler
             materials[item.Value] = orderedMaterials[item.Key];
         }
 
-        // Set the indices of the multiple submeshes
-        for (int i = 0; i < materialCounter.Count; i++)
+        // Set mesh submeshes
+        for (int i = 0; i < maxMaterials; i++)
         {
             int countIndices = countersQuad[i] * 6;
-            int segmentOffset = (triangles.Length / materialCounter.Count) * i;
-            // triangles, segmentOffset, countIndices, MeshTopology.Triangles, i
+            int segmentOffset = materialSegmentOffsets[i];
 
-            mesh.SetSubMesh(i, new SubMeshDescriptor
+            if (countIndices > 0)
             {
-                indexStart = segmentOffset,
-                indexCount = countIndices,
-                topology = MeshTopology.Triangles,
-            });
+                mesh.SetSubMesh(i, new SubMeshDescriptor
+                {
+                    indexStart = segmentOffset,
+                    indexCount = countIndices,
+                    topology = MeshTopology.Triangles,
+                });
+            }
         }
 
         voxels.TempDispose();
@@ -233,7 +238,7 @@ internal class MeshJobHandler
             Materials = materials,
             ComputeCollisions = computeCollisions,
             VertexCount = maxVertices,
-            TriangleCount = maxIndices / 2,
+            TriangleCount = maxIndices / 3,
         };
     }
 
@@ -244,12 +249,12 @@ internal class MeshJobHandler
         vertices.Dispose();
         counter.Dispose();
         countersQuad.Dispose();
-        triangles.Dispose();
+        tempTriangles.Dispose();
+        permTriangles.Dispose();
         materialCounter.Dispose();
         materialHashMap.Dispose();
         materialHashSet.Dispose();
         materialSegmentOffsets.Dispose();
-        materialQuadCounter.Dispose();
         enabled.Dispose();
     }
 }

@@ -142,20 +142,23 @@ public struct QuadJob : IJobParallelFor
         // Used for skirts
         bool3 base_ = (position == math.uint3(1)) & skirtsBase;
         bool3 end_ = (position == math.uint3(size - 2)) & skirtsEnd;
-        bool3 forceEdgeSkirt = base_ | end_;
-        bool valPos = math.all((position < math.uint3(size - 1))) && math.all((position > math.uint3(1)));
-        bool valPosSkirts = math.all((position < math.uint3(size - 1))) && math.all((position > math.uint3(0)));
+        bool3 skirt = base_ | end_;
 
+
+        bool3 valPos = (position < math.uint3(size - 1)) & (position > math.uint3(1));
         for (int i = 0; i < 3; i++)
         {
             // Handle creating the quad normally
-            if (((enabledEdges >> shifts[i]) & 1) == 1 && valPos)
+            if (((enabledEdges >> shifts[i]) & 1) == 1 && math.all(valPos))
             {
                 CheckEdge(position, i, false, false);
             }
+
+            // Mane idfk what I'm doing any more
+            bool limiter = math.all(valPos | math.bool3(i == 0, i == 1, i == 2));
             
             // Handle creating the skirt 
-            if (forceEdgeSkirt[i] && valPosSkirts)
+            if (skirt[i] && limiter)
             {
                 CheckEdge(position, i, true, end_[i]);
             }

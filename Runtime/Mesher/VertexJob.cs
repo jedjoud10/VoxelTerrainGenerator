@@ -142,14 +142,13 @@ public struct VertexJob : IJobParallelFor
         // Handle skirt vertex keko
         if (math.any(skirts) && empty)
         {
-            return;
             if (voxels[index].density < 0.0 && voxels[index].density > minSkirtDensityThreshold)
             {
-                //count = 1;
+                count = 1;
             }
             else
             {
-                //return;
+                return;
             }
         }
 

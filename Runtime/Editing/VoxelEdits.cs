@@ -65,8 +65,7 @@ public class VoxelEdits : VoxelBehaviour
         {
             // Fetch chunk offsets + scale (like for compute shader)
             VoxelChunk chunk = terrain.Chunks[output.Value[i]];
-            Vector3 offset = Vector3.one * (chunk.transform.localScale.x / ((float)VoxelUtils.Size)) * 0.5F;
-            Vector3 chunkOffset = (chunk.transform.position / VoxelUtils.VoxelSizeFactor) / VoxelUtils.VertexScaling - offset;
+            Vector3 chunkOffset = chunk.transform.position;
             float scale = chunk.transform.localScale.x;
 
             // Begin the jobs for the affected chunks (synchronous)
@@ -76,6 +75,7 @@ public class VoxelEdits : VoxelBehaviour
                 chunkOffset = new float3(chunkOffset.x, chunkOffset.y, chunkOffset.z),
                 chunkScale = scale,
                 voxelScale = VoxelUtils.VoxelSizeFactor,
+                size = (float)VoxelUtils.Size,
                 voxels = chunk.voxels,
                 vertexScaling = VoxelUtils.VertexScaling,
             }.Schedule(VoxelUtils.Volume, 2048);

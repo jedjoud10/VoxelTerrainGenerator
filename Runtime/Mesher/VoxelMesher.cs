@@ -121,12 +121,6 @@ public class VoxelMesher : VoxelBehaviour
                     continue;
                 }
 
-                /*
-                VoxelChunk chunk = output.chunk;
-                output.container.TempDispose();
-                onVoxelMeshingComplete?.Invoke(chunk, VoxelMesh.Empty);
-                */
-
                 MeshJobHandler handler = handlers[i];
                 handler.chunk = output.chunk;
                 handler.voxels = output.container;

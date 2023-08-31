@@ -15,6 +15,7 @@ struct VoxelEditJob<T> : IJobParallelFor
     [ReadOnly] public float3 chunkOffset;
     [ReadOnly] public float chunkScale;
     [ReadOnly] public float voxelScale;
+    [ReadOnly] public float size;
     [ReadOnly] public float vertexScaling;
 
     public T edit;
@@ -24,10 +25,17 @@ struct VoxelEditJob<T> : IJobParallelFor
     public void Execute(int index)
     {
         uint3 id = VoxelUtils.IndexToPos(index);
-        float3 position = (math.float3(id) * chunkScale + chunkOffset);
-        position *= vertexScaling;
+        float3 position = (math.float3(id));
+
+        position -= math.float3(1.0);
+
+        // Needed for voxel size reduction
         position *= voxelScale;
-        position -= math.float3(voxelScale) / 2.0F;
+
+        // Chunk offsets + vertex scaling
+        position *= chunkScale;
+        position += (chunkOffset - ((chunkScale * size) / (size - 3.0F)) * 0.5F) / vertexScaling;
+        position *= vertexScaling;
         voxels[index] = edit.Modify(voxels[index], position);
     }
 }

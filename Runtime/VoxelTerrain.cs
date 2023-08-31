@@ -178,7 +178,7 @@ public class VoxelTerrain : MonoBehaviour
             {
                 float size = item.ScalingFactor;
                 GameObject obj = Instantiate(chunkPrefab, item.Position, Quaternion.identity, this.transform);
-                obj.GetComponent<MeshRenderer>().enabled = false;
+                //obj.GetComponent<MeshRenderer>().enabled = false;
                 obj.transform.localScale = new Vector3(size, size, size);
                 VoxelChunk chunk = obj.GetComponent<VoxelChunk>();
 
