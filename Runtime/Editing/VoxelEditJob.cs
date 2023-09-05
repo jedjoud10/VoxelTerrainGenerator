@@ -7,7 +7,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-// Edit job that will change the voxel data for a single chunk
+// Edit job that will create the delta voxel data for each chunk
 [BurstCompile(CompileSynchronously = true)]
 struct VoxelEditJob<T> : IJobParallelFor
     where T : struct, IVoxelEdit
@@ -20,7 +20,7 @@ struct VoxelEditJob<T> : IJobParallelFor
 
     public T edit;
 
-    public NativeArray<Voxel> voxels;
+    public NativeArray<Voxel> deltaVoxels;
 
     public void Execute(int index)
     {
@@ -36,6 +36,6 @@ struct VoxelEditJob<T> : IJobParallelFor
         position *= chunkScale;
         position += (chunkOffset - ((chunkScale * size) / (size - 3.0F)) * 0.5F) / vertexScaling;
         position *= vertexScaling;
-        voxels[index] = edit.Modify(voxels[index], position);
+        deltaVoxels[index] = edit.Modify(position, deltaVoxels[index]);
     }
 }

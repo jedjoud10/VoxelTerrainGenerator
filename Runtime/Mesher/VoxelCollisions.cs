@@ -19,11 +19,11 @@ public class VoxelCollisions : VoxelBehaviour
     public bool generateCollisions = false;
 
     // Called when a chunk's mesh gets its collision data
-    public delegate void OnCollisionBakingComplete(VoxelChunk chunk, VoxelMesh mesh);
+    public delegate void OnCollisionBakingComplete(VoxelChunk chunk, VoxelMesh stats);
     public event OnCollisionBakingComplete onCollisionBakingComplete;
 
     // Used for collision
-    private List<(JobHandle, VoxelChunk, VoxelMesh)> ongoingBakeJobs;
+    internal List<(JobHandle, VoxelChunk, VoxelMesh)> ongoingBakeJobs;
 
     // Checks if the voxel collision baker has completed all the baking work
     public bool Free
@@ -44,11 +44,11 @@ public class VoxelCollisions : VoxelBehaviour
 
     private void HandleVoxelMeshCollision(VoxelChunk chunk, VoxelMesh voxelMesh)
     {
-        if (voxelMesh.Mesh != null && voxelMesh.VertexCount > 0 && voxelMesh.TriangleCount > 0 && voxelMesh.ComputeCollisions && generateCollisions)
+        if (voxelMesh.VertexCount > 0 && voxelMesh.TriangleCount > 0 && voxelMesh.ComputeCollisions && generateCollisions)
         {
             BakeJob bakeJob = new BakeJob
             {
-                meshId = voxelMesh.Mesh.GetInstanceID(),
+                meshId = chunk.sharedMesh.GetInstanceID(),
             };
 
             var handle = bakeJob.Schedule();

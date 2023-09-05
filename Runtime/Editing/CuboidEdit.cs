@@ -11,35 +11,35 @@ using UnityEngine;
 public struct CuboidEdit : IVoxelEdit
 {
     [ReadOnly] public float3 center;
-    [ReadOnly] public float3 extent;
+    [ReadOnly] public float3 extents;
     [ReadOnly] public bool add;
     [ReadOnly] public ushort material;
     [ReadOnly] public bool writeMaterial;
 
-    public float3 GetWorldCenter()
+    public Bounds GetBounds()
     {
-        return center;
+        return new Bounds
+        {
+            center = center,
+            extents = extents
+        };
     }
 
-    public float3 GetWorldExtents()
+    public Voxel Modify(float3 position, Voxel lastDelta)
     {
-        return extent;
-    }
-
-    public Voxel Modify(Voxel input, float3 position)
-    {
-        float3 q = math.abs(position - center) - (extent / 2.0F);
+        float3 q = math.abs(position - center) - (extents / 2.0F);
         float density = math.length(math.max(q, 0.0F)) + math.min(math.max(q.x, math.max(q.y, q.z)), 0.0F);
 
-        float added = math.half(math.min(input.density, density));
-        float removed = math.half(math.max(input.density, -density));
-        input.density = (half)math.select(removed, added, add);
+        Voxel voxel = Voxel.Empty;
+        float added = math.half(math.min(lastDelta.density, density));
+        float removed = math.half(math.max(lastDelta.density, -density));
+        voxel.density = (half)math.select(removed, added, add);
 
         if (writeMaterial && density < 0)
         {
-            input.material = material;
+            voxel.material = material;
         }
 
-        return input;
+        return voxel;
     }
 }

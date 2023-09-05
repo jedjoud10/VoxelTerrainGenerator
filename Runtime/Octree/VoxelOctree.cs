@@ -93,11 +93,16 @@ public class VoxelOctree : VoxelBehaviour
     // Make sure the number of quality levels is equal the octree depth
     private void OnValidate()
     {
-        if (curvePoints != null)
+        if (curvePoints != null && qualityPointsNativeArray.IsCreated)
         {
             if (curvePoints.Length != maxDepth)
             {
                 Array.Resize(ref curvePoints, maxDepth);
+            }
+
+            for (int i = 0; i < maxDepth; i++)
+            {
+                qualityPointsNativeArray[i] = curvePoints[i];
             }
         }
     }
@@ -151,11 +156,12 @@ public class VoxelOctree : VoxelBehaviour
                 // Execute the neighbour checking job for added nodes
                 NeighbourJob neighbourJob = new NeighbourJob
                 {
+                    octreeLoaderPosition = targets[0].center,
                     inputNodes = copy,
                     outputNodes = newNodesList.AsArray(),
                 };
 
-                JobHandle neighbourJobHandle = neighbourJob.Schedule(newNodesList.Length, 8);
+                JobHandle neighbourJobHandle = neighbourJob.Schedule(newNodesList.Length, 128);
                 copy.Dispose(neighbourJobHandle);
 
                 // Converts the array into a hashlist

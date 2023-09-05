@@ -32,10 +32,10 @@ public struct CopyJob : IJobParallelFor
 
     public void Execute(int index)
     {
-        int segmentOffset = tempTriangles.Length / materialCounter.Count;
-
         if (materialCounter.Count == 0 || index >= materialCounter.Count)
             return;
+
+        int segmentOffset = tempTriangles.Length / materialCounter.Count;
 
         // Segment offset for the temp index buffer, not the perm one
         // Segment offset in the temp buffer is constant, so each sub-mesh contains the same amount of indices

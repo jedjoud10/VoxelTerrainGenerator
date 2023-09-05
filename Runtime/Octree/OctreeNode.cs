@@ -139,6 +139,13 @@ public struct OctreeNode: IEquatable<OctreeNode>
             float3 maxBounds = math.float3(Position) + math.float3(Size);
             float3 clamped = math.clamp(target.center, minBounds, maxBounds);
 
+            /*
+            if (Depth < 5)
+            {
+                clamped.y = target.center.y;
+            }
+            */
+
             bool local = math.distance(clamped, target.center) < target.radius * ScalingFactor * qualityPoints[Depth];
             subdivide |= local;
             generateCollisions |= local && target.generateCollisions;
@@ -167,7 +174,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
                     Index = ChildBaseIndex + i,
                     ChildBaseIndex = -1,
                     Skirts = 0,
-                    GenerateCollisions = generateChildrenCollisions && Depth == (maxDepth-1),
+                    GenerateCollisions = Depth == (maxDepth-1),
                 };
 
                 pending.Enqueue(node);

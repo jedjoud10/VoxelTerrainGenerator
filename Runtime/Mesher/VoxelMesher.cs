@@ -32,7 +32,7 @@ public class VoxelMesher : VoxelBehaviour
     public event OnVoxelMeshingComplete onVoxelMeshingComplete;
 
     // Used for collision
-    Queue<PendingMeshJob> pendingMeshJobs;
+    internal Queue<PendingMeshJob> pendingMeshJobs;
 
     // Checks if the voxel mesher has completed all the work
     public bool Free
@@ -74,21 +74,21 @@ public class VoxelMesher : VoxelBehaviour
 
     // Begin generating the mesh data immediately without putting the mesh through the queue
     // Might fail in case there aren't enough free handlers to handle the job
-    public bool TryGenerateMeshImmediate(VoxelChunk chunk, VoxelTempContainer container, bool computeCollisions, JobHandle dependency = new JobHandle())
+    public bool TryGenerateMeshImmediate(VoxelChunk voxelChunk, VoxelTempContainer container, bool computeCollisions, JobHandle dependency = new JobHandle())
     {
         for (int i = 0; i < meshJobsPerFrame; i++)
         {
             if (handlers[i].Free)
             {
                 MeshJobHandler handler = handlers[i];
-                handler.chunk = chunk;
+                handler.chunk = voxelChunk;
                 handler.voxels = container;
                 handler.computeCollisions = computeCollisions;
-                var job = handler.BeginJob(dependency, chunk.node);
+                var job = handler.BeginJob(dependency, voxelChunk.node);
 
-                VoxelMesh voxelMesh = handler.Complete(voxelMaterials);
+                VoxelMesh voxelMesh = handler.Complete(voxelChunk.sharedMesh, voxelMaterials);
 
-                onVoxelMeshingComplete?.Invoke(chunk, voxelMesh);
+                onVoxelMeshingComplete?.Invoke(voxelChunk, voxelMesh);
 
                 return true;
             }
@@ -104,9 +104,9 @@ public class VoxelMesher : VoxelBehaviour
         {
             if (handler.finalJobHandle.IsCompleted && !handler.Free)
             {
-                VoxelChunk chunk = handler.chunk;
-                VoxelMesh voxelMesh = handler.Complete(voxelMaterials);
-                onVoxelMeshingComplete?.Invoke(chunk, voxelMesh);
+                VoxelChunk voxelChunk = handler.chunk;
+                var stats = handler.Complete(voxelChunk.sharedMesh, voxelMaterials);
+                onVoxelMeshingComplete?.Invoke(voxelChunk, stats);
             }
         }
 
@@ -134,7 +134,7 @@ public class VoxelMesher : VoxelBehaviour
     {
         foreach (MeshJobHandler handler in handlers) 
         {
-            handler.Complete(voxelMaterials);
+            handler.Complete(new Mesh(), voxelMaterials);
             handler.Dispose();
         }
     }

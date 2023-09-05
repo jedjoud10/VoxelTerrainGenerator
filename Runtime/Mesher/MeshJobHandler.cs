@@ -82,6 +82,10 @@ internal class MeshJobHandler
             materialCounter = materialCounter,
         };
 
+        // Multiply the skirts density theshold
+        float factor = math.pow((node.maxDepth - node.Depth) * 0.8F, 1.6F);
+        float threshold = VoxelUtils.MinSkirtDensityThreshold * factor;
+
         // Generate the vertices of the mesh
         // Executed only onces, and shared by multiple submeshes
         VertexJob vertexJob = new VertexJob
@@ -97,7 +101,7 @@ internal class MeshJobHandler
             smoothing = VoxelUtils.Smoothing,
             skirtsBase = skirtsBase,
             skirtsEnd = skirtsEnd,
-            minSkirtDensityThreshold = VoxelUtils.MinSkirtDensityThreshold
+            minSkirtDensityThreshold = threshold
         };
 
         // Generate the quads of the mesh (handles materials internally)
@@ -158,7 +162,7 @@ internal class MeshJobHandler
     }
 
     // Complete the jobs and return a mesh
-    internal VoxelMesh Complete(Material[] orderedMaterials)
+    internal VoxelMesh Complete(Mesh mesh, Material[] orderedMaterials)
     {
         if (voxels == null || chunk == null)
         {
@@ -182,9 +186,6 @@ internal class MeshJobHandler
         {
             maxIndices += countersQuad[i] * 6;
         }
-
-        // TODO: Pool these mesh objects to reduce garbage collection memory
-        Mesh mesh = new Mesh();
         
         // Set mesh bounds
         float max = VoxelUtils.VoxelSizeFactor * VoxelUtils.Size;
@@ -195,6 +196,7 @@ internal class MeshJobHandler
         };
 
         // Set mesh shared vertices
+        mesh.Clear();
         mesh.SetVertexBufferParams(maxVertices, new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3));
         mesh.SetVertexBufferData(vertices.Reinterpret<Vector3>(), 0, 0, maxVertices);
         
@@ -234,7 +236,6 @@ internal class MeshJobHandler
         chunk = null;
         return new VoxelMesh
         {
-            Mesh = mesh,
             Materials = materials,
             ComputeCollisions = computeCollisions,
             VertexCount = maxVertices,

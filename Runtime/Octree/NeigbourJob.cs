@@ -31,6 +31,8 @@ public struct NeighbourJob : IJobParallelFor
         new float3(0, 0, 1.0F),
     };
 
+    // Main octree loader position
+    public float3 octreeLoaderPosition;
 
     public void Execute(int index)
     {
@@ -46,7 +48,8 @@ public struct NeighbourJob : IJobParallelFor
 
         for (int i = 0; i < 6; i++)
         {
-            float3 estimatedNeighbouringNodeCenter = math.float3(node.Position) + math.float3(node.Size) / 2.0F + math.float3(node.Size * directions[i]);
+            float3 dir = directions[i];
+            float3 estimatedNeighbouringNodeCenter = math.float3(node.Position) + math.float3(node.Size) / 2.0F + math.float3(node.Size * dir);
             int nextChildIndex = 0;
             bool breakOuter = false;
             int iter = 0;

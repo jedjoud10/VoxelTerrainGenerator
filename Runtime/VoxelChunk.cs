@@ -8,16 +8,16 @@ using UnityEngine;
 // Script added to all game objects that represent a chunk
 public class VoxelChunk : MonoBehaviour
 {
-    // The octree node that is associated with this voxel chunk
     public OctreeNode node;
+    public NativeArray<Voxel>? voxels;
+    public Mesh sharedMesh;
 
-    // Keep track of the voxel data for this voxel chunk
-    public NativeArray<Voxel> voxels;
-
-    // As voxel chunk container
     public VoxelChunkContainer AsContainer()
     {
-        return new VoxelChunkContainer { chunk = this, voxels = voxels };
+        if (voxels == null)
+            return null;
+
+        return new VoxelChunkContainer { chunk = this, voxels = voxels.Value };
     }
 }
 

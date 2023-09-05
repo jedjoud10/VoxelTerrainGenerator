@@ -63,7 +63,7 @@ public struct VertexJob : IJobParallelFor
 
     // Vertex Counter
     public NativeCounter.Concurrent counter;
-
+    
     // Static settings
     [ReadOnly] public int size;
     [ReadOnly] public float vertexScale;

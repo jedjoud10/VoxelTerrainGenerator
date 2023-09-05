@@ -14,6 +14,13 @@ public struct Voxel
 
     // Material of the voxel that depicts its color and other parameters
     public ushort material;
+
+    // Empty voxel with the empty material
+    public readonly static Voxel Empty = new Voxel
+    {
+        density = half.zero,
+        material = ushort.MaxValue
+    };
 }
 
 // Voxel container with custom dispose methods
