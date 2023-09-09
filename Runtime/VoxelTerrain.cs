@@ -27,7 +27,7 @@ public class VoxelTerrain : MonoBehaviour
 
 
     [Header("Main Settings")]
-    [Min(16)]
+    [Range(16, 64)]
     public int resolution = 32;
 
     [Min(0)]
@@ -44,7 +44,7 @@ public class VoxelTerrain : MonoBehaviour
     public Dictionary<OctreeNode, VoxelChunk> Chunks { get; private set; }
 
     // Pending chunks that we will have to hide eventually
-    private List<OctreeNode> toRemove = new List<OctreeNode>();
+    private List<OctreeNode> toRemoveChunk = new List<OctreeNode>();
 
     // Pending chunks that we will need to make visible
     private List<VoxelChunk> toMakeVisible = new List<VoxelChunk>();
@@ -68,6 +68,7 @@ public class VoxelTerrain : MonoBehaviour
     {
         if (!started)
         {
+            resolution = Mathf.ClosestPowerOfTwo(resolution);
             VoxelUtils.Size = resolution;
             VoxelUtils.VoxelSizeReduction = voxelSizeReduction;
         }
@@ -161,7 +162,7 @@ public class VoxelTerrain : MonoBehaviour
     void SwapsChunk()
     {
         // Remove the chunks from the scene and put them back into the pool
-        foreach (var item in toRemove)
+        foreach (var item in toRemoveChunk)
         {
             if (Chunks.TryGetValue(item, out VoxelChunk voxelChunk))
             {
@@ -177,7 +178,7 @@ public class VoxelTerrain : MonoBehaviour
             }
         }
 
-        toRemove.Clear();
+        toRemoveChunk.Clear();
 
         // Make the chunks visible
         foreach (var item in toMakeVisible)
@@ -193,7 +194,7 @@ public class VoxelTerrain : MonoBehaviour
     {
         foreach (var item in removed)
         {
-            toRemove.Add(item);
+            toRemoveChunk.Add(item);
         }
 
         // Fetch new chunks from the pool
@@ -256,7 +257,6 @@ public class VoxelTerrain : MonoBehaviour
         if (pooledNativeVoxelArrays.Count == 0)
         {
             nativeArray = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            Debug.Log("create new native array");
         }
         else
         {
@@ -334,6 +334,10 @@ public class VoxelTerrain : MonoBehaviour
             GUI.Label(new Rect(0, 0, 300, 30), $"Pending GPU async readback jobs: {VoxelGenerator.pendingVoxelGenerationChunks.Count}");
             GUI.Label(new Rect(0, 15, 300, 30), $"Pending mesh jobs: {VoxelMesher.pendingMeshJobs.Count}");
             GUI.Label(new Rect(0, 30, 300, 30), $"Pending mesh baking jobs: {VoxelCollisions.ongoingBakeJobs.Count}");
+            GUI.Label(new Rect(0, 45, 300, 30), $"# of pooled chunk game objects: {pooledChunkGameObjects.Count}");
+            GUI.Label(new Rect(0, 60, 300, 30), $"# of pooled native voxel arrays: {pooledNativeVoxelArrays.Count}");
+            GUI.Label(new Rect(0, 75, 300, 30), $"# of chunks to make visible: {toMakeVisible.Count}");
+            GUI.Label(new Rect(0, 90, 300, 30), $"# of chunks to remove: {toRemoveChunk.Count}");
         }
     }
 }

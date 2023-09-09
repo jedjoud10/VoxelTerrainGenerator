@@ -26,6 +26,21 @@ float voxelSize;
 // Used for async readback
 RWTexture3D<uint> voxels;
 
+float3 mod(float3 x, float3 y)
+{
+  return x - y * floor(x/y);
+}
+
+float de ( float3 p ) {
+    float s = 3.0f, e;
+    for ( int i = 0; i++ < 8; ) {
+      p = mod((p - 1.0f), 2.0f) - 1.0f;
+      s *= e = 1.4f / dot( p, p );
+      p *= e;
+    }
+    return length( p.yz ) / s;
+  }
+
 // Generates the voxel data on the GPU
 [numthreads(4,4,4)]
 void CSVoxelizer (uint3 id : SV_DispatchThreadID)
@@ -41,10 +56,11 @@ void CSVoxelizer (uint3 id : SV_DispatchThreadID)
     position *= chunkScale;
     position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5) / vertexScaling;
     position *= vertexScaling;
-
+    position = round(position * 100) / 100;
+    
     // World offset and scale
     position = position * worldScale + worldOffset;
-    
+
     // Density value for biome 1
     float density1 = -fbmCellular(position * 0.002 * float3(1, 1.9, 1), 6, 0.49, 2.1).x * 100;
     density1 = opSmoothUnion(density1, position.y, 200);
@@ -68,7 +84,7 @@ void CSVoxelizer (uint3 id : SV_DispatchThreadID)
     mixer2 = smoothstep(0, 1, mixer2);
 
     // Calculate density
-    float density = lerp(lerp(density1, density2, mixer), density3, mixer2) + position.y;
+    float density = lerp(lerp(density1, density2, mixer), density3, mixer2) + position.y;    
     
     uint packedMaterial = 0;
     if (sdBox(position, float3(10, 100, 10)) < 0) {

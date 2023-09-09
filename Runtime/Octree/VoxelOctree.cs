@@ -48,6 +48,7 @@ public class VoxelOctree : VoxelBehaviour
     // Intialize octree memory
     internal override void Init()
     {
+        VoxelUtils.MaxDepth = maxDepth;
         Free = true;
         targets = new NativeArray<OctreeTarget>(1, Allocator.Persistent);
         targets[0] = new OctreeTarget();
@@ -93,16 +94,19 @@ public class VoxelOctree : VoxelBehaviour
     // Make sure the number of quality levels is equal the octree depth
     private void OnValidate()
     {
-        if (curvePoints != null && qualityPointsNativeArray.IsCreated)
+        if (curvePoints != null)
         {
             if (curvePoints.Length != maxDepth)
             {
                 Array.Resize(ref curvePoints, maxDepth);
             }
 
-            for (int i = 0; i < maxDepth; i++)
+            if (qualityPointsNativeArray.IsCreated)
             {
-                qualityPointsNativeArray[i] = curvePoints[i];
+                for (int i = 0; i < maxDepth; i++)
+                {
+                    qualityPointsNativeArray[i] = curvePoints[i];
+                }
             }
         }
     }

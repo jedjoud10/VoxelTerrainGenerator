@@ -1,3 +1,4 @@
+using Codice.Client.BaseCommands;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -9,6 +10,7 @@ using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.UIElements;
 
 // Common voxel utility methods
 public static class VoxelUtils
@@ -18,10 +20,13 @@ public static class VoxelUtils
 
     // Voxel scaling size
     public static int VoxelSizeReduction { get; internal set; }
-    
+
     // Scaling factor when using voxel size reduction
     // Doesn't actually represent the actual size of the voxel (since we do some scaling anyways)
     public static float VoxelSizeFactor => 1F / Mathf.Pow(2F, VoxelSizeReduction);
+
+    // Max depth of the octree world
+    public static int MaxDepth { get; internal set; }
 
     // Current chunk resolution
     public static int Size { get; internal set; }
@@ -37,6 +42,15 @@ public static class VoxelUtils
 
     // Should we enable smoothing when meshing?
     public static bool Smoothing { get; internal set; }
+
+    // Size of the segments in voxel size
+    public static int SegmentSize => Size * 4;
+
+    // Chunks per segment
+    public static int ChunksPerSegment { get; internal set; } = 4;
+
+    // Number of segments in the world in one axis only
+    public static int MaxSegments => (int) (Mathf.Pow(2F, MaxDepth - 1) * VoxelUtils.Size) / (SegmentSize);
 
     // Max possible number of materials supported by the terrain mesh
     public const int MAX_MATERIAL_COUNT = 256;
@@ -100,19 +114,43 @@ public static class VoxelUtils
         return texture;
     }
 
-    // Convert an index to a 3D position
+    // Convert an index to a 3D position (morton coding)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static uint3 IndexToPos(int index)
     {
         return Morton.DecodeMorton32((uint)index);
     }
 
-    // Convert a 3D position into an index
+    // Convert a 3D position into an index (morton coding)
     [return: AssumeRange(0u, 262144)]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int PosToIndex(uint3 position)
     {
         return (int)Morton.EncodeMorton32(position);
+    }
+
+    // Convert an index to a 3D position
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint3 IndexToPos(int index, uint size)
+    {
+        uint index2 = (uint)index;
+
+        // N(ABC) -> N(A) x N(BC)
+        uint y = index2 / (size * size);   // x in N(A)
+        uint w = index2 % (size * size);  // w in N(BC)
+
+        // N(BC) -> N(B) x N(C)
+        uint z = w / size;        // y in N(B)
+        uint x = w % size;        // z in N(C)
+        return new uint3(x, y, z);
+    }
+
+    // Convert a 3D position into an index
+    [return: AssumeRange(0u, 262144)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int PosToIndex(uint3 position, uint size)
+    {
+        return (int)math.round((position.y * size * size + (position.z * size) + position.x));
     }
 
     // Sampled the voxel grid using trilinear filtering
@@ -144,23 +182,14 @@ public static class VoxelUtils
         return mixed6;
     }
 
-    // Calculate the ambient occlusion factor of a specific vertex based on its normals
-    public static float CalculatePerVertexAmbientOcclusion(float3 position, ref NativeArray<half> densities, int size)
+    // Check if the given chunk intersects the given bounds
+    public static bool ChunkCoordsIntersectBounds(int3 chunk, Bounds bounds)
     {
-        float ao = 0;
+        float3 chunkMin = math.float3(chunk) * Size * VoxelSizeFactor;
+        float3 chunkMax = math.float3(chunk + 1) * Size * VoxelSizeFactor;
+        float3 boundsMin = math.float3(bounds.min.x, bounds.min.y, bounds.min.z);
+        float3 boundsMax = math.float3(bounds.max.x, bounds.max.y, bounds.max.z);
 
-        for (int x = 0; x <= 1; x++) {
-            for (int y = 0; y <= 1; y++) {
-                for (int z = 0; z <= 1; z++) {
-                    float3 offset = new float3(x, y, z) * 2 - new float3(1);
-                    float3 final = (position + offset * 2 + new float3(1));
-                    final = math.clamp(final, float3.zero, new float3(size - 2));
-                    float density = SampleGridInterpolated(final, ref densities, size);
-                    ao += density > 0 ? 1 : 0;
-                }
-            }
-        }
-
-        return ao / (3*3*3);
+        return math.all(boundsMin <= chunkMax) && math.all(chunkMin <= boundsMax);
     }
 }

@@ -62,9 +62,9 @@ Material:
     - _DstBlend: 0
     - _EnableBlendModePreserveSpecularLighting: 1
     - _EnableFogOnTransparent: 1
-    - _Factor: 200
+    - _Factor: 999
     - _Metallic: 0
-    - _Offset: -166.23
+    - _Offset: -0.9
     - _OpaqueCullMode: 2
     - _RayTracing: 0
     - _ReceivesSSR: 1

@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -13,14 +14,15 @@ struct VoxelEditJob<T> : IJobParallelFor
     where T : struct, IVoxelEdit
 {
     [ReadOnly] public float3 chunkOffset;
-    [ReadOnly] public float chunkScale;
     [ReadOnly] public float voxelScale;
     [ReadOnly] public float size;
     [ReadOnly] public float vertexScaling;
 
     public T edit;
 
-    public NativeArray<Voxel> deltaVoxels;
+    public int chunk;
+    public VoxelSegment segment;
+    public UnsafeList<SparseVoxelData> sparseVoxelData;
 
     public void Execute(int index)
     {
@@ -33,9 +35,10 @@ struct VoxelEditJob<T> : IJobParallelFor
         position *= voxelScale;
 
         // Chunk offsets + vertex scaling
-        position *= chunkScale;
-        position += (chunkOffset - ((chunkScale * size) / (size - 3.0F)) * 0.5F) / vertexScaling;
+        position += (chunkOffset - ((size) / (size - 3.0F)) * 0.5F) / vertexScaling;
         position *= vertexScaling;
-        deltaVoxels[index] = edit.Modify(position, deltaVoxels[index]);
+
+
+        //deltaVoxels[index] = edit.Modify(position, deltaVoxels[index]);
     }
 }
