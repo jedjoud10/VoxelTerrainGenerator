@@ -44,7 +44,7 @@ public static class VoxelUtils
     public static bool Smoothing { get; internal set; }
 
     // Size of the segments in voxel size
-    public static int SegmentSize => Size * 4;
+    public static int SegmentSize => Size * 8;
 
     // Chunks per segment
     public static int ChunksPerSegment { get; internal set; } = 4;

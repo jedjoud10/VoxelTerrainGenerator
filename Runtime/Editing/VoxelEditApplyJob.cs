@@ -19,12 +19,11 @@ struct VoxelEditApplyJob<T> : IJobParallelFor
 
     // Sparse voxel data that we will check against
     [ReadOnly]
-    public UnsafeList<SparseVoxelData> sparseVoxelData;
+    public UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
 
-    // World is separated into segments of multiple chunks
-    // Each segment consists of 4^3 chunks (so a volume of 256^3)
+    // Voxel terrain region 
     [ReadOnly]
-    public NativeArray<ulong> segments;
+    public VoxelDeltaRegion region;
 
     // Octree node of the current chunk
     [ReadOnly]

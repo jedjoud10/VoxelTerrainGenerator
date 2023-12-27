@@ -20,9 +20,10 @@ struct VoxelEditJob<T> : IJobParallelFor
 
     public T edit;
 
-    public int chunk;
-    public VoxelSegment segment;
-    public UnsafeList<SparseVoxelData> sparseVoxelData;
+
+    [ReadOnly]
+    public int sparseVoxelDataChunkIndex;
+    public UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
 
     public void Execute(int index)
     {
@@ -38,7 +39,12 @@ struct VoxelEditJob<T> : IJobParallelFor
         position += (chunkOffset - ((size) / (size - 3.0F)) * 0.5F) / vertexScaling;
         position *= vertexScaling;
 
-
-        //deltaVoxels[index] = edit.Modify(position, deltaVoxels[index]);
+        // Read, modify, write
+        SparseVoxelDeltaData deltas = sparseVoxelData[sparseVoxelDataChunkIndex];
+        ushort material = deltas.materials[index];
+        half density = deltas.densities[index];
+        Voxel output = edit.Modify(position, new Voxel { material = material, density = density });
+        deltas.materials[index] = output.material;
+        deltas.densities[index] = output.density;
     }
 }

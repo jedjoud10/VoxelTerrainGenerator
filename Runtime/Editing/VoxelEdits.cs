@@ -19,16 +19,16 @@ public class VoxelEdits : VoxelBehaviour
     public int maxImmediateMeshEditJobsPerEdit = 1;
 
     // Sparse voxel data that we will check against
-    private UnsafeList<SparseVoxelData> sparseVoxelData;
+    private UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
 
     // World is separated into segments of multiple chunks
-    private NativeArray<VoxelSegment> segments;
+    private NativeArray<VoxelDeltaRegion> segments;
     
     // Initialize the voxel edits handler
     internal override void Init()
     {
-        segments = new NativeArray<VoxelSegment>(VoxelUtils.MaxSegments * VoxelUtils.MaxSegments * VoxelUtils.MaxSegments, Allocator.Persistent);
-        sparseVoxelData = new UnsafeList<SparseVoxelData>(0, Allocator.Persistent);
+        segments = new NativeArray<VoxelDeltaRegion>(VoxelUtils.MaxSegments * VoxelUtils.MaxSegments * VoxelUtils.MaxSegments, Allocator.Persistent);
+        sparseVoxelData = new UnsafeList<SparseVoxelDeltaData>(0, Allocator.Persistent);
     }
 
     // Dispose of any memory
@@ -37,13 +37,13 @@ public class VoxelEdits : VoxelBehaviour
         for (int i = 0; i < segments.Length; i++)
         {
             var bitset = segments[i].bitset;
-            if (bitset != 0)
+            if (bitset.IsCreated && !bitset.IsEmpty)
             {
-                for (int j = 0; j < 64; j++)
+                for (int j = 0; j < 512; j++)
                 {
-                    if (((bitset >> j) & 1) == 1)
+                    if (bitset.IsSet(j))
                     {
-                        SparseVoxelData data = sparseVoxelData[j];
+                        SparseVoxelDeltaData data = sparseVoxelData[j];
                         data.materials.Dispose();
                         data.densities.Dispose();
                     }
@@ -56,7 +56,7 @@ public class VoxelEdits : VoxelBehaviour
     }
 
     // Apply a voxel edit to the terrain world either immediately or asynchronously
-    public void ApplyVoxelEdit<T>(T edit, bool immediate = false) where T : struct, IVoxelEdit
+    public void ApplyVoxelEdit<T>(T edit) where T : struct, IVoxelEdit
     {
         if (!terrain.Free || !terrain.VoxelGenerator.Free || !terrain.VoxelMesher.Free || !terrain.VoxelOctree.Free)       
             return;
@@ -66,21 +66,42 @@ public class VoxelEdits : VoxelBehaviour
         Bounds bound = edit.GetBounds();
         bound.Expand(extentOffset);
 
-        // Make sure the sparse voxel data already exists
-        InitSegments(bound);
+        // Sparse voxel chunks that we must edit
+        List<SparseVoxelDeltaChunk> sparseVoxelEditChunks = new List<SparseVoxelDeltaChunk>();
 
-        // Modify said sparse voxel data
+        // Make sure the sparse voxel data already exists
+        InitSegmentsFindSparseChunks(bound, ref sparseVoxelEditChunks);
+        Debug.Log($"Sparse delta chunks to edit: {sparseVoxelEditChunks.Count}");
+
+        // Modify sparse voxel data
+        foreach (var item in sparseVoxelEditChunks)
+        {
+            VoxelEditJob<T> job = new VoxelEditJob<T>
+            {
+                chunkOffset = math.float3(item.position),
+                voxelScale = VoxelUtils.VoxelSizeFactor,
+                size = VoxelUtils.Size,
+                vertexScaling = VoxelUtils.VertexScaling,
+                edit = edit,
+                sparseVoxelData = sparseVoxelData,
+                sparseVoxelDataChunkIndex = item.bitIndex,
+            };
+
+            JobHandle handle = job.Schedule(VoxelUtils.Size * VoxelUtils.Size * VoxelUtils.Size, 2048);
+            handle.Complete();
+        }
+
         // Apply sparse voxel data deltas onto affected chunks
     }
 
     // Makes sure the segments that intersect the bounds are loaded in and ready for modification
     // Not used for serialization / deserialization
-    public void InitSegments(Bounds bounds)
+    private void InitSegmentsFindSparseChunks(Bounds bounds, ref List<SparseVoxelDeltaChunk> sparseVoxelEditChunks)
     {
         float3 extents = new float3(bounds.extents.x, bounds.extents.y, bounds.extents.z);
         uint3 uintExtents = math.uint3(math.ceil(extents / (float)VoxelUtils.SegmentSize));
 
-        float3 offset = math.floor(new float3(bounds.min.x, bounds.min.y, bounds.min.z)) / (float)VoxelUtils.SegmentSize;
+        float3 offset = math.floor(new float3(bounds.min.x, bounds.min.y, bounds.min.z) / (float)VoxelUtils.SegmentSize);
         int3 uintOffset = math.int3(offset);
 
         for (int x = 0; x < uintExtents.x; x++)
@@ -91,7 +112,7 @@ public class VoxelEdits : VoxelBehaviour
                 {
                     int3 segmentCoords = math.int3(x, y, z);
                     segmentCoords += uintOffset;
-                    InitSegment(bounds, segmentCoords);
+                    InitSegmentFindSparseChunks(bounds, segmentCoords, ref sparseVoxelEditChunks);
                 }
             }
         }
@@ -99,52 +120,76 @@ public class VoxelEdits : VoxelBehaviour
 
     // Makes sure the chunks that intersect the bounds (for this segment are ready for editing)
     // Not used for serialization / deserialization
-    public void InitSegment(Bounds bounds, int3 segmentCoords)
+    private void InitSegmentFindSparseChunks(Bounds bounds, int3 segmentCoords, ref List<SparseVoxelDeltaChunk> sparseVoxelEditChunks)
     {
         uint3 uintSegmentCoords = math.uint3(segmentCoords + VoxelUtils.MaxSegments / 2);
         int segmentIndex = VoxelUtils.PosToIndex(uintSegmentCoords, (uint)VoxelUtils.MaxSegments);
-        VoxelSegment segment = segments[segmentIndex];
+        VoxelDeltaRegion segment = segments[segmentIndex];
 
         // This will initialize the segment if it does not contain any chunks
-        if (segment.bitset == 0)
+        if (!segment.bitset.IsCreated)
         {
+            segment.bitset = new UnsafeBitArray(512, Allocator.Persistent);
             segment.startingIndex = sparseVoxelData.Length;
 
-            for (int i = 0; i < 64; i++)
+            for (int i = 0; i < 512; i++)
             {
-                sparseVoxelData.Add(SparseVoxelData.Empty);
+                sparseVoxelData.Add(SparseVoxelDeltaData.Empty);
             }
         }
 
         // This loop will create the memory allocations for edited chunks
-        for (int i = 0; i < 64; i++)
+        for (int i = 0; i < 512; i++)
         {
-            int3 localChunkCoords = math.int3(VoxelUtils.IndexToPos(i, 4));
+            int3 localChunkCoords = math.int3(VoxelUtils.IndexToPos(i, 8));
             int3 globalChunkCoords = segmentCoords * VoxelUtils.ChunksPerSegment + localChunkCoords;
             
-
             if (VoxelUtils.ChunkCoordsIntersectBounds(globalChunkCoords, bounds))
             {
-                segment.bitset |= (ulong)1 << i;
-
-
-                SparseVoxelData data = new SparseVoxelData
+                if (!segment.bitset.IsSet(i))
                 {
-                    densities = new NativeArray<half>(VoxelUtils.Volume, Allocator.Persistent),
-                    materials = new NativeArray<ushort>(VoxelUtils.Volume, Allocator.Persistent),
-                };
+                    segment.bitset.Set(i, true);
 
-                sparseVoxelData[segment.startingIndex + i] = data;
+                    SparseVoxelDeltaData data = new SparseVoxelDeltaData
+                    {
+                        densities = new NativeArray<half>(VoxelUtils.Volume, Allocator.Persistent),
+                        materials = new NativeArray<ushort>(VoxelUtils.Volume, Allocator.Persistent),
+                    };
 
-                Debug.Log($"Intersect chunk {globalChunkCoords}");
+                    sparseVoxelData[segment.startingIndex + i] = data;
+                }
+
+                sparseVoxelEditChunks.Add(new SparseVoxelDeltaChunk
+                {
+                    position = globalChunkCoords,
+                    bitIndex = i,
+                });
             }
         }
 
         segments[segmentIndex] = segment;
     }
 
+    /*
     private void OnDrawGizmosSelected()
     {
-        
+        if (!segments.IsCreated)
+            return;
+
+        for (int i = 0; i < segments.Length; i++)
+        {
+            uint3 segmentCoordsUint = VoxelUtils.IndexToPos(i, (uint)VoxelUtils.MaxSegments);
+            int3 segmentCoords = math.int3(segmentCoordsUint) - math.int3(VoxelUtils.MaxSegments / 2);
+
+            VoxelSegment segment = segments[i];
+
+            if (!segment.bitset.IsCreated)
+                continue;
+
+            var offset = (float)VoxelUtils.SegmentSize;
+            Vector3 segmentCenter = new Vector3(segmentCoords.x, segmentCoords.y, segmentCoords.z) * VoxelUtils.SegmentSize + Vector3.one * offset / 2F;
+            Gizmos.DrawWireCube(segmentCenter, Vector3.one * offset);
+        }
     }
+    */
 }

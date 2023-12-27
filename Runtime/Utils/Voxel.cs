@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 
 // CPU representation of what a voxel is
@@ -23,10 +24,20 @@ public struct Voxel
     };
 }
 
-// Sparse voxel data (SoA) that will be stored on disk / serialized / deserialized
-// This will correspond to a single segment's chunk
+
+// How we store the sparse chunk inside the region
+// Related to SpraseVoxelDeltaData (but not stored in the same array)
 [StructLayout(LayoutKind.Sequential)]
-public struct SparseVoxelData
+public struct SparseVoxelDeltaChunk
+{
+    public int3 position;
+    public int bitIndex;
+}
+
+// Sparse voxel data (SoA) that will be stored on disk / serialized / deserialized
+// This will correspond to a single region's chunk
+[StructLayout(LayoutKind.Sequential)]
+public struct SparseVoxelDeltaData
 {
     // Densities that we will compress using a lossless compression algorithm
     // TODO: I need to find a compression algo that works with the unity C# job system
@@ -37,24 +48,24 @@ public struct SparseVoxelData
     public NativeArray<ushort> materials;
 
     // Create sparse voxel data for an unnaffected delta chunk
-    public static SparseVoxelData Empty = new SparseVoxelData
+    public static SparseVoxelDeltaData Empty = new SparseVoxelDeltaData
     {
         densities = default,
         materials = default
     };
-
 }
 
-// A segment is a collection of 4x4x4 chunks in the world
+// A region is a collection of 8x8x8 chunks in the world
 [StructLayout(LayoutKind.Sequential)]
-public struct VoxelSegment
+public struct VoxelDeltaRegion
 {
     // Bitset containing the chunks that are active
-    public ulong bitset;
+    public UnsafeBitArray bitset;
 
     // Starting index of the sparse voxel data
     public int startingIndex;
 }
+
 
 // Voxel container with custom dispose methods
 // (implemented for voxel readback request and voxel edit request)
