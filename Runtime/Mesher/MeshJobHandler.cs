@@ -228,6 +228,7 @@ internal class MeshJobHandler {
 
     // Dispose of the underlying memory allocations
     internal void Dispose() {
+        voxels.Dispose();
         indices.Dispose();
         vertices.Dispose();
         counter.Dispose();

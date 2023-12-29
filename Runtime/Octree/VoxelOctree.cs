@@ -26,6 +26,7 @@ public class VoxelOctree : VoxelBehaviour {
 
     // Used to generate the octree
     private NativeQueue<OctreeNode> pending;
+    private NativeList<OctreeNode> copy;
 
     // Called whenever we detect a change in the octree
     public delegate void OnOctreeChanged(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed);
@@ -58,6 +59,7 @@ public class VoxelOctree : VoxelBehaviour {
 
         addedNodes = new NativeList<OctreeNode>(Allocator.Persistent);
         removedNodes = new NativeList<OctreeNode>(Allocator.Persistent);
+        copy = new NativeList<OctreeNode>(0, Allocator.Persistent);
     }
 
     // Force the octree to update due to an octree loader moving
@@ -112,18 +114,18 @@ public class VoxelOctree : VoxelBehaviour {
                 initial.Complete();
 
                 // Temp copy of the added nodes
-                var copy = new NativeArray<OctreeNode>(newNodesList.Length, Allocator.TempJob);
-                copy.CopyFrom(newNodesList.AsArray());
+                copy.Resize(Mathf.Max(newNodesList.Length, copy.Length), NativeArrayOptions.ClearMemory);
+                copy.CopyFrom(newNodesList);
 
                 // Execute the neighbour checking job for added nodes
                 NeighbourJob neighbourJob = new NeighbourJob {
                     octreeLoaderPosition = targets[0].center,
-                    inputNodes = copy,
+                    inputNodes = copy.AsArray(),
                     outputNodes = newNodesList.AsArray(),
                 };
 
                 JobHandle neighbourJobHandle = neighbourJob.Schedule(newNodesList.Length, 128);
-                copy.Dispose(neighbourJobHandle);
+                
 
                 // Converts the array into a hashlist
                 ToHashSetJob hashSetJob = new ToHashSetJob {
@@ -207,6 +209,7 @@ public class VoxelOctree : VoxelBehaviour {
         pending.Dispose();
         addedNodes.Dispose();
         removedNodes.Dispose();
+        copy.Dispose();
 
         for (int i = 0; i < 2; i++) {
             octreeNodesHashSet[i].Dispose();

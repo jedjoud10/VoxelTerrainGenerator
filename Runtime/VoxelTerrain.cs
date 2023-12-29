@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 
 // Voxel terrain that handles generating the chunks and handling detail generation
@@ -123,8 +122,15 @@ public class VoxelTerrain : MonoBehaviour {
         VoxelGenerator.Dispose();
         VoxelCollisions.Dispose();
 
+
+        foreach (var item in Chunks) {
+            if (item.Value.uniqueVoxelContainer)
+                item.Value.container.voxels.Dispose();
+        }
+
         foreach (var item in pooledVoxelChunkContainers) {
-            item.TempDispose();
+            // Dispose manually since the TempDispose override does nothing
+            item.voxels.Dispose();
         }
     }
 

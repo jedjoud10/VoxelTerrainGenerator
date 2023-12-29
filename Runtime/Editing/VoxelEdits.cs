@@ -1,4 +1,3 @@
-using Mono.Cecil.Cil;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,8 +17,6 @@ public class VoxelEdits : VoxelBehaviour {
     [Range(0, 8)]
     public int maxImmediateMeshEditJobsPerEdit = 1;
     public bool debugGUI = false;
-    public float offset;
-    public float innerOffset;
 
     // Dictionary to map chunk positions to sparseVoxelData indices
     private NativeArray<VoxelDeltaLookup> lookup;
@@ -69,7 +66,6 @@ public class VoxelEdits : VoxelBehaviour {
 
         // Sparse voxel chunks that we must edit
         List<SparseVoxelDeltaChunk> sparseVoxelEditChunks = InitSegmentsFindSparseChunks(bound);
-        Debug.Log($"Sparse delta chunks to edit: {sparseVoxelEditChunks.Count}");
 
         // Modify sparse voxel data
         foreach (var item in sparseVoxelEditChunks) {
@@ -87,7 +83,7 @@ public class VoxelEdits : VoxelBehaviour {
             handle.Complete();
         }
 
-        // Re-mesh the chunk
+        // Re-mesh the chunkS
         foreach (var node in temp) {
             VoxelChunk chunk = terrain.Chunks[node];
             terrain.VoxelMesher.GenerateMesh(chunk, true);
@@ -126,7 +122,6 @@ public class VoxelEdits : VoxelBehaviour {
 
         // This will initialize the segment if it does not contain any chunks
         if (!segment.bitset.IsCreated) {
-            Debug.LogWarning("Creating a new segment at index " + segmentIndex);
             segment.bitset = new UnsafeBitArray(VoxelUtils.ChunksPerSegmentVolume, Allocator.Persistent);
             segment.startingIndex = sparseVoxelData.Length;
 
@@ -144,7 +139,6 @@ public class VoxelEdits : VoxelBehaviour {
             if (VoxelUtils.ChunkCoordsIntersectBounds(globalChunkCoords, bounds)) {
                 // Initialize the SparseVoxelDeltaData chunk if it was not already initialized
                 if (!segment.bitset.IsSet(i)) {
-                    Debug.Log($"Set chunk bit {i}, max: " +  segment.bitset.Length);
                     segment.bitset.Set(i, true);
 
                     SparseVoxelDeltaData data = new SparseVoxelDeltaData {
@@ -183,7 +177,6 @@ public class VoxelEdits : VoxelBehaviour {
             return;
         }
 
-        Debug.LogWarning("VoxelEditApply job start");
         VoxelEditApplyJob job = new VoxelEditApplyJob {
             lookup = lookup,
             sparseVoxelData = sparseVoxelData,

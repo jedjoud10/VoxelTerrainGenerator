@@ -25,7 +25,7 @@ public struct SphereEdit : IVoxelEdit {
     public Voxel Modify(float3 position, Voxel lastDelta) {
         Voxel voxel = Voxel.Empty;
         float density = math.length(position - center) - radius;
-        voxel.material = (density < 0.0F && writeMaterial) ? material : lastDelta.material;
+        voxel.material = (density < 0.0F && writeMaterial) ? material : ushort.MaxValue;
         voxel.density = (density < 0.0F) ? (half)(density * -strength) : lastDelta.density;
         return voxel;
     }

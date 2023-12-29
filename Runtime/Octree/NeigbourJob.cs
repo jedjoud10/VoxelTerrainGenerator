@@ -9,8 +9,7 @@ using System;
 // Checks if the node has neighbours of different sizes or not
 // Used for creating the appropriate skirts
 [BurstCompile(CompileSynchronously = true)]
-public struct NeighbourJob : IJobParallelFor
-{
+public struct NeighbourJob : IJobParallelFor {
     // Copy of input data so we can execute this in parallel
     // This contains the nodes for the whole tree
     [ReadOnly]
@@ -34,8 +33,7 @@ public struct NeighbourJob : IJobParallelFor
     // Main octree loader position
     public float3 octreeLoaderPosition;
 
-    public void Execute(int index)
-    {
+    public void Execute(int index) {
         // Find node (current)
         OctreeNode node = outputNodes[index];
 
@@ -46,8 +44,7 @@ public struct NeighbourJob : IJobParallelFor
         // Skirts that we must apply to the nodes
         int skirts = 0x3F;
 
-        for (int i = 0; i < 6; i++)
-        {
+        for (int i = 0; i < 6; i++) {
             float3 dir = directions[i];
             float3 estimatedNeighbouringNodeCenter = math.float3(node.Position) + math.float3(node.Size) / 2.0F + math.float3(node.Size * dir);
             int nextChildIndex = 0;
@@ -55,38 +52,33 @@ public struct NeighbourJob : IJobParallelFor
             int iter = 0;
 
             // Recursively pick the child that intersects the "neigbouring node" estimated center
-            while (!breakOuter)
-            {
+            while (!breakOuter) {
                 if (iter > 10000)
                     break;
 
-                for (int k = 0; k < 8; k++)
-                {
+                for (int k = 0; k < 8; k++) {
                     OctreeNode cur = inputNodes[nextChildIndex + k];
 
-                    if (cur.ContainsPoint(estimatedNeighbouringNodeCenter))
-                    {
+                    if (cur.ContainsPoint(estimatedNeighbouringNodeCenter)) {
                         nextChildIndex = cur.ChildBaseIndex;
 
                         // We reached a node with the same depth as ours
-                        if (cur.Depth == node.Depth)
-                        {
-                           breakOuter = true;
+                        if (cur.Depth == node.Depth) {
+                            breakOuter = true;
 
-                            
+
                             // Enable skirts if said node goes deeper
                             if (cur.ChildBaseIndex != -1)
                                 skirts |= 1 << i;
                             else
                                 skirts &= ~(1 << i);
-                            
-                        
+
+
                             break;
                         }
 
                         // We reached the bottom of the tree (or too deep), break out
-                        if (nextChildIndex == -1 || cur.Depth > node.Depth)
-                        {
+                        if (nextChildIndex == -1 || cur.Depth > node.Depth) {
                             breakOuter = true;
                             break;
                         }

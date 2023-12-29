@@ -8,25 +8,21 @@ using UnityEngine;
 [assembly: RegisterGenericJobType(typeof(VoxelEditJob<CuboidEdit>))]
 
 // Simple cuboid edit that edits the chunk in a specific extent
-public struct CuboidEdit : IVoxelEdit
-{
+public struct CuboidEdit : IVoxelEdit {
     [ReadOnly] public float3 center;
     [ReadOnly] public float3 extents;
     [ReadOnly] public bool add;
     [ReadOnly] public ushort material;
     [ReadOnly] public bool writeMaterial;
 
-    public Bounds GetBounds()
-    {
-        return new Bounds
-        {
+    public Bounds GetBounds() {
+        return new Bounds {
             center = center,
             extents = extents
         };
     }
 
-    public Voxel Modify(float3 position, Voxel lastDelta)
-    {
+    public Voxel Modify(float3 position, Voxel lastDelta) {
         float3 q = math.abs(position - center) - (extents / 2.0F);
         float density = math.length(math.max(q, 0.0F)) + math.min(math.max(q.x, math.max(q.y, q.z)), 0.0F);
 
@@ -35,8 +31,7 @@ public struct CuboidEdit : IVoxelEdit
         float removed = math.half(math.max(lastDelta.density, -density));
         voxel.density = (half)math.select(removed, added, add);
 
-        if (writeMaterial && density < 0)
-        {
+        if (writeMaterial && density < 0) {
             voxel.material = material;
         }
 

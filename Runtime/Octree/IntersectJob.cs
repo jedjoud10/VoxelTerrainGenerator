@@ -3,7 +3,6 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Burst;
-using static UnityEngine.GraphicsBuffer;
 
 // Job that's going to detect what intersected the octree using an AABB
 [BurstCompile(CompileSynchronously = true)]
@@ -24,6 +23,7 @@ public struct IntersectJob : IJob {
     public NativeQueue<int> pending;
 
     public void Execute() {
+        // Most optimized jed code (jed try to make optimized code challenge (IMPOSSIBLE))
         while (pending.TryDequeue(out int index)) {
             var node = nodes[index];
             if (node.IntersectsAABB(min, max)) {

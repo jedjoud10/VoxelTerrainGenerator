@@ -43,34 +43,17 @@ public struct VoxelEditApplyJob : IJobParallelFor {
     public void Execute(int index) {
         // Get the world space position of this voxel
         uint3 localPos = VoxelUtils.IndexToPos(index);
-
-        /*
-            position -= 1.0;
-    
-            // Needed for voxel size reduction
-            position *= voxelSize;
-
-            // Chunk offsets + vertex scaling
-            position *= vertexScaling;
-            position *= chunkScale;
-            position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5);
-            position = round(position * 100) / 100;
-            
-            // World offset and scale
-            position = position * worldScale + worldOffset;
-        */
-
-        float3 position = math.float3(localPos) + node.Position;
-        /*
-        position -= math.float3(1.0);
+        float3 position = math.float3(localPos);
+        //position -= math.float3(1.0);
 
         // Needed for voxel size reduction
-        position *= voxelScale;
+        //position *= voxelScale;
 
         // Chunk offsets + vertex scaling
         position *= vertexScaling;
+        position *= node.ScalingFactor;
+        //position += node.Position;
         position += math.float3((node.Position - (size / (size - 3.0f)) * 0.5f));
-        */
 
         // Get the segment and chunk in which this voxel resides
         int3 worldSegment = (int3)math.floor(position / segmentSize);
@@ -83,17 +66,16 @@ public struct VoxelEditApplyJob : IJobParallelFor {
         int chunkIndex = VoxelUtils.PosToIndex(segmentChunk, (uint)chunksPerSegment);
 
         // Get the index of the sparseVoxelData that we must read from
-        VoxelDeltaLookup temp = lookup[segment];
+        VoxelDeltaLookup temp = lookup[math.clamp(segment, 0, maxSegments*maxSegments*maxSegments-1)];
         int sparseIndex = temp.startingIndex + chunkIndex;
         uint3 worldVoxelPositive = (uint3)VoxelUtils.Mod(position, size);
         int voxelIndex = VoxelUtils.PosToIndex(worldVoxelPositive);
 
         // Apply the voxel delta change
         if (chunkIndex < temp.bitset.Length && temp.bitset.IsSet(chunkIndex)) {
-            //voxels[index] = Voxel.Empty;
-            SparseVoxelDeltaData data = sparseVoxelData[sparseIndex];
-            half deltaDensity = data.densities[voxelIndex];
-            ushort deltaMaterial = data.materials[voxelIndex];
+            SparseVoxelDeltaData data = sparseVoxelData[math.max(sparseIndex, 0)];
+            half deltaDensity = data.densities[math.max(voxelIndex, 0)];
+            ushort deltaMaterial = data.materials[math.max(voxelIndex, 0)];
             Voxel cur = inputVoxels[index];
             cur.density += deltaDensity;
             

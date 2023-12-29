@@ -33,11 +33,12 @@ struct VoxelEditJob<T> : IJobParallelFor
         position -= math.float3(1.0);
 
         // Needed for voxel size reduction
-        position *= voxelScale;
+        //position *= voxelScale;
+        position += chunkOffset;
 
         // Chunk offsets + vertex scaling
-        position *= vertexScaling;
-        position += math.float3((chunkOffset - (size / (size - 3.0f)) * 0.5f));
+        //position *= vertexScaling;
+        //position += math.float3((chunkOffset - (size / (size - 3.0f)) * 0.5f));
 
         // Read, modify, write
         SparseVoxelDeltaData deltas = sparseVoxelData[sparseVoxelDataChunkIndex];

@@ -10,9 +10,14 @@ public class CustomEditorVoxelGenerator : Editor {
         VoxelGenerator generator = (VoxelGenerator)target;
 
         GUI.enabled = generator.Free;
-        if (GUILayout.Button("Randomize Seeds & Regenerate")) {
-            generator.RandomizeSeeds();
-            generator.UpdateStaticComputeFields();
+
+        if (GUILayout.Button("Update Seed Values & Regenerate")) {
+            generator.SeedToPerms();
+            generator.GetComponent<VoxelTerrain>().RequestAll(true);
+        }
+
+        if (GUILayout.Button("Randomize Seed & Regenerate")) {
+            generator.RandomizeSeed();
             generator.GetComponent<VoxelTerrain>().RequestAll(true);
         }
 
