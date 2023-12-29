@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 
 // Voxel terrain that handles generating the chunks and handling detail generation
@@ -13,8 +14,7 @@ using UnityEngine;
 [RequireComponent(typeof(VoxelCollisions))]
 [RequireComponent(typeof(VoxelOctree))]
 [RequireComponent(typeof(VoxelEdits))]
-public class VoxelTerrain : MonoBehaviour
-{
+public class VoxelTerrain : MonoBehaviour {
     // Singleton pattern heheheha
     public static VoxelTerrain Instance { get; private set; }
 
@@ -30,6 +30,8 @@ public class VoxelTerrain : MonoBehaviour
     [Range(16, 64)]
     public int resolution = 32;
 
+    public bool debugGUI = false;
+
     [Min(0)]
     public int voxelSizeReduction = 0;
 
@@ -39,7 +41,7 @@ public class VoxelTerrain : MonoBehaviour
     // Object pooling stuff
     public GameObject chunkPrefab;
     private List<GameObject> pooledChunkGameObjects;
-    private List<NativeArray<Voxel>> pooledNativeVoxelArrays;
+    private List<VoxelChunkContainer> pooledVoxelChunkContainers;
 
     public Dictionary<OctreeNode, VoxelChunk> Chunks { get; private set; }
 
@@ -64,24 +66,18 @@ public class VoxelTerrain : MonoBehaviour
     // Did the terrain finish computing the initial base terrain
     public bool Initial { get; private set; } = false;
 
-    private void OnValidate()
-    {
-        if (!started)
-        {
+    private void OnValidate() {
+        if (!started) {
             resolution = Mathf.ClosestPowerOfTwo(resolution);
             VoxelUtils.Size = resolution;
             VoxelUtils.VoxelSizeReduction = voxelSizeReduction;
         }
     }
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
+    private void Awake() {
+        if (Instance != null && Instance != this) {
             Destroy(this);
-        }
-        else
-        {
+        } else {
             Instance = this;
         }
     }
@@ -89,7 +85,7 @@ public class VoxelTerrain : MonoBehaviour
     void Start() {
         // Initialize the generator and mesher
         started = true;
-        VoxelGenerator = GetComponent<VoxelGenerator>(); 
+        VoxelGenerator = GetComponent<VoxelGenerator>();
         VoxelMesher = GetComponent<VoxelMesher>();
         VoxelCollisions = GetComponent<VoxelCollisions>();
         VoxelOctree = GetComponent<VoxelOctree>();
@@ -116,41 +112,29 @@ public class VoxelTerrain : MonoBehaviour
         // Init local vars
         Chunks = new Dictionary<OctreeNode, VoxelChunk>();
         pooledChunkGameObjects = new List<GameObject>();
-        pooledNativeVoxelArrays = new List<NativeArray<Voxel>>();
+        pooledVoxelChunkContainers = new List<VoxelChunkContainer>();
     }
 
     // Dispose of all the voxel behaviours
-    private void OnApplicationQuit()
-    {
+    private void OnApplicationQuit() {
         VoxelOctree.Dispose();
         VoxelMesher.Dispose();
         VoxelEdits.Dispose();
         VoxelGenerator.Dispose();
         VoxelCollisions.Dispose();
 
-        foreach (var item in Chunks)
-        {
-            if (item.Value.voxels.HasValue)
-            {
-                item.Value.voxels.Value.Dispose();
-            }
-        }
-
-        foreach (var item in pooledNativeVoxelArrays)
-        {
-            item.Dispose();
+        foreach (var item in pooledVoxelChunkContainers) {
+            item.TempDispose();
         }
     }
 
-    private void Update()
-    {
+    private void Update() {
         if (!Free && VoxelGenerator.Free && VoxelMesher.Free && VoxelOctree.Free && toMakeVisible.Count > 0) {
             Free = true;
 
             onChunkGenerationDone?.Invoke();
 
-            if (!Initial)
-            {
+            if (!Initial) {
                 Debug.Log("Initial generation done");
                 onInitialGenerationDone?.Invoke();
                 Initial = true;
@@ -159,21 +143,17 @@ public class VoxelTerrain : MonoBehaviour
     }
 
     // Deswpans the chunks that we do not need of and makes the new ones visible
-    void SwapsChunk()
-    {
+    void SwapsChunk() {
         // Remove the chunks from the scene and put them back into the pool
-        foreach (var item in toRemoveChunk)
-        {
-            if (Chunks.TryGetValue(item, out VoxelChunk voxelChunk))
-            {
+        foreach (var item in toRemoveChunk) {
+            if (Chunks.TryGetValue(item, out VoxelChunk voxelChunk)) {
                 Chunks.Remove(item);
                 voxelChunk.gameObject.SetActive(false);
                 pooledChunkGameObjects.Add(voxelChunk.gameObject);
-                
-                if (voxelChunk.voxels.HasValue)
-                {
-                    pooledNativeVoxelArrays.Add(voxelChunk.voxels.Value);
-                    voxelChunk.voxels = null;
+
+                if (voxelChunk.uniqueVoxelContainer) {
+                    pooledVoxelChunkContainers.Add((VoxelChunkContainer)voxelChunk.container);
+                    voxelChunk.container = null;
                 }
             }
         }
@@ -181,8 +161,7 @@ public class VoxelTerrain : MonoBehaviour
         toRemoveChunk.Clear();
 
         // Make the chunks visible
-        foreach (var item in toMakeVisible)
-        {
+        foreach (var item in toMakeVisible) {
             item.GetComponent<MeshRenderer>().enabled = true;
         }
 
@@ -190,16 +169,13 @@ public class VoxelTerrain : MonoBehaviour
     }
 
     // Generate the new chunks and delete the old ones
-    private void OnOctreeChanged(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed)
-    {
-        foreach (var item in removed)
-        {
+    private void OnOctreeChanged(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed) {
+        foreach (var item in removed) {
             toRemoveChunk.Add(item);
         }
 
         // Fetch new chunks from the pool
-        foreach (var item in added)
-        {
+        foreach (var item in added) {
             if (item.ChildBaseIndex != -1)
                 continue;
 
@@ -215,9 +191,13 @@ public class VoxelTerrain : MonoBehaviour
             Chunks.TryAdd(item, voxelChunk);
             toMakeVisible.Add(voxelChunk);
 
-            if (item.Depth == item.maxDepth)
-            {
-                voxelChunk.voxels = FetchVoxelNativeArray();
+            // Only generate chunk voxel data for chunks at lowest depth
+            if (item.Depth == item.maxDepth) {
+                voxelChunk.uniqueVoxelContainer = true;
+                voxelChunk.container = FetchVoxelChunkContainer();
+                voxelChunk.container.chunk = voxelChunk;
+            } else {
+                voxelChunk.uniqueVoxelContainer = false;
             }
         }
 
@@ -225,20 +205,16 @@ public class VoxelTerrain : MonoBehaviour
     }
 
     // Fetches a pooled chunk, or creates a new one from scratch
-    private GameObject FetchPooledChunk()
-    {
+    private GameObject FetchPooledChunk() {
         GameObject chunk;
 
-        if (pooledChunkGameObjects.Count == 0)
-        {
+        if (pooledChunkGameObjects.Count == 0) {
             GameObject obj = Instantiate(chunkPrefab, this.transform);
             Mesh mesh = new Mesh();
             obj.GetComponent<VoxelChunk>().sharedMesh = mesh;
             obj.name = $"Voxel Chunk";
             chunk = obj;
-        }
-        else
-        {
+        } else {
             chunk = pooledChunkGameObjects[0];
             pooledChunkGameObjects.RemoveAt(0);
             chunk.GetComponent<MeshCollider>().sharedMesh = null;
@@ -250,92 +226,97 @@ public class VoxelTerrain : MonoBehaviour
     }
 
     // Fetches a voxel native array, or allocates one from scratch
-    private NativeArray<Voxel> FetchVoxelNativeArray()
-    {
-        NativeArray<Voxel> nativeArray;
+    private VoxelChunkContainer FetchVoxelChunkContainer() {
+        VoxelChunkContainer nativeArray;
 
-        if (pooledNativeVoxelArrays.Count == 0)
-        {
-            nativeArray = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        }
-        else
-        {
-            nativeArray = pooledNativeVoxelArrays[0];
-            pooledNativeVoxelArrays.RemoveAt(0);
+        if (pooledVoxelChunkContainers.Count == 0) {
+            nativeArray = new VoxelChunkContainer {
+                voxels = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory),
+                chunk = null,
+            };
+            Debug.LogWarning("ALLOCATE VOXEL CHUNK CONTAINER");
+        } else {
+            nativeArray = pooledVoxelChunkContainers[0];
+            pooledVoxelChunkContainers.RemoveAt(0);
         }
 
         return nativeArray;
     }
 
     // When we finish generating the voxel data, begin the mesh generation
-    private void OnVoxelGenerationComplete(VoxelChunk chunk, VoxelReadbackRequest request)
-    {
+    private void OnVoxelGenerationComplete(VoxelChunk chunk, VoxelReadbackRequest request) {
         VoxelMesher voxelMesher = GetComponent<VoxelMesher>();
 
-        if (chunk.voxels.HasValue)
-            chunk.voxels.Value.CopyFrom(request.voxels);
-        
-        voxelMesher.GenerateMesh(chunk, request, chunk.node.GenerateCollisions);
+        // Copy the voxel data from the request into the chunk's voxel data
+        if (chunk.uniqueVoxelContainer) {
+            Debug.LogWarning("Copy from request to perm chunk");
+            chunk.container.voxels.CopyFrom(request.voxels);
+            request.TempDispose();
+        } else {
+            Debug.LogWarning("Set container to request");
+            chunk.container = request;
+        }
+
+        voxelMesher.GenerateMesh(chunk, chunk.node.GenerateCollisions);
     }
 
     // Update the mesh of the given chunk when we generate it
-    private void OnVoxelMeshingComplete(VoxelChunk chunk, VoxelMesh mesh)
-    {
+    private void OnVoxelMeshingComplete(VoxelChunk chunk, VoxelMesh mesh) {
         var renderer = chunk.GetComponent<MeshRenderer>();
         chunk.GetComponent<MeshFilter>().sharedMesh = chunk.sharedMesh;
+
+        // Using VoxelReadbackRequest as request, dispose to give back to voxgen
+        if (!chunk.uniqueVoxelContainer) {
+            chunk.container.TempDispose();
+            chunk.container = null;
+        }
 
         // Set mesh and renderer settings
         renderer.materials = mesh.Materials;
 
         // Set renderer bounds
-        renderer.bounds = new Bounds
-        {
+        renderer.bounds = new Bounds {
             min = chunk.node.Position,
             max = chunk.node.Position + chunk.node.Size,
         };
     }
 
     // Update the mesh collider when we finish collision baking
-    private void OnCollisionBakingComplete(VoxelChunk chunk, VoxelMesh mesh) 
-    {
-        if (mesh.VertexCount > 0 & mesh.TriangleCount > 0)
-        {
+    private void OnCollisionBakingComplete(VoxelChunk chunk, VoxelMesh mesh) {
+        if (mesh.VertexCount > 0 & mesh.TriangleCount > 0) {
             chunk.GetComponent<MeshCollider>().sharedMesh = chunk.sharedMesh;
         }
     }
 
-    // Request all the chunks to regenerate their meshes
-    public void RequestAll(bool disableColliders = true, bool tempHide = false)
-    {
-        if (Free && VoxelGenerator.Free && VoxelMesher.Free)
-        {
-            foreach (var item in Chunks)
-            {
-                if (disableColliders)
-                {
+    // Request all the chunks to regenerate their voxels (optional) AND meshes
+    public void RequestAll(bool voxel, bool disableColliders = true, bool tempHide = false) {
+        if (Free && VoxelGenerator.Free && VoxelMesher.Free) {
+            foreach (var item in Chunks) {
+                if (disableColliders) {
                     item.Value.GetComponent<MeshCollider>().sharedMesh = null;
                 }
 
-                if (tempHide)
-                {
+                if (tempHide) {
                     item.Value.GetComponent<MeshFilter>().mesh = null;
                 }
 
-                VoxelGenerator.GenerateVoxels(item.Value);
+                if (voxel) {
+                    VoxelGenerator.GenerateVoxels(item.Value);
+                } else {
+                    VoxelMesher.GenerateMesh(item.Value, item.Value.uniqueVoxelContainer);
+                }
             }
         }
     }
 
     // Used for debugging the amount of jobs remaining
-    void OnGUI()
-    {
-        if (Debug.isDebugBuild)
-        {
+    void OnGUI() {
+        if (debugGUI) {
             GUI.Label(new Rect(0, 0, 300, 30), $"Pending GPU async readback jobs: {VoxelGenerator.pendingVoxelGenerationChunks.Count}");
             GUI.Label(new Rect(0, 15, 300, 30), $"Pending mesh jobs: {VoxelMesher.pendingMeshJobs.Count}");
             GUI.Label(new Rect(0, 30, 300, 30), $"Pending mesh baking jobs: {VoxelCollisions.ongoingBakeJobs.Count}");
             GUI.Label(new Rect(0, 45, 300, 30), $"# of pooled chunk game objects: {pooledChunkGameObjects.Count}");
-            GUI.Label(new Rect(0, 60, 300, 30), $"# of pooled native voxel arrays: {pooledNativeVoxelArrays.Count}");
+            GUI.Label(new Rect(0, 60, 300, 30), $"# of pooled native voxel arrays: {pooledVoxelChunkContainers.Count}");
             GUI.Label(new Rect(0, 75, 300, 30), $"# of chunks to make visible: {toMakeVisible.Count}");
             GUI.Label(new Rect(0, 90, 300, 30), $"# of chunks to remove: {toRemoveChunk.Count}");
         }

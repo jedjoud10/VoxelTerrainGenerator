@@ -128,7 +128,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
     }
 
     // Check if we can subdivide this node (and also if we should generate collisions)
-    public bool ShouldSubdivide(ref NativeArray<OctreeTarget> targets, ref NativeArray<float> qualityPoints, out bool generateCollisions)
+    public bool ShouldSubdivide(ref NativeArray<OctreeTarget> targets, out bool generateCollisions)
     {
         bool subdivide = false;
         generateCollisions = false;
@@ -146,7 +146,7 @@ public struct OctreeNode: IEquatable<OctreeNode>
             }
             */
 
-            bool local = math.distance(clamped, target.center) < target.radius * ScalingFactor * qualityPoints[Depth];
+            bool local = math.distance(clamped, target.center) < target.radius * ScalingFactor;
             subdivide |= local;
             generateCollisions |= local && target.generateCollisions;
         }
@@ -155,9 +155,9 @@ public struct OctreeNode: IEquatable<OctreeNode>
     }
 
     // Try to subdivide the current node into 8 octants
-    public void TrySubdivide(ref NativeArray<OctreeTarget> targets, ref NativeList<OctreeNode> nodes, ref NativeQueue<OctreeNode> pending, ref NativeArray<float> qualityPoints)
+    public void TrySubdivide(ref NativeArray<OctreeTarget> targets, ref NativeList<OctreeNode> nodes, ref NativeQueue<OctreeNode> pending)
     {
-        if (ShouldSubdivide(ref targets, ref qualityPoints, out bool generateChildrenCollisions) && Depth < maxDepth)
+        if (ShouldSubdivide(ref targets, out bool generateChildrenCollisions) && Depth < maxDepth)
         {
             ChildBaseIndex = nodes.Length;
 

@@ -7,17 +7,12 @@ using Unity.Mathematics;
 using UnityEngine;
 
 // Handles generating the octree for all octree loaders and creating the octree and detecting the delta
-public class VoxelOctree : VoxelBehaviour
-{
+public class VoxelOctree : VoxelBehaviour {
     // Max depth of the octree
     [Min(1)]
     public int maxDepth = 8;
+    public bool debugGizmos = false;
 
-    // Quality LOD curve
-    public float[] curvePoints;
-    private NativeArray<float> qualityPointsNativeArray;
-
-    // TODO: Make this work bruh (only set to one for now)
     private NativeArray<OctreeTarget> targets;
 
     // Native hashmap for keeping track of the current nodes in the tree
@@ -33,7 +28,7 @@ public class VoxelOctree : VoxelBehaviour
     private NativeQueue<OctreeNode> pending;
 
     // Called whenever we detect a change in the octree
-    public delegate void OnOctreeChanged(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode>removed);
+    public delegate void OnOctreeChanged(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed);
     public event OnOctreeChanged onOctreeChanged;
 
     // Final job handle that we must wait for
@@ -45,8 +40,7 @@ public class VoxelOctree : VoxelBehaviour
     public bool Free { get; private set; } = true;
 
     // Intialize octree memory
-    internal override void Init()
-    {
+    internal override void Init() {
         VoxelUtils.MaxDepth = maxDepth;
         Free = true;
         targets = new NativeArray<OctreeTarget>(1, Allocator.Persistent);
@@ -55,8 +49,7 @@ public class VoxelOctree : VoxelBehaviour
         octreeNodesHashSet = new NativeHashSet<OctreeNode>[2];
         octreeNodesList = new NativeList<OctreeNode>[2];
 
-        for (int i = 0; i < 2; i++)
-        {
+        for (int i = 0; i < 2; i++) {
             octreeNodesHashSet[i] = new NativeHashSet<OctreeNode>(1, Allocator.Persistent);
             octreeNodesList[i] = new NativeList<OctreeNode>(Allocator.Persistent);
         }
@@ -65,23 +58,14 @@ public class VoxelOctree : VoxelBehaviour
 
         addedNodes = new NativeList<OctreeNode>(Allocator.Persistent);
         removedNodes = new NativeList<OctreeNode>(Allocator.Persistent);
-
-        qualityPointsNativeArray = new NativeArray<float>(maxDepth, Allocator.Persistent);
-
-        for (int i = 0; i < maxDepth; i++)
-        {
-            qualityPointsNativeArray[i] = curvePoints[i];
-        }
     }
 
     // Force the octree to update due to an octree loader moving
-    public bool TryUpdateOctreeLoader(OctreeLoader loader)
-    {
+    public bool TryUpdateOctreeLoader(OctreeLoader loader) {
         if (!Free)
             return false;
 
-        targets[0] = new OctreeTarget
-        {
+        targets[0] = new OctreeTarget {
             generateCollisions = loader.generateCollisions,
             center = loader.transform.position,
             radius = loader.radius,
@@ -90,36 +74,14 @@ public class VoxelOctree : VoxelBehaviour
         return true;
     }
 
-    // Make sure the number of quality levels is equal the octree depth
-    private void OnValidate()
-    {
-        if (curvePoints != null)
-        {
-            if (curvePoints.Length != maxDepth)
-            {
-                Array.Resize(ref curvePoints, maxDepth);
-            }
-
-            if (qualityPointsNativeArray.IsCreated)
-            {
-                for (int i = 0; i < maxDepth; i++)
-                {
-                    qualityPointsNativeArray[i] = curvePoints[i];
-                }
-            }
-        }
-    }
-
     // Loop over all the octree loaders and generate the octree for them
-    void Update()
-    {
+    void Update() {
         // Make sure we are free for octree generation
-        if (terrain.Free && Free && mustUpdate)
-        {
+        if (terrain.Free && Free && mustUpdate) {
             mustUpdate = false;
             int index = lastIndex;
             lastIndex += 1;
-            lastIndex = lastIndex % 2;
+            lastIndex %= 2;
 
             // Ready up the allocations
             NativeList<OctreeNode> oldNodesList = octreeNodesList[1 - index];
@@ -134,12 +96,10 @@ public class VoxelOctree : VoxelBehaviour
             newNodesList.Add(root);
 
             // Creates the octree
-            SubdivideJob job = new SubdivideJob
-            {
+            SubdivideJob job = new SubdivideJob {
                 targets = targets,
                 nodes = newNodesList,
                 pending = pending,
-                qualityPoints = qualityPointsNativeArray,
             };
 
             // Handle scheduling the jobs
@@ -148,8 +108,7 @@ public class VoxelOctree : VoxelBehaviour
             // We don't need to execute the neighbour job if we have skirts disabled
             JobHandle hashSetJobHandle;
 
-            if (VoxelUtils.Skirts)
-            {
+            if (VoxelUtils.Skirts) {
                 initial.Complete();
 
                 // Temp copy of the added nodes
@@ -157,8 +116,7 @@ public class VoxelOctree : VoxelBehaviour
                 copy.CopyFrom(newNodesList.AsArray());
 
                 // Execute the neighbour checking job for added nodes
-                NeighbourJob neighbourJob = new NeighbourJob
-                {
+                NeighbourJob neighbourJob = new NeighbourJob {
                     octreeLoaderPosition = targets[0].center,
                     inputNodes = copy,
                     outputNodes = newNodesList.AsArray(),
@@ -168,8 +126,7 @@ public class VoxelOctree : VoxelBehaviour
                 copy.Dispose(neighbourJobHandle);
 
                 // Converts the array into a hashlist
-                ToHashSetJob hashSetJob = new ToHashSetJob
-                {
+                ToHashSetJob hashSetJob = new ToHashSetJob {
                     oldNodesList = oldNodesList,
                     oldNodesHashSet = oldNodesHashSet,
                     newNodesList = newNodesList,
@@ -177,11 +134,9 @@ public class VoxelOctree : VoxelBehaviour
                 };
 
                 hashSetJobHandle = hashSetJob.Schedule(neighbourJobHandle);
-            } else
-            {
+            } else {
                 // Converts the array into a hashlist
-                ToHashSetJob hashSetJob = new ToHashSetJob
-                {
+                ToHashSetJob hashSetJob = new ToHashSetJob {
                     oldNodesList = oldNodesList,
                     oldNodesHashSet = oldNodesHashSet,
                     newNodesList = newNodesList,
@@ -192,16 +147,14 @@ public class VoxelOctree : VoxelBehaviour
             }
 
             // Job to check what we added
-            DiffJob addedDiffJob = new DiffJob
-            {
+            DiffJob addedDiffJob = new DiffJob {
                 oldNodesHashSet = oldNodesHashSet,
                 newNodesHashSet = newNodesHashSet,
                 diffedNodes = removedNodes,
             };
 
             // Job to check what we removed
-            DiffJob removedDiffJob = new DiffJob
-            {
+            DiffJob removedDiffJob = new DiffJob {
                 oldNodesHashSet = newNodesHashSet,
                 newNodesHashSet = oldNodesHashSet,
                 diffedNodes = addedNodes,
@@ -213,32 +166,28 @@ public class VoxelOctree : VoxelBehaviour
             Free = false;
         }
 
-        if (!Free && finalJobHandle.IsCompleted)
-        {
+        if (!Free && finalJobHandle.IsCompleted) {
             // Complete immediately
             finalJobHandle.Complete();
 
-            if (addedNodes.Length > 0 || removedNodes.Length > 0)
-            {
+            if (addedNodes.Length > 0 || removedNodes.Length > 0) {
                 onOctreeChanged?.Invoke(ref addedNodes, ref removedNodes);
             }
 
             Free = true;
-        } 
+        }
     }
 
     // Check if an AABB intersects the octree, and return a native list of the intersected leaf nodes
     // Returns false if the octree is currently updating (and thus cannot handle the request)
-    public bool TryCheckAABBIntersection(Vector3 min, Vector3 max, out NativeList<OctreeNode>? output)
-    {
+    public bool TryCheckAABBIntersection(Bounds bounds, out NativeList<OctreeNode>? output) {
         NativeQueue<int> pendingQueue = new NativeQueue<int>(Allocator.TempJob);
         pendingQueue.Enqueue(0);
         NativeList<OctreeNode> intersectLeafs = new NativeList<OctreeNode>(Allocator.TempJob);
 
-        var handle = new IntersectJob
-        {
-            min = min,
-            max = max,
+        var handle = new IntersectJob {
+            min = bounds.min,
+            max = bounds.max,
             pending = pendingQueue,
             nodes = octreeNodesList[1 - lastIndex],
             intersectLeafs = intersectLeafs
@@ -253,18 +202,30 @@ public class VoxelOctree : VoxelBehaviour
     }
 
     // Dispose the octree memory
-    internal override void Dispose()
-    {
+    internal override void Dispose() {
         targets.Dispose();
         pending.Dispose();
         addedNodes.Dispose();
         removedNodes.Dispose();
-        qualityPointsNativeArray.Dispose();
 
-        for (int i = 0; i < 2; i++)
-        {
+        for (int i = 0; i < 2; i++) {
             octreeNodesHashSet[i].Dispose();
             octreeNodesList[i].Dispose();
+        }
+    }
+
+    private void OnDrawGizmosSelected() {
+        if (debugGizmos) {
+            uint maxSize = (uint)Mathf.Pow(2F, (float)VoxelUtils.MaxDepth - 1);
+            float size = VoxelUtils.VoxelSizeFactor * VoxelUtils.Size;
+            Vector3 offset = Vector3.one * maxSize * size * 0.5f;
+            Vector3 chunkSize = new Vector3(size, size, size);
+            Gizmos.color = new Color(1f, 1f, 1f, 0.3f);
+            for (int i = 0; i < maxSize * maxSize * maxSize; i++) {
+                uint3 chunkPos = VoxelUtils.IndexToPos(i, maxSize);
+                Vector3 pos = new Vector3(chunkPos.x, chunkPos.y, chunkPos.z);
+                Gizmos.DrawWireCube(pos * size - offset + Vector3.one * size * 0.5f, chunkSize);
+            }
         }
     }
 }

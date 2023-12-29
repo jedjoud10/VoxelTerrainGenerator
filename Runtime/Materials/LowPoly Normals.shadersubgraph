@@ -145,6 +145,7 @@
     "m_OutputNode": {
         "m_Id": "1c2361dcf7134e1bb68e3e991fe8b74d"
     },
+    "m_SubDatas": [],
     "m_ActiveTargets": []
 }
 
@@ -424,7 +425,7 @@
     "m_CustomColors": {
         "m_SerializableColors": []
     },
-    "m_Space": 0,
+    "m_Space": 2,
     "m_PositionSource": 1
 }
 

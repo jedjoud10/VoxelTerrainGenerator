@@ -11,8 +11,7 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 
 // Common voxel utility methods
-public static class VoxelUtils
-{
+public static class VoxelUtils {
     // Scaling value applied to the vertices
     public static float VertexScaling => (float)Size / ((float)Size - 3.0F);
 
@@ -32,7 +31,7 @@ public static class VoxelUtils
     // Should we use skirts when meshing?
     public static bool Skirts { get; internal set; }
 
-    // Total number of voxels in a volume
+    // Total number of voxels in a chunk
     public static int Volume => Size * Size * Size;
 
     // Minimum density at which we enable skirting
@@ -42,13 +41,16 @@ public static class VoxelUtils
     public static bool Smoothing { get; internal set; }
 
     // Size of the segments in voxel size
-    public static int SegmentSize => Size * 8;
+    public static int SegmentSize => Size * ChunksPerSegment;
 
-    // Chunks per segment
-    public static int ChunksPerSegment { get; internal set; } = 4;
+    // Chunks per segment in ONE axis
+    public static int ChunksPerSegment => 4;
+
+    // Total number of chunks per segment in a volume
+    public static int ChunksPerSegmentVolume => ChunksPerSegment * ChunksPerSegment * ChunksPerSegment;
 
     // Number of segments in the world in one axis only
-    public static int MaxSegments => (int) (Mathf.Pow(2F, MaxDepth - 1) * VoxelUtils.Size) / (SegmentSize);
+    public static int MaxSegments => Mathf.CeilToInt(Mathf.Pow(2F, (float)MaxDepth - 1) / (ChunksPerSegment));
 
     // Max possible number of materials supported by the terrain mesh
     public const int MAX_MATERIAL_COUNT = 256;
@@ -90,8 +92,7 @@ public static class VoxelUtils
     };
 
     // Create a 3D render texture with the specified size and format
-    public static RenderTexture CreateRenderTexture(int size, GraphicsFormat format)
-    {
+    public static RenderTexture CreateRenderTexture(int size, GraphicsFormat format) {
         RenderTexture texture = new RenderTexture(size, size, 0, format);
         texture.height = size;
         texture.width = size;
@@ -104,33 +105,43 @@ public static class VoxelUtils
     }
 
     // Create a 3D texture with the specified size and format
-    public static Texture3D CreateTexture(int size, GraphicsFormat format)
-    {
+    public static Texture3D CreateTexture(int size, GraphicsFormat format) {
         Texture3D texture = new Texture3D(size, size, size, format, TextureCreationFlags.None);
         texture.dimension = UnityEngine.Rendering.TextureDimension.Tex3D;
         texture.Apply();
         return texture;
     }
 
+    // Custom modulo operator to discard negative numbers
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint3 Mod(int3 val, int size) {
+        int3 r = val % size;
+        return (uint3)math.select(r, r + size, r < 0);
+    }
+
+    // Custom modulo operator to discard negative numbers
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static float3 Mod(float3 val, float size) {
+        float3 r = val % size;
+        return math.select(r, r + size, r < 0);
+    }
+
     // Convert an index to a 3D position (morton coding)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static uint3 IndexToPos(int index)
-    {
+    public static uint3 IndexToPos(int index) {
         return Morton.DecodeMorton32((uint)index);
     }
 
     // Convert a 3D position into an index (morton coding)
     [return: AssumeRange(0u, 262144)]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int PosToIndex(uint3 position)
-    {
+    public static int PosToIndex(uint3 position) {
         return (int)Morton.EncodeMorton32(position);
     }
 
     // Convert an index to a 3D position
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static uint3 IndexToPos(int index, uint size)
-    {
+    public static uint3 IndexToPos(int index, uint size) {
         uint index2 = (uint)index;
 
         // N(ABC) -> N(A) x N(BC)
@@ -146,8 +157,7 @@ public static class VoxelUtils
     // Convert a 3D position into an index
     [return: AssumeRange(0u, 262144)]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int PosToIndex(uint3 position, uint size)
-    {
+    public static int PosToIndex(uint3 position, uint size) {
         return (int)math.round((position.y * size * size + (position.z * size) + position.x));
     }
 
@@ -170,7 +180,7 @@ public static class VoxelUtils
         float mixed0 = math.lerp(d000, d100, frac.x);
         float mixed1 = math.lerp(d010, d110, frac.x);
         float mixed2 = math.lerp(d001, d101, frac.x);
-        float mixed3 = math.lerp(d011, d111, frac.x); 
+        float mixed3 = math.lerp(d011, d111, frac.x);
 
         float mixed4 = math.lerp(mixed0, mixed2, frac.z);
         float mixed5 = math.lerp(mixed1, mixed3, frac.z);
@@ -181,8 +191,7 @@ public static class VoxelUtils
     }
 
     // Check if the given chunk intersects the given bounds
-    public static bool ChunkCoordsIntersectBounds(int3 chunk, Bounds bounds)
-    {
+    public static bool ChunkCoordsIntersectBounds(int3 chunk, Bounds bounds) {
         float3 chunkMin = math.float3(chunk) * Size * VoxelSizeFactor;
         float3 chunkMax = math.float3(chunk + 1) * Size * VoxelSizeFactor;
         float3 boundsMin = math.float3(bounds.min.x, bounds.min.y, bounds.min.z);
@@ -190,4 +199,15 @@ public static class VoxelUtils
 
         return math.all(boundsMin <= chunkMax) && math.all(chunkMin <= boundsMax);
     }
+
+    // Check if the given segment intersects the given bounds
+    public static bool SegmentCoordsIntersectBounds(int3 segment, Bounds bounds) {
+        float3 segmentMin = math.float3(segment) * SegmentSize * VoxelSizeFactor;
+        float3 segmentMax = math.float3(segment + 1) * SegmentSize * VoxelSizeFactor;
+        float3 boundsMin = math.float3(bounds.min.x, bounds.min.y, bounds.min.z);
+        float3 boundsMax = math.float3(bounds.max.x, bounds.max.y, bounds.max.z);
+
+        return math.all(boundsMin <= segmentMax) && math.all(segmentMin <= boundsMax);
+    }
+
 }

@@ -18,14 +18,10 @@ public struct SubdivideJob : IJob
     [ReadOnly]
     public NativeArray<OctreeTarget> targets;
 
-    // Quality curve points 
-    [ReadOnly]
-    public NativeArray<float> qualityPoints;
-
     public void Execute()
     {
         while (pending.TryDequeue(out OctreeNode node)) {
-            node.TrySubdivide(ref targets, ref nodes, ref pending, ref qualityPoints);
+            node.TrySubdivide(ref targets, ref nodes, ref pending);
         }
     }
 }

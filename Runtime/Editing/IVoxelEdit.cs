@@ -6,8 +6,7 @@ using Unity.Mathematics;
 using UnityEngine;
 
 // Interface for voxel edits that has a unique job for creating the delta voxel diffs that we will serialize
-public interface IVoxelEdit
-{
+public interface IVoxelEdit {
     // Create the delta voxel modifications (without having to read the inner voxel data)
     // The given input Voxel is the last delta value (for continuous edits)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

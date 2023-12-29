@@ -11,8 +11,7 @@ using UnityEngine.UIElements;
 // Edit job that will create the delta voxel data for each chunk
 [BurstCompile(CompileSynchronously = true)]
 struct VoxelEditJob<T> : IJobParallelFor
-    where T : struct, IVoxelEdit
-{
+    where T : struct, IVoxelEdit {
     [ReadOnly] public float3 chunkOffset;
     [ReadOnly] public float voxelScale;
     [ReadOnly] public float size;
@@ -20,13 +19,14 @@ struct VoxelEditJob<T> : IJobParallelFor
 
     public T edit;
 
-
+    // The chunk delta data that we actually must read from
     [ReadOnly]
     public int sparseVoxelDataChunkIndex;
+
+    // All the sparse chunks currently stored
     public UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
 
-    public void Execute(int index)
-    {
+    public void Execute(int index) {
         uint3 id = VoxelUtils.IndexToPos(index);
         float3 position = (math.float3(id));
 
@@ -36,8 +36,8 @@ struct VoxelEditJob<T> : IJobParallelFor
         position *= voxelScale;
 
         // Chunk offsets + vertex scaling
-        position += (chunkOffset - ((size) / (size - 3.0F)) * 0.5F) / vertexScaling;
         position *= vertexScaling;
+        position += math.float3((chunkOffset - (size / (size - 3.0f)) * 0.5f));
 
         // Read, modify, write
         SparseVoxelDeltaData deltas = sparseVoxelData[sparseVoxelDataChunkIndex];

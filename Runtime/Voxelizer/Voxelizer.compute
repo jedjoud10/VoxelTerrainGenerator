@@ -53,14 +53,15 @@ void CSVoxelizer (uint3 id : SV_DispatchThreadID)
     position *= voxelSize;
 
     // Chunk offsets + vertex scaling
-    position *= chunkScale;
-    position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5) / vertexScaling;
     position *= vertexScaling;
+    position *= chunkScale;
+    position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5);
     position = round(position * 100) / 100;
     
     // World offset and scale
     position = position * worldScale + worldOffset;
 
+    /*
     // Density value for biome 1
     float density1 = -fbmCellular(position * 0.002 * float3(1, 1.9, 1), 6, 0.49, 2.1).x * 100;
     density1 = opSmoothUnion(density1, position.y, 200);
@@ -90,10 +91,10 @@ void CSVoxelizer (uint3 id : SV_DispatchThreadID)
     if (sdBox(position, float3(10, 100, 10)) < 0) {
         packedMaterial = 2;
     }
-
+    */
     //uint packedMaterial = 0;
-    uint packedDensity = f32tof16(density);
-    uint packedData = packedDensity | (packedMaterial << 16);
+    uint packedDensity = f32tof16(position.y);
+    uint packedData = packedDensity | (0 << 16);
 
     // Morton encode the texture data
     uint mortonIndex = encodeMorton32(id.xzy);

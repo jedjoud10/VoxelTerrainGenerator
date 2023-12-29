@@ -11,8 +11,7 @@ using Unity.Mathematics;
 /// Original code in the public domain (https://fgiesen.wordpress.com/2011/01/17/texture-tiling-and-swizzling/#comment-858)
 /// Added 64 bit versions.
 /// </summary>
-public static class Morton
-{
+public static class Morton {
     /// <summary>
     /// The maximum value that a coordinate can be when encoding to a 32 bit morton code.
     /// </summary>
@@ -29,8 +28,7 @@ public static class Morton
     /// </summary>
     /// <param name="coordinate">x,y,z coordinate</param>
     /// <returns>The morton code</returns>
-    public static uint EncodeMorton32(uint3 coordinate)
-    {
+    public static uint EncodeMorton32(uint3 coordinate) {
         DebugCheckLimits32(coordinate);
         return (Part1By2_32(coordinate.z) << 2) + (Part1By2_32(coordinate.y) << 1) + Part1By2_32(coordinate.x);
     }
@@ -43,8 +41,7 @@ public static class Morton
     /// <param name="coordinateY">(yyyy)</param>
     /// <param name="coordinateZ">(zzzz)</param>
     /// <returns>The 4 morton codes</returns>
-    public static uint4 EncodeMorton32(uint4 coordinateX, uint4 coordinateY, uint4 coordinateZ)
-    {
+    public static uint4 EncodeMorton32(uint4 coordinateX, uint4 coordinateY, uint4 coordinateZ) {
         DebugCheckLimits32(coordinateX);
         DebugCheckLimits32(coordinateY);
         DebugCheckLimits32(coordinateZ);
@@ -56,8 +53,7 @@ public static class Morton
     /// </summary>
     /// <param name="coordinates"></param>
     /// <returns>The morton code</returns>
-    public static ulong EncodeMorton64(uint3 coordinates)
-    {
+    public static ulong EncodeMorton64(uint3 coordinates) {
         DebugCheckLimits64(coordinates);
         return (Part1By2_64(coordinates.z) << 2) + (Part1By2_64(coordinates.y) << 1) + Part1By2_64(coordinates.x);
     }
@@ -67,8 +63,7 @@ public static class Morton
     /// </summary>
     /// <param name="code">The morton code</param>
     /// <returns>The (x,y,z) coordinate</returns>
-    public static uint3 DecodeMorton32(uint code)
-    {
+    public static uint3 DecodeMorton32(uint code) {
         var x = Compact1By2_32(code);
         var y = Compact1By2_32(code >> 1);
         var z = Compact1By2_32(code >> 2);
@@ -80,8 +75,7 @@ public static class Morton
     /// </summary>
     /// <param name="code">Four morton codes</param>
     /// <returns>For sets of coordinates, packed as (x,x,x,x),(y,y,y,y),(z,z,z,z)</returns>
-    public static uint4x3 DecodeMorton32(uint4 code)
-    {
+    public static uint4x3 DecodeMorton32(uint4 code) {
         var x = Compact1By2_32(code);
         var y = Compact1By2_32(code >> 1);
         var z = Compact1By2_32(code >> 2);
@@ -94,8 +88,7 @@ public static class Morton
     /// </summary>
     /// <param name="code"></param>
     /// <returns></returns>
-    public static uint3 DecodeMorton64(ulong code)
-    {
+    public static uint3 DecodeMorton64(ulong code) {
         var x = Compact1By2_64(code);
         var y = Compact1By2_64(code >> 1);
         var z = Compact1By2_64(code >> 2);
@@ -103,40 +96,32 @@ public static class Morton
     }
 
     [Conditional("DEBUG")]
-    static void DebugCheckLimits32(uint3 coordinates)
-    {
-        if (math.cmax(coordinates) > MaxCoordinateValue32)
-        {
+    static void DebugCheckLimits32(uint3 coordinates) {
+        if (math.cmax(coordinates) > MaxCoordinateValue32) {
             throw new OverflowException(
                 $"An element of coordinates {coordinates} is larger then the maximum {MaxCoordinateValue32}");
         }
     }
 
     [Conditional("DEBUG")]
-    static void DebugCheckLimits32(uint4 packedCoordinate)
-    {
-        if (math.cmax(packedCoordinate) > MaxCoordinateValue32)
-        {
+    static void DebugCheckLimits32(uint4 packedCoordinate) {
+        if (math.cmax(packedCoordinate) > MaxCoordinateValue32) {
             throw new OverflowException(
                 $"One of the coordinates in {packedCoordinate} is larger then the maximum {MaxCoordinateValue32}");
         }
     }
 
     [Conditional("DEBUG")]
-    static void DebugCheckLimits64(uint3 coordinates)
-    {
-        if (math.cmax(coordinates) > MaxCoordinateValue64)
-        {
+    static void DebugCheckLimits64(uint3 coordinates) {
+        if (math.cmax(coordinates) > MaxCoordinateValue64) {
             throw new OverflowException(
                 $"An element of coordinates {coordinates} is larger then the maximum {MaxCoordinateValue32}");
         }
     }
 
     [Conditional("DEBUG")]
-    static void DebugCheckLimits64(uint4 packedCoordinate)
-    {
-        if (math.cmax(packedCoordinate) > MaxCoordinateValue64)
-        {
+    static void DebugCheckLimits64(uint4 packedCoordinate) {
+        if (math.cmax(packedCoordinate) > MaxCoordinateValue64) {
             throw new OverflowException(
                 $"An element of coordinates {packedCoordinate} is larger then the maximum {MaxCoordinateValue32}");
         }
@@ -144,8 +129,7 @@ public static class Morton
 
     // "Insert" two 0 bits after each of the 10 low bits of x
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static uint Part1By2_32(uint x)
-    {
+    static uint Part1By2_32(uint x) {
         x &= 0b0011_1111_1111;  // x = ---- ---- ---- ---- ---- --98 7654 3210
         x = (x ^ (x << 16)) & 0b1111_1111_0000_0000_0000_0000_1111_1111;  // x = ---- --98 ---- ---- ---- ---- 7654 3210
         x = (x ^ (x << 8)) & 0b0000_0011_0000_0000_1111_0000_0000_1111;  // x = ---- --98 ---- ---- 7654 ---- ---- 3210
@@ -156,8 +140,7 @@ public static class Morton
 
     // SIMD friendly version
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static uint4 Part1By2_32(uint4 x)
-    {
+    static uint4 Part1By2_32(uint4 x) {
         x &= 0x000003ff;                  // x = ---- ---- ---- ---- ---- --98 7654 3210
         x = (x ^ (x << 16)) & 0xff0000ff; // x = ---- --98 ---- ---- ---- ---- 7654 3210
         x = (x ^ (x << 8)) & 0x0300f00f;  // x = ---- --98 ---- ---- 7654 ---- ---- 3210
@@ -167,8 +150,7 @@ public static class Morton
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static ulong Part1By2_64(uint x)
-    {
+    static ulong Part1By2_64(uint x) {
         ulong x64 = x;
         //                                                                          x = --10 9876 5432 1098 7654 3210
         x64 &= 0b0011_1111_1111_1111_1111_1111;
@@ -191,8 +173,7 @@ public static class Morton
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static uint Compact1By2_32(uint x)
-    {
+    static uint Compact1By2_32(uint x) {
         x &= 0b0000_1001_0010_0100_1001_0010_0100_1001;  // x = ---- 9--8 --7- -6-- 5--4 --3- -2-- 1--0
         x = (x ^ (x >> 2)) & 0b0000_0011_0000_1100_0011_0000_1100_0011;  // x = ---- --98 ---- 76-- --54 ---- 32-- --10
         x = (x ^ (x >> 4)) & 0b0000_0011_0000_0000_1111_0000_0000_1111;  // x = ---- --98 ---- ---- 7654 ---- ---- 3210
@@ -203,8 +184,7 @@ public static class Morton
 
     // SIMD friendly version
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static uint4 Compact1By2_32(uint4 x)
-    {
+    static uint4 Compact1By2_32(uint4 x) {
         x &= 0x09249249; // x = ---- 9--8 --7- -6-- 5--4 --3- -2-- 1--0
         x = (x ^ (x >> 2)) & 0x030c30c3; // x = ---- --98 ---- 76-- --54 ---- 32-- --10
         x = (x ^ (x >> 4)) & 0x0300f00f; // x = ---- --98 ---- ---- 7654 ---- ---- 3210
@@ -215,8 +195,7 @@ public static class Morton
 
     // Inverse of Part1By2 - "delete" all bits not at positions divisible by 3
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static uint Compact1By2_64(ulong x)
-    {
+    static uint Compact1By2_64(ulong x) {
         //                  x = ---1 --0- -9-- 8--7 --6- -5-- 4--3 --1- -0-- 9--8 --7- -6-- 5--4 --3- -2-- 1--0
         x &= 0b0001_0010_0100_1001_0010_0100_1001_0010_0100_1001_0010_0100_1001_0010_0100_1001;
 

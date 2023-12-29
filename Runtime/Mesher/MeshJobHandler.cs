@@ -6,8 +6,10 @@ using UnityEngine.Rendering;
 
 // Contains the allocation data for a single job
 // There are multiple instances of this class stored inside the voxel mesher to saturate the other threads
-internal class MeshJobHandler
-{
+internal class MeshJobHandler {
+    // Copy of the voxel data that we will use for meshing
+    public NativeArray<Voxel> voxels;
+
     // Native buffers for mesh data
     public NativeArray<float3> vertices;
     public NativeArray<int> tempTriangles;
@@ -27,13 +29,12 @@ internal class MeshJobHandler
 
     // Others
     public JobHandle finalJobHandle;
-    public VoxelTempContainer voxels;
     public VoxelChunk chunk;
     public bool computeCollisions = false;
 
-    internal MeshJobHandler()
-    {
+    internal MeshJobHandler() {
         // Native buffers for mesh data
+        voxels = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         vertices = new NativeArray<float3>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         tempTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         permTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
@@ -53,8 +54,7 @@ internal class MeshJobHandler
     public bool Free { get; private set; } = true;
 
     // Begin the vertex + quad job that will generate the mesh
-    internal JobHandle BeginJob(JobHandle dependency, OctreeNode node)
-    {
+    internal JobHandle BeginJob(JobHandle dependency, OctreeNode node) {
         countersQuad.Reset();
         counter.Count = 0;
         materialCounter.Count = 0;
@@ -66,17 +66,15 @@ internal class MeshJobHandler
         bool3 skirtsEnd = math.bool3(((node.Skirts >> 3) & 1) == 1, ((node.Skirts >> 4) & 1) == 1, ((node.Skirts >> 5) & 1) == 1) & VoxelUtils.Skirts;
 
         // Handles fetching MC corners for the SN edges
-        CornerJob cornerJob = new CornerJob
-        {
-            voxels = voxels.voxels,
+        CornerJob cornerJob = new CornerJob {
+            voxels = voxels,
             enabled = enabled,
             size = VoxelUtils.Size,
         };
 
         // Calculates the number of materials within the mesh
-        MaterialJob materialJob = new MaterialJob
-        {
-            voxels = voxels.voxels,
+        MaterialJob materialJob = new MaterialJob {
+            voxels = voxels,
             materialHashSet = materialHashSet.AsParallelWriter(),
             materialHashMap = materialHashMap.AsParallelWriter(),
             materialCounter = materialCounter,
@@ -88,10 +86,9 @@ internal class MeshJobHandler
 
         // Generate the vertices of the mesh
         // Executed only onces, and shared by multiple submeshes
-        VertexJob vertexJob = new VertexJob
-        {
+        VertexJob vertexJob = new VertexJob {
             enabled = enabled,
-            voxels = voxels.voxels,
+            voxels = voxels,
             indices = indices,
             vertices = vertices,
             counter = counter,
@@ -105,10 +102,9 @@ internal class MeshJobHandler
         };
 
         // Generate the quads of the mesh (handles materials internally)
-        QuadJob quadJob = new QuadJob
-        {
+        QuadJob quadJob = new QuadJob {
             enabled = enabled,
-            voxels = voxels.voxels,
+            voxels = voxels,
             vertexIndices = indices,
             counters = countersQuad,
             triangles = tempTriangles,
@@ -120,16 +116,14 @@ internal class MeshJobHandler
         };
 
         // Create sum job to calculate offsets for each material type 
-        SumJob sumJob = new SumJob
-        {
+        SumJob sumJob = new SumJob {
             materialCounter = materialCounter,
             materialSegmentOffsets = materialSegmentOffsets,
             countersQuad = countersQuad
         };
 
         // Create a copy job that will copy temp memory to perm memory
-        CopyJob copyJob = new CopyJob
-        {
+        CopyJob copyJob = new CopyJob {
             materialSegmentOffsets = materialSegmentOffsets,
             tempTriangles = tempTriangles,
             permTriangles = permTriangles,
@@ -162,10 +156,8 @@ internal class MeshJobHandler
     }
 
     // Complete the jobs and return a mesh
-    internal VoxelMesh Complete(Mesh mesh, Material[] orderedMaterials)
-    {
-        if (voxels == null || chunk == null)
-        {
+    internal VoxelMesh Complete(Mesh mesh, Material[] orderedMaterials) {
+        if (voxels == null || chunk == null) {
             return VoxelMesh.Empty;
         }
 
@@ -182,15 +174,13 @@ internal class MeshJobHandler
         int maxIndices = 0;
 
         // Count the number of indices we will have in maximum (all material indices combined)
-        for (int i = 0; i < maxMaterials; i++)
-        {
+        for (int i = 0; i < maxMaterials; i++) {
             maxIndices += countersQuad[i] * 6;
         }
-        
+
         // Set mesh bounds
         float max = VoxelUtils.VoxelSizeFactor * VoxelUtils.Size;
-        mesh.bounds = new Bounds
-        {
+        mesh.bounds = new Bounds {
             min = Vector3.zero,
             max = new Vector3(max, max, max)
         };
@@ -199,7 +189,7 @@ internal class MeshJobHandler
         mesh.Clear();
         mesh.SetVertexBufferParams(maxVertices, new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3));
         mesh.SetVertexBufferData(vertices.Reinterpret<Vector3>(), 0, 0, maxVertices);
-        
+
         // Set mesh indices
         mesh.SetIndexBufferParams(maxIndices, IndexFormat.UInt32);
         mesh.SetIndexBufferData(permTriangles, 0, 0, maxIndices);
@@ -209,21 +199,17 @@ internal class MeshJobHandler
         Material[] materials = new Material[maxMaterials];
 
         // Convert material index to material *count* index
-        foreach (var item in materialHashMap)
-        {
+        foreach (var item in materialHashMap) {
             materials[item.Value] = orderedMaterials[item.Key];
         }
 
         // Set mesh submeshes
-        for (int i = 0; i < maxMaterials; i++)
-        {
+        for (int i = 0; i < maxMaterials; i++) {
             int countIndices = countersQuad[i] * 6;
             int segmentOffset = materialSegmentOffsets[i];
 
-            if (countIndices > 0)
-            {
-                mesh.SetSubMesh(i, new SubMeshDescriptor
-                {
+            if (countIndices > 0) {
+                mesh.SetSubMesh(i, new SubMeshDescriptor {
                     indexStart = segmentOffset,
                     indexCount = countIndices,
                     topology = MeshTopology.Triangles,
@@ -231,11 +217,8 @@ internal class MeshJobHandler
             }
         }
 
-        voxels.TempDispose();
-        voxels = null;
         chunk = null;
-        return new VoxelMesh
-        {
+        return new VoxelMesh {
             Materials = materials,
             ComputeCollisions = computeCollisions,
             VertexCount = maxVertices,
@@ -244,8 +227,7 @@ internal class MeshJobHandler
     }
 
     // Dispose of the underlying memory allocations
-    internal void Dispose()
-    {
+    internal void Dispose() {
         indices.Dispose();
         vertices.Dispose();
         counter.Dispose();

@@ -5,8 +5,7 @@ using Unity.Mathematics;
 using UnityEngine;
 
 // Will be used by the octree system to load specific regions of the map
-public class OctreeLoader : MonoBehaviour
-{
+public class OctreeLoader : MonoBehaviour {
     // Should we generate collisions for chunks generated around this loader?
     public bool generateCollisions = false;
 
@@ -23,19 +22,20 @@ public class OctreeLoader : MonoBehaviour
 
     private Vector3 last;
     public VoxelOctree octree;
+    private bool initialized = false;
 
-    void Start()
-    {
-        octree.TryUpdateOctreeLoader(this);
+    void Start() {
         last = transform.position;
     }
 
-    void Update()
-    {    
-        if (Vector3.Distance(transform.position, last) > maxDistanceThreshold)
-        {
-            if (octree.TryUpdateOctreeLoader(this))
-            {
+    void Update() {
+        if (!initialized && octree != null) {
+            initialized = true;
+            octree.TryUpdateOctreeLoader(this);
+        }
+
+        if (Vector3.Distance(transform.position, last) > maxDistanceThreshold) {
+            if (octree.TryUpdateOctreeLoader(this)) {
                 last = transform.position;
             }
         }

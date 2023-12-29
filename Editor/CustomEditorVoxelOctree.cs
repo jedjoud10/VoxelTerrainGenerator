@@ -11,7 +11,7 @@ public class CustomEditorVoxelOctree : Editor
 
         VoxelOctree octree = (VoxelOctree)target;
         float maxSize = Mathf.Pow(2F, (float)octree.maxDepth-1) * VoxelUtils.VoxelSizeFactor * VoxelUtils.Size;
-        float segments = Mathf.CeilToInt(maxSize / (VoxelUtils.SegmentSize));
+        float segments = VoxelUtils.MaxSegments;
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Global World Size: " + maxSize + "m³");
         EditorGUILayout.LabelField("Global World Segments: " + segments + "³");

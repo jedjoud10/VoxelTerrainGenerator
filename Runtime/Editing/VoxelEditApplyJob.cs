@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.ConstrainedExecution;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -9,47 +10,98 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 // Apply job that will take in a voxel data of a chunk, and the sparse voxel data array, and additively blend them together
-// This will be executed for every new chunk that intersects the sparse voxel data array octree
+// This will be executed for every new chunk that intersects the sparse voxel data array octree but also on previously spawned chunks
 [BurstCompile(CompileSynchronously = true)]
-struct VoxelEditApplyJob<T> : IJobParallelFor
-    where T : struct, IVoxelEdit
-{
-    // Voxels of the current chunk
-    public NativeArray<Voxel> voxels;
-
-    // Sparse voxel data that we will check against
+public struct VoxelEditApplyJob : IJobParallelFor {
+    // Voxels of the current chunk at gen (should NOT be modified)
     [ReadOnly]
-    public UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
+    public NativeArray<Voxel> inputVoxels;
 
-    // Voxel terrain region 
-    [ReadOnly]
-    public VoxelDeltaRegion region;
+    // Output voxels that the mesher will use
+    [WriteOnly]
+    public NativeArray<Voxel> outputVoxels;
 
     // Octree node of the current chunk
     [ReadOnly]
     public OctreeNode node;
 
+    // Dictionary to map chunk positions to sparseVoxelData indices
+    [ReadOnly]
+    public NativeArray<VoxelDeltaLookup> lookup;
+
+    // All the chunks the user has modified
+    [ReadOnly]
+    public UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
+
+    [ReadOnly] public float vertexScaling;
+    [ReadOnly] public float voxelScale;
     [ReadOnly] public int maxSegments;
+    [ReadOnly] public int chunksPerSegment;
+    [ReadOnly] public int segmentSize;
     [ReadOnly] public int size;
 
-    public void Execute(int index)
-    {
+    public void Execute(int index) {
         // Get the world space position of this voxel
         uint3 localPos = VoxelUtils.IndexToPos(index);
-        int3 worldSpacePos = math.int3(node.Position) + math.int3(localPos) * (int)node.ScalingFactor;
 
         /*
-        int3 segmentsWorldSpacePos = worldSpacePos / (4 * size);
-        uint3 offsettedSegmentsWorldSpacePos = math.uint3(segmentsWorldSpacePos + math.int3(maxSegments / 2));
+            position -= 1.0;
+    
+            // Needed for voxel size reduction
+            position *= voxelSize;
 
-        // Find the segment that contains this voxel
-        int segmentIndex = VoxelUtils.PosToIndex(offsettedSegmentsWorldSpacePos, (uint)maxSegments);
-
-        // Get the segment and fetch the chunk from it that we must read from
-        ulong segment = segments[segmentIndex];
+            // Chunk offsets + vertex scaling
+            position *= vertexScaling;
+            position *= chunkScale;
+            position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5);
+            position = round(position * 100) / 100;
+            
+            // World offset and scale
+            position = position * worldScale + worldOffset;
         */
 
-        // somehow find the chunks we will need to apply to this voxel (worse case scenario, it's a a whole chunk)
-        // loop though the other chunk's voxe data and apply it
+        float3 position = math.float3(localPos) + node.Position;
+        /*
+        position -= math.float3(1.0);
+
+        // Needed for voxel size reduction
+        position *= voxelScale;
+
+        // Chunk offsets + vertex scaling
+        position *= vertexScaling;
+        position += math.float3((node.Position - (size / (size - 3.0f)) * 0.5f));
+        */
+
+        // Get the segment and chunk in which this voxel resides
+        int3 worldSegment = (int3)math.floor(position / segmentSize);
+        int3 worldChunk = (int3)math.floor(position / size);
+        uint3 segmentChunk = VoxelUtils.Mod(worldChunk, chunksPerSegment);
+
+        // Convert to indices (must also shift to compensate for unsigned)
+        uint3 unsignedWorldSegment = math.uint3(worldSegment + math.int3(maxSegments / 2));
+        int segment = VoxelUtils.PosToIndex(unsignedWorldSegment, (uint)maxSegments);
+        int chunkIndex = VoxelUtils.PosToIndex(segmentChunk, (uint)chunksPerSegment);
+
+        // Get the index of the sparseVoxelData that we must read from
+        VoxelDeltaLookup temp = lookup[segment];
+        int sparseIndex = temp.startingIndex + chunkIndex;
+        uint3 worldVoxelPositive = (uint3)VoxelUtils.Mod(position, size);
+        int voxelIndex = VoxelUtils.PosToIndex(worldVoxelPositive);
+
+        // Apply the voxel delta change
+        if (chunkIndex < temp.bitset.Length && temp.bitset.IsSet(chunkIndex)) {
+            //voxels[index] = Voxel.Empty;
+            SparseVoxelDeltaData data = sparseVoxelData[sparseIndex];
+            half deltaDensity = data.densities[voxelIndex];
+            ushort deltaMaterial = data.materials[voxelIndex];
+            Voxel cur = inputVoxels[index];
+            cur.density += deltaDensity;
+            
+            if (deltaMaterial != ushort.MaxValue) {
+                cur.material = deltaMaterial;
+            }
+
+            outputVoxels[index] = cur;
+        }
     }
 }

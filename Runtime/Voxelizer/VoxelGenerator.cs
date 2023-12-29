@@ -8,8 +8,7 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 
 // Responsible for generating the voxel data using the voxel graph
-public class VoxelGenerator : VoxelBehaviour
-{
+public class VoxelGenerator : VoxelBehaviour {
     [Header("Voxelization Settings")]
     public Vector3 worldOffset = Vector3.zero;
     public Vector3 worldScale = Vector3.one;
@@ -42,18 +41,13 @@ public class VoxelGenerator : VoxelBehaviour
     internal Queue<VoxelChunk> pendingVoxelGenerationChunks;
 
     // Checks if we completed voxel generation
-    public bool Free
-    {
-        get
-        {
-            if (pendingVoxelGenerationChunks != null && freeVoxelNativeArrays != null)
-            {
+    public bool Free {
+        get {
+            if (pendingVoxelGenerationChunks != null && freeVoxelNativeArrays != null) {
                 bool free = pendingVoxelGenerationChunks.Count == 0;
                 free &= freeVoxelNativeArrays.Cast<bool>().All(x => x);
                 return free;
-            }
-            else
-            {
+            } else {
                 return false;
             }
         }
@@ -65,14 +59,12 @@ public class VoxelGenerator : VoxelBehaviour
     public event OnVoxelGenerationComplete onVoxelGenerationComplete;
 
     // Initialize the voxel generator
-    internal override void Init()
-    {
-        readbackTexture = VoxelUtils.CreateRenderTexture(VoxelUtils.Size, GraphicsFormat.R32_UInt);        
+    internal override void Init() {
+        readbackTexture = VoxelUtils.CreateRenderTexture(VoxelUtils.Size, GraphicsFormat.R32_UInt);
         freeVoxelNativeArrays = new BitArray(asyncReadbacks, true);
         pendingVoxelGenerationChunks = new Queue<VoxelChunk>();
         voxelNativeArrays = new List<NativeArray<Voxel>>(asyncReadbacks);
-        for (int i = 0; i < asyncReadbacks; i++)
-        {
+        for (int i = 0; i < asyncReadbacks; i++) {
             voxelNativeArrays.Add(new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent));
         }
 
@@ -80,8 +72,7 @@ public class VoxelGenerator : VoxelBehaviour
     }
 
     // Randomize the stored seeds
-    public void RandomizeSeeds()
-    {
+    public void RandomizeSeeds() {
         permutationSeed.x = UnityEngine.Random.Range(-10, 10);
         permutationSeed.y = UnityEngine.Random.Range(-10, 10);
         permutationSeed.z = UnityEngine.Random.Range(-10, 10);
@@ -94,8 +85,7 @@ public class VoxelGenerator : VoxelBehaviour
     }
 
     // Update the static world generation fields (will also update the seed)
-    public void UpdateStaticComputeFields()
-    {
+    public void UpdateStaticComputeFields() {
         voxelShader.SetVector("worldOffset", worldOffset);
         voxelShader.SetVector("worldScale", worldScale * VoxelUtils.VoxelSizeFactor);
         voxelShader.SetFloat("isosurfaceOffset", isosurfaceOffset);
@@ -113,12 +103,9 @@ public class VoxelGenerator : VoxelBehaviour
     }
 
     // Get the latest chunk in the queue and generate voxel data for it
-    void Update()
-    {    
-        for(int i = 0; i < asyncReadbacks; i++)
-        {
-            if (!freeVoxelNativeArrays[i])
-            {
+    void Update() {
+        for (int i = 0; i < asyncReadbacks; i++) {
+            if (!freeVoxelNativeArrays[i]) {
                 continue;
             }
 
@@ -136,8 +123,7 @@ public class VoxelGenerator : VoxelBehaviour
                 voxelShader.Dispatch(1, count, count, count);
 
                 // Begin the readback request
-                VoxelReadbackRequest voxelReadbackRequest = new VoxelReadbackRequest
-                {
+                VoxelReadbackRequest voxelReadbackRequest = new VoxelReadbackRequest {
                     Index = i,
                     generator = this,
                     chunk = chunk,
@@ -150,8 +136,7 @@ public class VoxelGenerator : VoxelBehaviour
                 AsyncGPUReadback.RequestIntoNativeArray(
                     ref voxels,
                     readbackTexture, 0,
-                    delegate (AsyncGPUReadbackRequest asyncRequest)
-                    {
+                    delegate (AsyncGPUReadbackRequest asyncRequest) {
                         onVoxelGenerationComplete?.Invoke(voxelReadbackRequest.chunk, voxelReadbackRequest);
                     }
                 );
@@ -159,11 +144,9 @@ public class VoxelGenerator : VoxelBehaviour
         }
     }
 
-    internal override void Dispose()
-    {
+    internal override void Dispose() {
         AsyncGPUReadback.WaitAllRequests();
-        foreach (var nativeArrays in voxelNativeArrays)
-        {
+        foreach (var nativeArrays in voxelNativeArrays) {
             nativeArrays.Dispose();
         }
     }

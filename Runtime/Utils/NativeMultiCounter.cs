@@ -10,8 +10,7 @@ using Unity.Jobs.LowLevel.Unsafe;
 
 [StructLayout(LayoutKind.Sequential)]
 [NativeContainer]
-unsafe public struct NativeMultiCounter
-{
+unsafe public struct NativeMultiCounter {
     // The actual pointers to the allocated count needs to have restrictions relaxed so jobs can be schedled with this container
     [NativeDisableUnsafePtrRestriction]
     int* m_Counters;
@@ -30,8 +29,7 @@ unsafe public struct NativeMultiCounter
     // Keep track of where the memory for this was allocated
     Allocator m_AllocatorLabel;
 
-    public NativeMultiCounter(int capacity, Allocator label)
-    {
+    public NativeMultiCounter(int capacity, Allocator label) {
         // This check is redundant since we always use an int which is blittable.
         // It is here as an example of how to check for type correctness for generic types.
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -53,10 +51,8 @@ unsafe public struct NativeMultiCounter
         this.capacity = capacity;
     }
 
-    public int this[int index]
-    {
-        get
-        {
+    public int this[int index] {
+        get {
             // Verify that the caller has read permission on this data.
             // This is the race condition protection, without these checks the AtomicSafetyHandle is useless
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -64,8 +60,7 @@ unsafe public struct NativeMultiCounter
 #endif
             return *(m_Counters + index * sizeOfInt);
         }
-        set
-        {
+        set {
             // Verify that the caller has write permission on this data. This is the race condition protection, without these checks the AtomicSafetyHandle is useless
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
@@ -74,21 +69,18 @@ unsafe public struct NativeMultiCounter
         }
     }
 
-    public bool IsCreated
-    {
+    public bool IsCreated {
         get { return m_Counters != null; }
     }
 
-    public void Reset()
-    {
+    public void Reset() {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
 #endif
         UnsafeUtility.MemClear(m_Counters, sizeOfInt * capacity);
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         // Let the dispose sentinel know that the data has been freed so it does not report any memory leaks
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         DisposeSentinel.Dispose(ref m_Safety, ref m_DisposeSentinel);
@@ -101,39 +93,36 @@ unsafe public struct NativeMultiCounter
     [NativeContainer]
     // This attribute is what makes it possible to use NativeCounter.Concurrent in a ParallelFor job
     [NativeContainerIsAtomicWriteOnly]
-    unsafe public struct Concurrent
-    {
+    unsafe public struct Concurrent {
         // Copy of the pointer from the full NativeCounter
         [NativeDisableUnsafePtrRestriction]
-        int* 	m_Counters;
+        int* m_Counters;
         int sizeOfInt;
 
         // Copy of the AtomicSafetyHandle from the full NativeCounter. The dispose sentinel is not copied since this inner struct does not own the memory and is not responsible for freeing it
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         AtomicSafetyHandle m_Safety;
-    #endif
+#endif
 
         // This is what makes it possible to assign to NativeCounter.Concurrent from NativeCounter
-        public static implicit operator Concurrent (NativeMultiCounter cnt)
-        {
+        public static implicit operator Concurrent(NativeMultiCounter cnt) {
             Concurrent concurrent;
-    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndThrow(cnt.m_Safety);
             concurrent.m_Safety = cnt.m_Safety;
             AtomicSafetyHandle.UseSecondaryVersion(ref concurrent.m_Safety);
-    #endif
+#endif
 
             concurrent.m_Counters = cnt.m_Counters;
             concurrent.sizeOfInt = cnt.sizeOfInt;
             return concurrent;
         }
 
-        public int Increment(int index)
-        {
+        public int Increment(int index) {
             // Increment still needs to check for write permissions
-    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
-    #endif
+#endif
             // The actual increment is implemented with an atomic since it can be incremented by multiple threads at the same time
             return Interlocked.Increment(ref *(m_Counters + index * sizeOfInt)) - 1;
         }
