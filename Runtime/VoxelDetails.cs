@@ -1,3 +1,4 @@
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -9,6 +10,5 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 
 // Responsible for generating the voxel details and using procedural instanced rendering for the billboards at a distance
-public class VoxelDetails : MonoBehaviour
-{
+public class VoxelDetails : MonoBehaviour {
 }

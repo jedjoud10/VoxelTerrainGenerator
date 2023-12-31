@@ -30,14 +30,12 @@ struct VoxelEditJob<T> : IJobParallelFor
         uint3 id = VoxelUtils.IndexToPos(index);
         float3 position = (math.float3(id));
 
-        position -= math.float3(1.0);
-
         // Needed for voxel size reduction
         //position *= voxelScale;
+        //position *= vertexScaling;
         position += chunkOffset;
 
         // Chunk offsets + vertex scaling
-        //position *= vertexScaling;
         //position += math.float3((chunkOffset - (size / (size - 3.0f)) * 0.5f));
 
         // Read, modify, write

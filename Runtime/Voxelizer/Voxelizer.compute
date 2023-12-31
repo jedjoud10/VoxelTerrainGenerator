@@ -3,7 +3,7 @@
 
 // Chunk offset + scale
 float3 chunkOffset;
-float chunkScale; 
+float chunkScale;
 
 // World parameters
 float3 worldOffset;
@@ -28,81 +28,83 @@ RWTexture3D<uint> voxels;
 
 float3 mod(float3 x, float3 y)
 {
-  return x - y * floor(x/y);
+	return x - y * floor(x / y);
 }
 
-float de ( float3 p ) {
-    float s = 3.0f, e;
-    for ( int i = 0; i++ < 8; ) {
-      p = mod((p - 1.0f), 2.0f) - 1.0f;
-      s *= e = 1.4f / dot( p, p );
-      p *= e;
-    }
-    return length( p.yz ) / s;
-  }
+float de(float3 p) {
+	float s = 3.0f, e;
+	for (int i = 0; i++ < 8; ) {
+		p = mod((p - 1.0f), 2.0f) - 1.0f;
+		s *= e = 1.4f / dot(p, p);
+		p *= e;
+	}
+	return length(p.yz) / s;
+}
 
 // Generates the voxel data on the GPU
-[numthreads(4,4,4)]
-void CSVoxelizer (uint3 id : SV_DispatchThreadID)
+[numthreads(4, 4, 4)]
+void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 {
-    // Calculate the main world position
-    float3 position = float3(id.xzy);
-    position -= 1.0;
-    
-    // Needed for voxel size reduction
-    position *= voxelSize;
+	// Calculate the main world position
+	float3 position = float3(id.xzy);
+	position -= 1.0;
 
-    // Chunk offsets + vertex scaling
-    position *= vertexScaling;
-    position *= chunkScale;
-    position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5);
-    position = round(position * 100) / 100;
-    
-    // World offset and scale
-    position = position * worldScale + worldOffset;
+	// Needed for voxel size reduction
+	position *= voxelSize;
 
-    // Density value for biome 1
-    float density1 = -fbmCellular(position * 0.002 * float3(1, 1.9, 1), 6, 0.49, 2.1).x * 100;
-    density1 = opSmoothUnion(density1, position.y, 200);
+	// Chunk offsets + vertex scaling
+	position *= vertexScaling;
+	position *= chunkScale;
+	position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5);
+	position = round(position * 100) / 100;
 
-    // Density value for biome 2
-    float density2 = fbm(position.xz * 0.001, 8, 0.32, 2.61) * 320;
-    density2 = opSmoothUnion(density2, position.y, 1600);
-    density2 = -fbmCellular(position.xz * 0.001, 8, 0.32, 2.60).y * 600;
+	// World offset and scale
+	position = position * worldScale + worldOffset;
 
-    // Density value for biome 3
-    float density3 = position.y - fbmCellular(position.xz * 0.001, 3, 0.22, 2.01).y * 320;
-    density3 -= fbmCellular(position * float3(0.3, 2, 0.3) * 0.004, 3, 0.42, 2.01).y * 220 - 100;
-    density3 += fbm(position.xz * 0.002, 7, 0.5, 2.2) * 30;
+	// Density value for biome 1
+	float density1 = -fbmCellular(position * 0.002 * float3(1, 1.9, 1), 6, 0.49, 2.1).x * 100;
+	density1 = opSmoothUnion(density1, position.y, 200);
 
-    // Mixer between biome 1 and biome 2
-    float mixer = snoise(position.xz * 0.0006) * 0.5 + 0.5;
-    mixer = smoothstep(0, 1, mixer);
+	// Density value for biome 2
+	float density2 = fbm(position.xz * 0.001, 8, 0.32, 2.61) * 320;
+	density2 = opSmoothUnion(density2, position.y, 1600);
+	density2 = -fbmCellular(position.xz * 0.001, 8, 0.32, 2.60).y * 600;
 
-    // Mixer between result and biome 3
-    float mixer2 = snoise(position.xz * 0.0003 - 21.64) * 0.5 + 0.5;
-    mixer2 = smoothstep(0, 1, mixer2);
+	// Density value for biome 3
+	float density3 = position.y - fbmCellular(position.xz * 0.001, 3, 0.22, 2.01).y * 320;
+	density3 -= fbmCellular(position * float3(0.3, 2, 0.3) * 0.004, 3, 0.42, 2.01).y * 220 - 100;
+	density3 += fbm(position.xz * 0.002, 7, 0.5, 2.2) * 30;
 
-    // Calculate density
-    float density = lerp(lerp(density1, density2, mixer), density3, mixer2) + position.y;    
-    
-    uint packedMaterial = 0;
-    if (sdBox(position, float3(10, 100, 10)) < 0) {
-        packedMaterial = 1;
-    }
+	// Mixer between biome 1 and biome 2
+	float mixer = snoise(position.xz * 0.0006) * 0.5 + 0.5;
+	mixer = smoothstep(0, 1, mixer);
 
-    uint packedDensity = f32tof16(density);
-    uint packedData = packedDensity | (packedMaterial << 16);
+	// Mixer between result and biome 3
+	float mixer2 = snoise(position.xz * 0.0003 - 21.64) * 0.5 + 0.5;
+	mixer2 = smoothstep(0, 1, mixer2);
 
-    // Morton encode the texture data
-    uint mortonIndex = encodeMorton32(id.xzy);
-    uint3 mortonPos = indexToPos(mortonIndex);
-    voxels[mortonPos.xzy] = packedData;
+	// Calculate density
+	float density = lerp(lerp(density1, density2, mixer), density3, mixer2) + position.y;
+
+	uint packedMaterial = 0;
+	if (sdBox(position, float3(10, 100, 10)) < 0) {
+		packedMaterial = 1;
+	}
+
+	float boxu = sdBox(position, float3(10, 10, 10));
+	//uint packedDensity = f32tof16(min(position.y, boxu));
+	uint packedDensity = f32tof16(density);
+	uint packedData = packedDensity | (packedMaterial << 16);
+
+	// Morton encode the texture data
+	uint mortonIndex = encodeMorton32(id.xzy);
+	uint3 mortonPos = indexToPos(mortonIndex);
+	voxels[mortonPos.xzy] = packedData;
 }
 
-[numthreads(4,4,4)]
-void CSEdits (uint3 id : SV_DispatchThreadID)
+[numthreads(4, 4, 4)]
+void CSEdits(uint3 id : SV_DispatchThreadID)
 {
-    // Calculate the main world position
-    float3 position = (id.xzy * chunkScale + chunkOffset) * worldScale + worldOffset;
+	// Calculate the main world position
+	float3 position = (id.xzy * chunkScale + chunkOffset) * worldScale + worldOffset;
 }

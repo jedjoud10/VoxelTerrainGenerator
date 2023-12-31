@@ -17,6 +17,7 @@ public class VoxelEdits : VoxelBehaviour {
     [Range(0, 8)]
     public int maxImmediateMeshEditJobsPerEdit = 1;
     public bool debugGUI = false;
+    public float useAvg;
 
     // Dictionary to map chunk positions to sparseVoxelData indices
     private NativeArray<VoxelDeltaLookup> lookup;
@@ -83,10 +84,18 @@ public class VoxelEdits : VoxelBehaviour {
             handle.Complete();
         }
 
-        // Re-mesh the chunkS
+        // Re-mesh the chunks
         foreach (var node in temp) {
             VoxelChunk chunk = terrain.Chunks[node];
-            terrain.VoxelMesher.GenerateMesh(chunk, true);
+
+            if (chunk.uniqueVoxelContainer) {
+                // Regenerate the mesh based on the unique voxel container
+                terrain.VoxelMesher.GenerateMesh(chunk, true);
+            } else {
+                // If not, simply regenerate the chunk
+                // This is pretty inefficient but it's a matter of memory vs performance
+                terrain.VoxelGenerator.GenerateVoxels(chunk);
+            }
         }
         temp.Value.Dispose();
 

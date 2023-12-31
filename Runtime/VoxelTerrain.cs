@@ -198,7 +198,7 @@ public class VoxelTerrain : MonoBehaviour {
             toMakeVisible.Add(voxelChunk);
 
             // Only generate chunk voxel data for chunks at lowest depth
-            if (item.Depth == item.maxDepth) {
+            if (item.Depth == VoxelUtils.MaxDepth) {
                 voxelChunk.uniqueVoxelContainer = true;
                 voxelChunk.container = FetchVoxelChunkContainer();
                 voxelChunk.container.chunk = voxelChunk;
@@ -263,7 +263,7 @@ public class VoxelTerrain : MonoBehaviour {
             chunk.container = request;
         }
 
-        voxelMesher.GenerateMesh(chunk, chunk.node.GenerateCollisions);
+        voxelMesher.GenerateMesh(chunk, chunk.uniqueVoxelContainer);
     }
 
     // Update the mesh of the given chunk when we generate it

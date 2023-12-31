@@ -17,6 +17,7 @@ public class VoxelChunk : MonoBehaviour {
     public VoxelTempContainer container;
 
     // Check if the chunk should contain its own data
+    // If this is set that means we must generate collisions for the chunk as well
     public bool uniqueVoxelContainer;
 
     // Shared generated mesh

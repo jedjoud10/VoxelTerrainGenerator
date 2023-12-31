@@ -163,9 +163,10 @@ public static class VoxelUtils {
 
     // Sampled the voxel grid using trilinear filtering
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static float SampleGridInterpolated(float3 position, ref NativeArray<half> densities, int size) {
+    public static half SampleGridInterpolated(float3 position, ref NativeArray<half> densities, int size) {
         float3 frac = math.frac(position);
         uint3 voxPos = (uint3)math.floor(position);
+        voxPos = math.min(voxPos, math.uint3(size - 2));
 
         float d000 = densities[PosToIndex(voxPos)];
         float d100 = densities[PosToIndex(voxPos + math.uint3(1, 0, 0))];
@@ -187,7 +188,7 @@ public static class VoxelUtils {
 
         float mixed6 = math.lerp(mixed4, mixed5, frac.y);
 
-        return mixed6;
+        return (half)mixed6;
     }
 
     // Check if the given chunk intersects the given bounds

@@ -81,7 +81,7 @@ internal class MeshJobHandler {
         };
 
         // Multiply the skirts density theshold
-        float factor = math.pow((node.maxDepth - node.Depth) * 0.8F, 1.6F);
+        float factor = math.pow((VoxelUtils.MaxDepth - node.Depth) * 0.8F, 1.6F);
         float threshold = VoxelUtils.MinSkirtDensityThreshold * factor;
 
         // Generate the vertices of the mesh

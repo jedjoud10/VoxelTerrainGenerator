@@ -91,7 +91,7 @@ public class VoxelOctree : VoxelBehaviour {
             NativeHashSet<OctreeNode> oldNodesHashSet = octreeNodesHashSet[1 - index];
             NativeHashSet<OctreeNode> newNodesHashSet = octreeNodesHashSet[index];
 
-            OctreeNode root = OctreeNode.RootNode(maxDepth - 1);
+            OctreeNode root = OctreeNode.RootNode(maxDepth);
             pending.Clear();
             pending.Enqueue(root);
             newNodesList.Clear();
@@ -102,6 +102,8 @@ public class VoxelOctree : VoxelBehaviour {
                 targets = targets,
                 nodes = newNodesList,
                 pending = pending,
+                maxDepth = VoxelUtils.MaxDepth,
+                segmentSize = VoxelUtils.SegmentSize,
             };
 
             // Handle scheduling the jobs
