@@ -9,41 +9,39 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 // Edit job that will create the delta voxel data for each chunk
+// This executes for VoxelUtils.DeltaVolume size instead of VoxelUtils.Volume
+// Because we must also affect the higher LOD chunk values as well
 [BurstCompile(CompileSynchronously = true)]
 struct VoxelEditJob<T> : IJobParallelFor
     where T : struct, IVoxelEdit {
     [ReadOnly] public float3 chunkOffset;
     [ReadOnly] public float voxelScale;
-    [ReadOnly] public float size;
+    [ReadOnly] public int size;
     [ReadOnly] public float vertexScaling;
+    [ReadOnly] public float scalingFactor;
 
     public T edit;
-
-    // The chunk delta data that we actually must read from
-    [ReadOnly]
-    public int sparseVoxelDataChunkIndex;
-
-    // All the sparse chunks currently stored
-    public UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
+    public SparseVoxelDeltaData data;
 
     public void Execute(int index) {
         uint3 id = VoxelUtils.IndexToPos(index);
         float3 position = (math.float3(id));
 
         // Needed for voxel size reduction
-        //position *= voxelScale;
-        //position *= vertexScaling;
-        position += chunkOffset;
+        position -= math.float3(1);
+        position *= voxelScale;
+        position *= vertexScaling;
+        position *= scalingFactor;
+        //position += chunkOffset;
 
         // Chunk offsets + vertex scaling
-        //position += math.float3((chunkOffset - (size / (size - 3.0f)) * 0.5f));
+        position += math.float3((chunkOffset - (scalingFactor*size / (size - 3.0f)) * 0.5f));
 
         // Read, modify, write
-        SparseVoxelDeltaData deltas = sparseVoxelData[sparseVoxelDataChunkIndex];
-        ushort material = deltas.materials[index];
-        half density = deltas.densities[index];
+        ushort material = data.materials[index];
+        half density = data.densities[index];
         Voxel output = edit.Modify(position, new Voxel { material = material, density = density });
-        deltas.materials[index] = output.material;
-        deltas.densities[index] = output.density;
+        data.materials[index] = output.material;
+        data.densities[index] = output.density;
     }
 }

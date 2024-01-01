@@ -5,8 +5,6 @@ using Unity.Mathematics;
 
 // CPU representation of what a voxel is
 // I don't think I'll have bigger types than this so wtv
-// In any case if we want to generate more fields than this
-// we'll just implement a custom system for that bra
 [StructLayout(LayoutKind.Sequential)]
 public struct Voxel {
     // Density of the voxel as a half to save some memory
@@ -25,14 +23,15 @@ public struct Voxel {
 
 // How we store the sparse chunk inside the region
 // Contains the world position and the index where the SparseVoxelDeltaData is stored
-// This will NOT be sent to the job. Solely used as an Intermediate
+// This will NOT be sent to the job. Solely used as an intermediate type
 [StructLayout(LayoutKind.Sequential)]
 public struct SparseVoxelDeltaChunk {
     public int3 position;
     public int listIndex;
 }
 
-// Delta data stored for ONE chunk only
+// Delta data that contains the voxel values for a chunk with arbitrary size
+// There are many layers of SparseVoxelDeltaData to accomodate the different LODs that might occur inside a segment
 [StructLayout(LayoutKind.Sequential)]
 public struct SparseVoxelDeltaData {
     // Densities that we will compress using a lossless compression algorithm
@@ -54,10 +53,11 @@ public struct SparseVoxelDeltaData {
 // Segments will only be used to reference SparseVoxelDeltaData elements
 [StructLayout(LayoutKind.Sequential)]
 public struct VoxelDeltaLookup {
-    // Bitset containing the chunks that are active
+    // Bitset containing the highest LOD chunks that are active
+    // Stored in Morton format to allow us to quickly check if a lower LOD chunk has been generated
     public UnsafeBitArray bitset;
 
-    // Starting index of the sparse voxel data
+    // Starting index of the sparse voxel data for the HIGHEST quality chunk
     public int startingIndex;
 }
 

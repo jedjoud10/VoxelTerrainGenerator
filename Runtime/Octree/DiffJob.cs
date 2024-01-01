@@ -6,8 +6,7 @@ using Unity.Burst;
 
 // Two of these jobs put out in parallel to handle diffing
 [BurstCompile(CompileSynchronously = true)]
-public struct DiffJob : IJob
-{
+public struct DiffJob : IJob {
     [ReadOnly]
     public NativeHashSet<OctreeNode> oldNodesHashSet;
 
@@ -17,14 +16,11 @@ public struct DiffJob : IJob
     [WriteOnly]
     public NativeList<OctreeNode> diffedNodes;
 
-    public void Execute()
-    {
+    public void Execute() {
         diffedNodes.Clear();
 
-        foreach (var node in oldNodesHashSet)
-        {
-            if (!newNodesHashSet.Contains(node))
-            {
+        foreach (var node in oldNodesHashSet) {
+            if (!newNodesHashSet.Contains(node)) {
                 diffedNodes.Add(node);
             }
         }

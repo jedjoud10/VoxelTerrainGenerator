@@ -5,6 +5,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using static UnityEditor.PlayerSettings;
 
 // Handles generating the octree for all octree loaders and creating the octree and detecting the delta
 public class VoxelOctree : VoxelBehaviour {
@@ -13,7 +14,8 @@ public class VoxelOctree : VoxelBehaviour {
     public int maxDepth = 8;
     public bool debugGizmos = false;
 
-    private NativeArray<OctreeTarget> targets;
+    private NativeList<OctreeTarget> targets;
+    private Dictionary<OctreeLoader, int> targetsLookup;
 
     // Native hashmap for keeping track of the current nodes in the tree
     private NativeHashSet<OctreeNode>[] octreeNodesHashSet;
@@ -44,8 +46,8 @@ public class VoxelOctree : VoxelBehaviour {
     internal override void Init() {
         VoxelUtils.MaxDepth = maxDepth;
         Free = true;
-        targets = new NativeArray<OctreeTarget>(1, Allocator.Persistent);
-        targets[0] = new OctreeTarget();
+        targets = new NativeList<OctreeTarget>(Allocator.Persistent);
+        targetsLookup = new Dictionary<OctreeLoader, int>();
 
         octreeNodesHashSet = new NativeHashSet<OctreeNode>[2];
         octreeNodesList = new NativeList<OctreeNode>[2];
@@ -62,16 +64,34 @@ public class VoxelOctree : VoxelBehaviour {
         copy = new NativeList<OctreeNode>(0, Allocator.Persistent);
     }
 
+    private void OnValidate() {
+        if (terrain == null) {
+            VoxelUtils.MaxDepth = maxDepth;
+        }
+    }
+
     // Force the octree to update due to an octree loader moving
+    // Returns true if the octree successfully updated the location of the loader
     public bool TryUpdateOctreeLoader(OctreeLoader loader) {
         if (!Free)
             return false;
 
-        targets[0] = new OctreeTarget {
+        if (!targetsLookup.ContainsKey(loader)) {
+            targetsLookup.Add(loader, targets.Length);
+            targets.Add(new OctreeTarget {
+                generateCollisions = false,
+                center = default,
+                radius = 0.0f,
+            });
+        }
+
+        int index = targetsLookup[loader];
+        targets[index] = new OctreeTarget {
             generateCollisions = loader.generateCollisions,
             center = loader.transform.position,
             radius = loader.radius,
         };
+
         mustUpdate = true;
         return true;
     }
@@ -99,7 +119,7 @@ public class VoxelOctree : VoxelBehaviour {
 
             // Creates the octree
             SubdivideJob job = new SubdivideJob {
-                targets = targets,
+                targets = targets.AsArray(),
                 nodes = newNodesList,
                 pending = pending,
                 maxDepth = VoxelUtils.MaxDepth,
@@ -220,16 +240,12 @@ public class VoxelOctree : VoxelBehaviour {
     }
 
     private void OnDrawGizmosSelected() {
-        if (debugGizmos) {
-            uint maxSize = (uint)Mathf.Pow(2F, (float)VoxelUtils.MaxDepth - 1);
-            float size = VoxelUtils.VoxelSizeFactor * VoxelUtils.Size;
-            Vector3 offset = Vector3.one * maxSize * size * 0.5f;
-            Vector3 chunkSize = new Vector3(size, size, size);
+        if (terrain != null && debugGizmos && terrain.Free && Free && !mustUpdate) {
+            NativeList<OctreeNode> nodes = octreeNodesList[1 - lastIndex];
+
             Gizmos.color = new Color(1f, 1f, 1f, 0.3f);
-            for (int i = 0; i < maxSize * maxSize * maxSize; i++) {
-                uint3 chunkPos = VoxelUtils.IndexToPos(i, maxSize);
-                Vector3 pos = new Vector3(chunkPos.x, chunkPos.y, chunkPos.z);
-                Gizmos.DrawWireCube(pos * size - offset + Vector3.one * size * 0.5f, chunkSize);
+            foreach (var node in nodes) {
+                Gizmos.DrawWireCube(node.Center, node.Size * Vector3.one);
             }
         }
     }

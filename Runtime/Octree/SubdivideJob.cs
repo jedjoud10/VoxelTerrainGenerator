@@ -4,6 +4,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Burst;
 using UnityEngine.UIElements;
+using static UnityEngine.GraphicsBuffer;
 
 // This will handle generating the nodes for one of the starting nodes
 [BurstCompile(CompileSynchronously = true)]
@@ -36,10 +37,10 @@ public struct SubdivideJob : IJob {
             float3 maxBounds = math.float3(node.Position) + math.float3(node.Size);
             float3 clamped = math.clamp(target.center, minBounds, maxBounds);
             bool local = math.distance(clamped, target.center) < target.radius * node.ScalingFactor;
-            subdivide |= local;
+            subdivide |= local || (node.Size > segmentSize);
         }
 
-        return node.Size > segmentSize;
+        return subdivide;
     }
 
     // Position offsets for creating the nodes
