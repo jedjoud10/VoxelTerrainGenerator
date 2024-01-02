@@ -18,10 +18,10 @@ struct VoxelEditJob<T> : IJobParallelFor
     [ReadOnly] public float voxelScale;
     [ReadOnly] public int size;
     [ReadOnly] public float vertexScaling;
-    [ReadOnly] public float scalingFactor;
 
     public T edit;
-    public SparseVoxelDeltaData data;
+    public UnsafeList<half> densities;
+    public UnsafeList<ushort> materials;
 
     public void Execute(int index) {
         uint3 id = VoxelUtils.IndexToPos(index);
@@ -31,17 +31,16 @@ struct VoxelEditJob<T> : IJobParallelFor
         position -= math.float3(1);
         position *= voxelScale;
         position *= vertexScaling;
-        position *= scalingFactor;
         //position += chunkOffset;
 
         // Chunk offsets + vertex scaling
-        position += math.float3((chunkOffset - (scalingFactor*size / (size - 3.0f)) * 0.5f));
+        position += math.float3((chunkOffset - (size / (size - 3.0f)) * 0.5f));
 
         // Read, modify, write
-        ushort material = data.materials[index];
-        half density = data.densities[index];
+        ushort material = materials[index];
+        half density = densities[index];
         Voxel output = edit.Modify(position, new Voxel { material = material, density = density });
-        data.materials[index] = output.material;
-        data.densities[index] = output.density;
+        materials[index] = output.material;
+        densities[index] = output.density;
     }
 }

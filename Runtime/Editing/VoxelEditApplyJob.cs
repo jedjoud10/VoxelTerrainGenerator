@@ -30,7 +30,7 @@ public struct VoxelEditApplyJob : IJobParallelFor {
     [ReadOnly]
     public NativeArray<VoxelDeltaLookup> lookup;
 
-    // All the chunks the user has modified for the corresponding LOD level
+    // The highest quality chunks that the user has modified
     [ReadOnly]
     public UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
 
@@ -64,24 +64,20 @@ public struct VoxelEditApplyJob : IJobParallelFor {
         int segment = VoxelUtils.PosToIndex(unsignedWorldSegment, (uint)maxSegments);
         int chunkIndex = VoxelUtils.PosToIndex(segmentChunk, (uint)chunksPerSegment);
 
-        /*
         // Get the index of the sparseVoxelData that we must read from
         VoxelDeltaLookup temp = lookup[math.clamp(segment, 0, maxSegments*maxSegments*maxSegments-1)];
         int sparseIndex = temp.startingIndex + chunkIndex;
 
         if (chunkIndex < temp.bitset.Length && temp.bitset.IsSet(chunkIndex)) {
+            outputVoxels[index] = Voxel.Empty;
             SparseVoxelDeltaData data = sparseVoxelData[math.max(sparseIndex, 0)];
 
             // Voxel sparse offset in case we need to read from higher LOD
-            int voxelIndexOffset = VoxelUtils.DeltaChunkSizeToDeltaVoxelIndexOffset((int)node.ScalingFactor, size);
             float3 worldVoxelPositive = VoxelUtils.Mod(position, size);
-            int voxelIndex = VoxelUtils.PosToIndex((uint3)worldVoxelPositive / (uint3)node.ScalingFactor);
-            half delta = data.densities[math.max(voxelIndex + voxelIndexOffset, 0)];
-
+            int voxelIndex = VoxelUtils.PosToIndex((uint3)worldVoxelPositive);
             Voxel cur = inputVoxels[index];
-            cur.density += delta;
+            cur.density += data.densities[voxelIndex];
             outputVoxels[index] = cur;
         }
-        */
     }
 }

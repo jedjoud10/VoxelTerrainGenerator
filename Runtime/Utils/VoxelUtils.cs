@@ -33,8 +33,6 @@ public static class VoxelUtils {
 
     // Total number of voxels in a chunk
     public static int Volume => Size * Size * Size;
-    // Total number of voxels in a delta edit chunk
-    public static int DeltaVolume => Size * Size * Size + (Size / 2) * (Size / 2) * (Size / 2) + (Size / 4) * (Size / 4) * (Size / 4);
 
     // Minimum density at which we enable skirting
     public static float MinSkirtDensityThreshold { get; internal set; }
@@ -46,10 +44,7 @@ public static class VoxelUtils {
     public static int SegmentSize => Size * ChunksPerSegment;
 
     // Highest resolution chunks per segment in ONE axis
-    public static int ChunksPerSegment => 16;
-
-    // Number of LODs in a single segment
-    public static int LodsPerSegment => math.tzcnt(ChunksPerSegment) + 1;
+    public static int ChunksPerSegment => 4;
 
     // Total number of chunks per segment in a volume
     public static int ChunksPerSegmentVolume => ChunksPerSegment * ChunksPerSegment * ChunksPerSegment;
@@ -214,29 +209,5 @@ public static class VoxelUtils {
         float3 boundsMax = math.float3(bounds.max.x, bounds.max.y, bounds.max.z);
 
         return math.all(boundsMin <= segmentMax) && math.all(segmentMin <= boundsMax);
-    }
-
-    // Convert a delta voxel index to a delta chunk size
-    public static int DeltaVoxelIndexToChunkScaling(int index, int size) {
-        if (index > 0 && index < 262144) {
-            return 0;
-        } else if (index > 262144 && index < 294912) {
-            return 2;
-        } else {
-            return 4;
-        }
-    }
-
-    // Convert a delta chunk size to delta voxel index offset
-    public static int DeltaChunkSizeToDeltaVoxelIndexOffset(int scalingFactor, int size) {
-        if (scalingFactor == 1) {
-            return 0;
-        } else if (scalingFactor == 2) {
-            return 262144;
-        } else if (scalingFactor == 4) {
-            return 294912;
-        }
-
-        return 0;
     }
 }

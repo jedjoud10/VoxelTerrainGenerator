@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
@@ -30,17 +31,17 @@ public struct SparseVoxelDeltaChunk {
     public int listIndex;
 }
 
-// Delta data that contains the voxel values for a chunk with arbitrary size
-// There are many layers of SparseVoxelDeltaData to accomodate the different LODs that might occur inside a segment
+// Delta data that contains the voxel values for a high res chunk
 [StructLayout(LayoutKind.Sequential)]
+[NoAlias]
 public struct SparseVoxelDeltaData {
     // Densities that we will compress using a lossless compression algorithm
     // TODO: I need to find a compression algo that works with the unity C# job system
-    public NativeArray<half> densities;
+    public UnsafeList<half> densities;
 
     // Ushorts that we will compress using RLE
     // ushort.max represents a value that the user has not modified yet
-    public NativeArray<ushort> materials;
+    public UnsafeList<ushort> materials;
 
     // Create sparse voxel data for an unnaffected delta chunk
     public static SparseVoxelDeltaData Empty = new SparseVoxelDeltaData {
@@ -54,10 +55,7 @@ public struct SparseVoxelDeltaData {
 [StructLayout(LayoutKind.Sequential)]
 public struct VoxelDeltaLookup {
     // Bitset containing the highest LOD chunks that are active
-    // Stored in Morton format to allow us to quickly check if a lower LOD chunk has been generated
     public UnsafeBitArray bitset;
-
-    // Starting index of the sparse voxel data for the HIGHEST quality chunk
     public int startingIndex;
 }
 
