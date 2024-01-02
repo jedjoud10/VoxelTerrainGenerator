@@ -1,5 +1,4 @@
 #pragma kernel CSVoxelizer
-#pragma kernel CSEdits
 
 // Chunk offset + scale
 float3 chunkOffset;
@@ -42,21 +41,22 @@ float de(float3 p) {
 }
 
 // Generates the voxel data on the GPU
-[numthreads(4, 4, 4)]
+[numthreads(1, 1, 1)]
 void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 {
 	// Calculate the main world position
 	float3 position = float3(id.xzy);
-	position -= 1.0;
+	//position -= 1.0;
 
 	// Needed for voxel size reduction
-	position *= voxelSize;
+	//position *= voxelSize;
 
 	// Chunk offsets + vertex scaling
-	position *= vertexScaling;
+	//position *= vertexScaling;
 	position *= chunkScale;
-	position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5);
-	position = round(position * 100) / 100;
+	position += chunkOffset;
+	//position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5);
+	//position = round(position * 100) / 100;
 
 	// World offset and scale
 	position = position * worldScale + worldOffset;
@@ -92,19 +92,19 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 	}
 
 	float boxu = sdBox(position, float3(10, 10, 10));
-	//uint packedDensity = f32tof16(min(position.y, boxu));
-	uint packedDensity = f32tof16(density);
+	if (id.x == 0 || id.x == 63 || id.y == 0 || id.y == 63) {
+		density = 10;
+	}
+	else {
+		density = -10;
+	}
+	
+	//uint packedDensity = f32tof16(density);
+	uint packedDensity = f32tof16(min(position.y, boxu));
 	uint packedData = packedDensity | (packedMaterial << 16);
 
 	// Morton encode the texture data
 	uint mortonIndex = encodeMorton32(id.xzy);
 	uint3 mortonPos = indexToPos(mortonIndex);
 	voxels[mortonPos.xzy] = packedData;
-}
-
-[numthreads(4, 4, 4)]
-void CSEdits(uint3 id : SV_DispatchThreadID)
-{
-	// Calculate the main world position
-	float3 position = (id.xzy * chunkScale + chunkOffset) * worldScale + worldOffset;
 }

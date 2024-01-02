@@ -34,14 +34,14 @@ internal class MeshJobHandler {
 
     internal MeshJobHandler() {
         // Native buffers for mesh data
-        voxels = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        vertices = new NativeArray<float3>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        tempTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        permTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        voxels = new NativeArray<Voxel>(287496, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        vertices = new NativeArray<float3>(274625, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        tempTriangles = new NativeArray<int>(274625 * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        permTriangles = new NativeArray<int>(274625 * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 
         // Native buffer for mesh generation data
-        indices = new NativeArray<int>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        enabled = new NativeArray<byte>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        indices = new NativeArray<int>(274625, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        enabled = new NativeArray<byte>(274625, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         countersQuad = new NativeMultiCounter(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
         counter = new NativeCounter(Allocator.Persistent);
 
@@ -95,6 +95,7 @@ internal class MeshJobHandler {
             voxelScale = VoxelUtils.VoxelSizeFactor,
             vertexScale = VoxelUtils.VertexScaling,
             size = VoxelUtils.Size,
+            chunkScale = node.ScalingFactor,
             smoothing = VoxelUtils.Smoothing,
             skirtsBase = skirtsBase,
             skirtsEnd = skirtsEnd,
@@ -132,18 +133,18 @@ internal class MeshJobHandler {
         };
 
         // Start the corner job
-        JobHandle cornerJobHandle = cornerJob.Schedule(VoxelUtils.Volume, 2048, dependency);
+        JobHandle cornerJobHandle = cornerJob.Schedule(274625, 2048, dependency);
 
         // Start the material job
-        JobHandle materialJobHandle = materialJob.Schedule(VoxelUtils.Volume, 2048, dependency);
+        JobHandle materialJobHandle = materialJob.Schedule(287496, 2048, dependency);
 
         // Start the vertex job
         JobHandle vertexDep = JobHandle.CombineDependencies(cornerJobHandle, dependency);
-        JobHandle vertexJobHandle = vertexJob.Schedule(VoxelUtils.Volume, 2048, vertexDep);
+        JobHandle vertexJobHandle = vertexJob.Schedule(274625, 2048, vertexDep);
 
         // Start the quad job
         JobHandle merged = JobHandle.CombineDependencies(materialJobHandle, vertexJobHandle, cornerJobHandle);
-        JobHandle quadJobHandle = quadJob.Schedule(VoxelUtils.Volume, 2048, merged);
+        JobHandle quadJobHandle = quadJob.Schedule(274625, 2048, merged);
 
         // Start the sum job 
         JobHandle sumJobHandle = sumJob.Schedule(VoxelUtils.MAX_MATERIAL_COUNT, 32, quadJobHandle);
@@ -166,9 +167,11 @@ internal class MeshJobHandler {
 
         // Get the max number of materials we generated for this mesh
         int maxMaterials = materialCounter.Count;
+        Debug.Log("Mats: " + maxMaterials);
 
         // Get the max number of vertices (shared by submeshes)
         int maxVertices = counter.Count;
+        Debug.Log("Vertices: " + maxVertices);
 
         // Count the max number of indices (sum of all submesh indices)
         int maxIndices = 0;
@@ -177,6 +180,8 @@ internal class MeshJobHandler {
         for (int i = 0; i < maxMaterials; i++) {
             maxIndices += countersQuad[i] * 6;
         }
+
+        Debug.Log("Indices: " + maxIndices);
 
         // Set mesh bounds
         float max = VoxelUtils.VoxelSizeFactor * VoxelUtils.Size;

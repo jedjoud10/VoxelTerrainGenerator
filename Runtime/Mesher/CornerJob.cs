@@ -30,13 +30,22 @@ public struct CornerJob : IJobParallelFor {
         )
     };
 
+    /*
+    [ReadOnly]
+    static readonly uint3[] offsets2 = {
+        new int3(0, 0, 0), new int3(0, 0, 1), new int3(1, 0, 0), new int3(1, 0, 1),
+        new int3(0, 1, 0), new int3(0, 1, 1), new int3(1, 1, 0), new int3(1, 1, 1),
+    };
+    */
+
     // Static settings
     [ReadOnly] public int size;
 
     public void Execute(int index) {
+        /*
         uint3 position = VoxelUtils.IndexToPos(index);
 
-        if (math.any(position > math.uint3(size - 2)))
+        if (math.any(position > math.uint3(size - 1)))
             return;
 
 
@@ -60,5 +69,6 @@ public struct CornerJob : IJobParallelFor {
         int value = math.bitmask(check1) | (math.bitmask(check2) << 4);
 
         enabled[index] = (byte)value;
+        */
     }
 }

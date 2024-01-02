@@ -8,8 +8,7 @@ using UnityEngine.UIElements;
 
 // Surface mesh job that will generate the isosurface mesh vertices
 [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast, OptimizeFor = OptimizeFor.Performance)]
-public struct VertexJob : IJobParallelFor
-{
+public struct VertexJob : IJobParallelFor {
     // Positions of the first vertex in edges
     [ReadOnly]
     static readonly uint3[] edgePositions0 = new uint3[] {
@@ -63,106 +62,58 @@ public struct VertexJob : IJobParallelFor
 
     // Vertex Counter
     public NativeCounter.Concurrent counter;
-    
+
     // Static settings
     [ReadOnly] public int size;
     [ReadOnly] public float vertexScale;
     [ReadOnly] public float voxelScale;
     [ReadOnly] public bool smoothing;
+    [ReadOnly] public float chunkScale;
     [ReadOnly] public bool3 skirtsBase;
     [ReadOnly] public bool3 skirtsEnd;
     [ReadOnly] public float minSkirtDensityThreshold;
 
     // Excuted for each cell within the grid
-    public void Execute(int index)
-    {
-        uint3 position = VoxelUtils.IndexToPos(index);
+    public void Execute(int index) {
+        uint3 position = VoxelUtils.IndexToPos(index, 65);
         indices[index] = int.MaxValue;
 
         // Idk bruh
-        if (math.any(position > math.uint3(size - 2)))
-            return;
-        
         float3 vertex = float3.zero;
+        int count = 0;
 
-        // Check if we will use this vertex for skirting purposes
-        bool3 base_ = (position <= math.uint3(1)) & skirtsBase;
-        bool3 end_ = (position == math.uint3(size - 2)) & skirtsEnd;
-        
-        // Love me some cute femboys in skirts >.<
-        bool3 skirts = base_ | end_;
+        // Create the smoothed vertex
+        // TODO: Test out QEF or other methods for smoothing here
+        for (int edge = 0; edge < 12; edge++) {
+            uint3 startOffset = edgePositions0[edge];
+            uint3 endOffset = edgePositions1[edge];
 
-        // Fetch the byte that contains the number of corners active
-        uint enabledCorners = enabled[index];
-        bool empty = enabledCorners == 0 || enabledCorners == 255;
+            int startIndex = VoxelUtils.PosToIndex(startOffset + position, 66);
+            int endIndex = VoxelUtils.PosToIndex(endOffset + position, 66);
 
-        // Early check to quit if the cell if full / empty
-        if (empty && !math.any(skirts)) return;
+            // Get the Voxels of the edge
+            Voxel startVoxel = voxels[startIndex];
+            Voxel endVoxel = voxels[endIndex];
 
-        // Doing some marching cube shit here
-        uint code = VoxelUtils.EdgeMasks[enabledCorners];
-        int count = math.countbits(code);
-
-        // Use linear interpolation when smoothing
-        if (!empty)
-        {
-            if (smoothing)
-            {
-                {
-                    // Create the smoothed vertex
-                    // TODO: Test out QEF or other methods for smoothing here
-                    for (int edge = 0; edge < 12; edge++)
-                    {
-                        // Continue if the edge isn't inside
-                        if (((code >> edge) & 1) == 0) continue;
-
-                        uint3 startOffset = edgePositions0[edge];
-                        uint3 endOffset = edgePositions1[edge];
-
-                        int startIndex = VoxelUtils.PosToIndex(startOffset + position);
-                        int endIndex = VoxelUtils.PosToIndex(endOffset + position);
-
-                        // Get the Voxels of the edge
-                        Voxel startVoxel = voxels[startIndex];
-                        Voxel endVoxel = voxels[endIndex];
-
-                        // Create a vertex on the line of the edge
-                        float value = math.unlerp(startVoxel.density, endVoxel.density, 0);
-                        vertex += math.lerp(startOffset, endOffset, value) - math.float3(0.5);
-                    }
-                }
-            }
-            else
-            {
-                // Don't do any smoothing
-                count = 1;
+            if (startVoxel.density <= 0.0 ^ endVoxel.density <= 0.0) {
+                // Create a vertex on the line of the edge
+                float value = math.unlerp(startVoxel.density, endVoxel.density, 0);
+                vertex += math.lerp(startOffset, endOffset, value) - math.float3(0.5);
+                count += 1;
             }
         }
 
-        // Handle skirt vertex keko
-        if (math.any(skirts) && empty)
-        {
-            if (voxels[index].density < 0.0 && voxels[index].density > minSkirtDensityThreshold)
-            {
-                count = 1;
-            }
-            else
-            {
-                return;
-            }
-        }
+        if (count == 0) {
+            return;
+        } 
 
         // Must be offset by vec3(1, 1, 1)
         int vertexIndex = counter.Increment();
         indices[index] = vertexIndex;
 
         // Output vertex in object space
-        float3 offset = (vertex / (float)count);
-
-        // Handle constricting the vertices in the axii
-        offset = math.select(offset, math.float3(0.0F), skirts);
-
-        float3 outputVertex = (offset - 1.0F) + position;
-        vertices[vertexIndex] = outputVertex * vertexScale * voxelScale;
+        float3 offset = (vertex / count);
+        float3 outputVertex = (offset) + position;
+        vertices[vertexIndex] = outputVertex * voxelScale;
     }
 }

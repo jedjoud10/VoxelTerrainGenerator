@@ -33,8 +33,6 @@ public static class VoxelUtils {
 
     // Total number of voxels in a chunk
     public static int Volume => Size * Size * Size;
-    // Total number of voxels in a delta edit chunk
-    public static int DeltaVolume => Size * Size * Size + (Size / 2) * (Size / 2) * (Size / 2) + (Size / 4) * (Size / 4) * (Size / 4);
 
     // Minimum density at which we enable skirting
     public static float MinSkirtDensityThreshold { get; internal set; }
@@ -131,6 +129,7 @@ public static class VoxelUtils {
         return math.select(r, r + size, r < 0);
     }
 
+    /*
     // Convert an index to a 3D position (morton coding)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static uint3 IndexToPos(int index) {
@@ -143,6 +142,7 @@ public static class VoxelUtils {
     public static int PosToIndex(uint3 position) {
         return (int)Morton.EncodeMorton32(position);
     }
+    */
 
     // Convert an index to a 3D position
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -166,6 +166,7 @@ public static class VoxelUtils {
         return (int)math.round((position.y * size * size + (position.z * size) + position.x));
     }
 
+    /*
     // Sampled the voxel grid using trilinear filtering
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static half SampleGridInterpolated(float3 position, ref NativeArray<half> densities, int size) {
@@ -195,6 +196,7 @@ public static class VoxelUtils {
 
         return (half)mixed6;
     }
+    */
 
     // Check if the given chunk intersects the given bounds
     public static bool ChunkCoordsIntersectBounds(int3 chunk, Bounds bounds) {

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
+using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -25,7 +26,7 @@ public class VoxelGenerator : VoxelBehaviour {
     public ComputeShader voxelShader;
 
     // Render texture responsible for storing voxels
-    [HideInInspector]
+    //[HideInInspector]
     public RenderTexture readbackTexture;
 
     // Number of simultaneous async readbacks that happen during one frame
@@ -61,12 +62,12 @@ public class VoxelGenerator : VoxelBehaviour {
 
     // Initialize the voxel generator
     internal override void Init() {
-        readbackTexture = VoxelUtils.CreateRenderTexture(VoxelUtils.Size, GraphicsFormat.R32_UInt);
+        readbackTexture = VoxelUtils.CreateRenderTexture(VoxelUtils.Size + 2, GraphicsFormat.R32_UInt);
         freeVoxelNativeArrays = new BitArray(asyncReadbacks, true);
         pendingVoxelGenerationChunks = new Queue<VoxelChunk>();
         voxelNativeArrays = new List<NativeArray<Voxel>>(asyncReadbacks);
         for (int i = 0; i < asyncReadbacks; i++) {
-            voxelNativeArrays.Add(new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent));
+            voxelNativeArrays.Add(new NativeArray<Voxel>(287496, Allocator.Persistent));
         }
 
         SeedToPerms();
@@ -127,16 +128,34 @@ public class VoxelGenerator : VoxelBehaviour {
 
             VoxelChunk chunk = null;
             if (pendingVoxelGenerationChunks.TryDequeue(out chunk)) {
+                NativeArray<Voxel> voxels = voxelNativeArrays[i];
+                freeVoxelNativeArrays[i] = false;
+
+                VoxelJob job = new VoxelJob {
+                    voxels = voxels,
+                    chunkOffset = chunk.transform.position,
+                    chunkScale = chunk.transform.localScale.x,
+                };
+
+                // Begin the readback request
+                VoxelReadbackRequest voxelReadbackRequest = new VoxelReadbackRequest {
+                    Index = i,
+                    generator = this,
+                    chunk = chunk,
+                    voxels = voxelNativeArrays[i],
+                };
+
+                job.Run(287496);
+                onVoxelGenerationComplete?.Invoke(voxelReadbackRequest.chunk, voxelReadbackRequest);
+
+                /*
                 // Set chunk only parameters
                 voxelShader.SetVector("chunkOffset", chunk.transform.position);
                 voxelShader.SetFloat("chunkScale", chunk.transform.localScale.x);
 
                 // Generate the voxel data for the chunk
-                int count = VoxelUtils.Size / 4;
+                int count = VoxelUtils.Size + 1;
                 voxelShader.Dispatch(0, count, count, count);
-
-                // Handle terrain edits by overlaying them onto the generated data
-                voxelShader.Dispatch(1, count, count, count);
 
                 // Begin the readback request
                 VoxelReadbackRequest voxelReadbackRequest = new VoxelReadbackRequest {
@@ -156,6 +175,7 @@ public class VoxelGenerator : VoxelBehaviour {
                         onVoxelGenerationComplete?.Invoke(voxelReadbackRequest.chunk, voxelReadbackRequest);
                     }
                 );
+                */
             }
         }
     }

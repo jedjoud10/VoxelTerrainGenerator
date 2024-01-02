@@ -6,8 +6,7 @@ using Unity.Mathematics;
 
 // Surface mesh job that will generate the isosurface quads, and thus, the triangles
 [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Deterministic, OptimizeFor = OptimizeFor.Performance)]
-public struct QuadJob : IJobParallelFor
-{
+public struct QuadJob : IJobParallelFor {
     // Voxel native array
     [ReadOnly]
     public NativeArray<Voxel> voxels;
@@ -79,12 +78,11 @@ public struct QuadJob : IJobParallelFor
     [ReadOnly] public bool3 skirtsEnd;
 
     // Check and edge and check if we must generate a quad in it's forward facing direction
-    void CheckEdge(uint3 basePosition, int index, bool skirts, bool skirtsForceDir)
-    {
+    void CheckEdge(uint3 basePosition, int index, bool skirts, bool skirtsForceDir) {
         uint3 forward = quadForwardDirection[index];
-        
-        int baseIndex = VoxelUtils.PosToIndex(basePosition);
-        int endIndex = VoxelUtils.PosToIndex(basePosition + forward);
+
+        int baseIndex = VoxelUtils.PosToIndex(basePosition, 66);
+        int endIndex = VoxelUtils.PosToIndex(basePosition + forward, 66);
 
         Voxel endVoxel = voxels[endIndex];
         Voxel startVoxel = voxels[baseIndex];
@@ -99,10 +97,10 @@ public struct QuadJob : IJobParallelFor
         uint3 offset = basePosition + forward - math.uint3(1);
 
         // Fetch the indices of the vertex positions
-        int index0 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4]);
-        int index1 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4 + 1]);
-        int index2 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4 + 2]);
-        int index3 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4 + 3]);
+        int index0 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4], 65);
+        int index1 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4 + 1], 65);
+        int index2 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4 + 2], 65);
+        int index3 = VoxelUtils.PosToIndex(offset + quadPerpendicularOffsets[index * 4 + 3], 65);
 
         // Fetch the actual indices of the vertices
         int vertex0 = vertexIndices[index0];
@@ -111,8 +109,13 @@ public struct QuadJob : IJobParallelFor
         int vertex3 = vertexIndices[index3];
 
         // Don't make a quad if the vertices are invalid
-        if ((vertex0 | vertex1 | vertex2 | vertex3) == int.MaxValue)
+        if (vertex0 == int.MaxValue || vertex1 == int.MaxValue || vertex2 == int.MaxValue || vertex3 == int.MaxValue) {
             return;
+        }
+
+        if (startVoxel.density <= 0.0 && endVoxel.density <= 0.0) {
+            //return;
+        }
 
         // Get the triangle index base
         int packedMaterialIndex = materialHashMap[material];
@@ -132,9 +135,8 @@ public struct QuadJob : IJobParallelFor
     }
 
     // Excuted for each cell within the grid
-    public void Execute(int index)
-    {
-        uint3 position = VoxelUtils.IndexToPos(index);
+    public void Execute(int index) {
+        uint3 position = VoxelUtils.IndexToPos(index, 65);
 
         // Allows us to save two voxel fetches (very important)
         ushort enabledEdges = VoxelUtils.EdgeMasks[enabled[index]];
@@ -145,22 +147,10 @@ public struct QuadJob : IJobParallelFor
         bool3 skirt = base_ | end_;
 
 
-        bool3 valPos = (position < math.uint3(size - 1)) & (position > math.uint3(1));
-        for (int i = 0; i < 3; i++)
-        {
-            // Handle creating the quad normally
-            if (((enabledEdges >> shifts[i]) & 1) == 1 && math.all(valPos))
-            {
+        bool3 valPos = (position >= math.uint3(1));
+        for (int i = 0; i < 3; i++) {
+            if (math.all(valPos)) {
                 CheckEdge(position, i, false, false);
-            }
-
-            // Mane idfk what I'm doing any more
-            bool limiter = math.all(valPos | math.bool3(i == 0, i == 1, i == 2));
-            
-            // Handle creating the skirt 
-            if (skirt[i] && limiter)
-            {
-                CheckEdge(position, i, true, end_[i]);
             }
         }
     }

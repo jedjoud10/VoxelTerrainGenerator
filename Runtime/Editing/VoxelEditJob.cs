@@ -24,7 +24,7 @@ struct VoxelEditJob<T> : IJobParallelFor
     public SparseVoxelDeltaData data;
 
     public void Execute(int index) {
-        uint3 id = VoxelUtils.IndexToPos(index);
+        uint3 id = VoxelUtils.IndexToPos(index, 64);
         float3 position = (math.float3(id));
 
         // Needed for voxel size reduction
