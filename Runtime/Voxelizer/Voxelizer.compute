@@ -91,9 +91,9 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 		packedMaterial = 1;
 	}
 
-	float boxu = sdBox(position, float3(10, 10, 10));
-	//uint packedDensity = f32tof16(min(position.y, boxu));
-	uint packedDensity = f32tof16(density);
+	float boxu = sdBox(position, float3(5, 100, 5));
+	uint packedDensity = f32tof16(max(position.y, -boxu + snoise(position * 0.1)*2.0));
+	//uint packedDensity = f32tof16(density);
 	uint packedData = packedDensity | (packedMaterial << 16);
 
 	// Morton encode the texture data

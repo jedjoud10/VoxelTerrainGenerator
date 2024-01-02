@@ -32,8 +32,6 @@ public struct SparseVoxelDeltaChunk {
 }
 
 // Delta data that contains the voxel values for a high res chunk
-[StructLayout(LayoutKind.Sequential)]
-[NoAlias]
 public struct SparseVoxelDeltaData {
     // Densities that we will compress using a lossless compression algorithm
     // TODO: I need to find a compression algo that works with the unity C# job system

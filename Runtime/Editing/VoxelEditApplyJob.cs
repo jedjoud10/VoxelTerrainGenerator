@@ -67,16 +67,18 @@ public struct VoxelEditApplyJob : IJobParallelFor {
         // Get the index of the sparseVoxelData that we must read from
         VoxelDeltaLookup temp = lookup[math.clamp(segment, 0, maxSegments*maxSegments*maxSegments-1)];
         int sparseIndex = temp.startingIndex + chunkIndex;
+        uint3 worldVoxelPositive = (uint3)VoxelUtils.Mod(position, size);
+        int voxelIndex = VoxelUtils.PosToIndex(worldVoxelPositive);
 
         if (chunkIndex < temp.bitset.Length && temp.bitset.IsSet(chunkIndex)) {
             outputVoxels[index] = Voxel.Empty;
-            SparseVoxelDeltaData data = sparseVoxelData[math.max(sparseIndex, 0)];
+            SparseVoxelDeltaData data = sparseVoxelData[sparseIndex];
+            half deltaDensity = data.densities[voxelIndex];
+            ushort deltaMaterial = data.materials[voxelIndex];
 
             // Voxel sparse offset in case we need to read from higher LOD
-            float3 worldVoxelPositive = VoxelUtils.Mod(position, size);
-            int voxelIndex = VoxelUtils.PosToIndex((uint3)worldVoxelPositive);
             Voxel cur = inputVoxels[index];
-            cur.density += data.densities[voxelIndex];
+            cur.density += deltaDensity;
             outputVoxels[index] = cur;
         }
     }

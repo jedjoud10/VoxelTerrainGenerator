@@ -149,13 +149,15 @@ public class VoxelEdits : VoxelBehaviour {
                         materials = new UnsafeList<ushort>(VoxelUtils.Volume, Allocator.Persistent),
                     };
 
-                    data.densities.Resize(VoxelUtils.Volume);
-                    data.materials.Resize(VoxelUtils.Volume);
+                    data.densities.Resize(VoxelUtils.Volume, NativeArrayOptions.ClearMemory);
+                    data.materials.Resize(VoxelUtils.Volume, NativeArrayOptions.ClearMemory);
 
+                    /*
                     for (int k = 0; k < VoxelUtils.Volume; k++) {
                         data.densities[i] = half.zero;
                         data.materials[i] = ushort.MaxValue;
                     }
+                    */
 
                     sparseVoxelData[segment.startingIndex + i] = data;
                 }
@@ -196,8 +198,8 @@ public class VoxelEdits : VoxelBehaviour {
             vertexScaling = VoxelUtils.VertexScaling,
             voxelScale = VoxelUtils.VoxelSizeFactor,
         };
-        newDependency = job.Schedule(VoxelUtils.Volume, 2048);
-        newDependency.Complete();
+        job.Schedule(VoxelUtils.Volume, 2048).Complete();
+        newDependency = new JobHandle();
         return;
     }
 

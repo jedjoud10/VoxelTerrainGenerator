@@ -1,9 +1,9 @@
 {
   "displayName": "Voxel Terrain Generator",
   "name": "com.jedjoud.voxelterraingenerator",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "unity": "2022.3",
-  "unityRelease": "0b5",
+  "unityRelease": "16f1",
   "author": {
     "name": "Jed Jribi",
     "email": "jribijed6@gmail.com",
