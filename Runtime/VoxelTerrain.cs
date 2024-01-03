@@ -192,10 +192,11 @@ public class VoxelTerrain : MonoBehaviour {
         }
 
         // Fetch new chunks from the pool
+        bool generated = false;
         foreach (var item in added) {
             if (item.ChildBaseIndex != -1)
                 continue;
-
+            generated = true;
             GameObject gameObject = FetchPooledChunk();
 
             float size = item.ScalingFactor;
@@ -220,7 +221,7 @@ public class VoxelTerrain : MonoBehaviour {
             toMakeVisible.Add(chunk);
         }
 
-        Free = false;
+        Free = !generated;
     }
 
     // Fetches a pooled chunk, or creates a new one from scratch

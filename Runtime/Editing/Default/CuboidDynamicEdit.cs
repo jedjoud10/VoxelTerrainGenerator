@@ -10,13 +10,12 @@ using UnityEngine;
 public struct CuboidDynamicEdit : IDynamicEdit {
     [ReadOnly] public float3 center;
     [ReadOnly] public float3 halfExtents;
-    [ReadOnly] public float strength;
     [ReadOnly] public ushort material;
     [ReadOnly] public bool writeMaterial;
     public bool Enabled => true;
 
-    public JobHandle Apply(VoxelChunk chunk) {
-        return IDynamicEdit.ApplyGeneric(chunk, this);
+    public JobHandle Apply(VoxelChunk chunk, ref NativeArray<Voxel> voxels) {
+        return IDynamicEdit.ApplyGeneric(chunk, ref voxels, this);
     }
 
     public Bounds GetBounds() {

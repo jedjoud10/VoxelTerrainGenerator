@@ -120,7 +120,8 @@ public class VoxelMesher : VoxelBehaviour {
 
                 // Pass through the edit system for any chunks that should be modifiable
                 JobHandle dependency = new JobHandle();
-                terrain.VoxelEdits.TryGetApplyJobDependency(output.chunk, ref handler.voxels, out dependency);
+                terrain.VoxelEdits.TryGetApplyDynamicEditJobDependency(output.chunk, ref handler.voxels, ref dependency);
+                terrain.VoxelEdits.TryGetApplyVoxelEditJobDependency(output.chunk, ref handler.voxels, ref dependency);
                 handler.BeginJob(dependency, output.chunk.node);
                 dedupe.Remove(output.chunk);
             }

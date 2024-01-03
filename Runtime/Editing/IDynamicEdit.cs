@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -20,17 +21,18 @@ public interface IDynamicEdit {
     public Bounds GetBounds();
 
     // MUST CALL THE "ApplyGeneric" function because we can't hide away generics
-    public JobHandle Apply(VoxelChunk chunk);
+    public JobHandle Apply(VoxelChunk chunk, ref NativeArray<Voxel> voxels);
 
     // Apply any generic dynamic edit onto oncoming data
-    internal static JobHandle ApplyGeneric<T>(VoxelChunk chunk, T edit) where T: struct, IDynamicEdit {
+    internal static JobHandle ApplyGeneric<T>(VoxelChunk chunk, ref NativeArray<Voxel> voxels, T edit) where T: struct, IDynamicEdit {
         DynamicEditJob<T> job = new DynamicEditJob<T> {
-            chunkOffset = math.float3(chunk.node.Position) * VoxelUtils.Size * VoxelUtils.VoxelSizeFactor,
+            chunkOffset = math.float3(chunk.node.Position),
             voxelScale = VoxelUtils.VoxelSizeFactor,
             size = VoxelUtils.Size,
             vertexScaling = VoxelUtils.VertexScaling,
+            scalingFactor = chunk.node.ScalingFactor,
             dynamicEdit = edit,
-            voxels = chunk.container.voxels,
+            voxels = voxels,
         };
         return job.Schedule(VoxelUtils.Volume, 2048);
     }

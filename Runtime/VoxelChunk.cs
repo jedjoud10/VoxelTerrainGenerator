@@ -22,6 +22,23 @@ public class VoxelChunk : MonoBehaviour {
 
     // Shared generated mesh
     public Mesh sharedMesh;
+
+    // Remesh the chunk given the parent terrain
+    public void Remesh(VoxelTerrain terrain) {
+        if (uniqueVoxelContainer) {
+            // Regenerate the mesh based on the unique voxel container
+            terrain.VoxelMesher.GenerateMesh(this, true);
+        } else {
+            // If not, simply regenerate the chunk
+            // This is pretty inefficient but it's a matter of memory vs performance
+            terrain.VoxelGenerator.GenerateVoxels(this);
+        }
+    }
+
+    // Regenerate the chunk given the parent terrain
+    public void Regenerate(VoxelTerrain terrain) {
+        terrain.VoxelGenerator.GenerateVoxels(this);
+    }
 }
 
 // Cached voxel chunk container for chunks with their own temp voxels (for modifs)

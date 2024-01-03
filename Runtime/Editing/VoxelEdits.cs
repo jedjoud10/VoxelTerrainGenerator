@@ -88,21 +88,27 @@ public class VoxelEdits : VoxelBehaviour {
         // Re-mesh the chunks
         foreach (var node in temp) {
             VoxelChunk chunk = terrain.Chunks[node];
-            if (chunk.uniqueVoxelContainer) {
-                // Regenerate the mesh based on the unique voxel container
-                terrain.VoxelMesher.GenerateMesh(chunk, true);
-            } else {
-                // If not, simply regenerate the chunk
-                // This is pretty inefficient but it's a matter of memory vs performance
-                terrain.VoxelGenerator.GenerateVoxels(chunk);
-            }
+            chunk.Remesh(terrain);
         }
         temp.Value.Dispose();
     }
 
     // Apply a dynamic edit to the terrain world immediately
     public void ApplyDynamicEdit(IDynamicEdit dynamicEdit) {
+        Debug.Log("Add dynamic edit");
         dynamicEdits.Add(dynamicEdit);
+
+        // Custom job to find all the octree nodes that touch the bounds
+        Bounds bound = dynamicEdit.GetBounds();
+        NativeList<OctreeNode>? temp;
+        terrain.VoxelOctree.TryCheckAABBIntersection(bound, out temp);
+
+        // Re-mesh the chunks
+        foreach (var node in temp) {
+            VoxelChunk chunk = terrain.Chunks[node];
+            chunk.Remesh(terrain);
+        }
+        temp.Value.Dispose();
     }
 
     // Makes sure the segments that intersect the bounds are loaded in and ready for modification
@@ -181,18 +187,16 @@ public class VoxelEdits : VoxelBehaviour {
         lookup[segmentIndex] = segment;
     }
 
-    // Check if a chunk was modified (or if it contains regions of modified voxels)
-    // ORRRR if it contains a dynamic edit that affects it
-    // In case of ambiguity, should be conservative and take most edges cases
-    public bool WasChunkModified(VoxelChunk chunk) {
-        return true;
-    }
+    // Check if a chunk contains voxel edits
+    public bool IsChunkAffectedByVoxelEdits(VoxelChunk chunk) { return true; }
+    
+    // Check if a chunk contains dynamic edits
+    public bool IsChunkAffectedByDynamicEdits(VoxelChunk chunk) { return true; }
 
-    // Create an apply job dependeny for a chunk that is about to be meshed
-    // Chunk voxel temp container MUST be valid
-    public void TryGetApplyJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> outputVoxels, out JobHandle newDependency) {
-        if (!WasChunkModified(chunk)) {
-            newDependency = new JobHandle();
+
+    // Create an apply job dependeny for a chunk that has voxel edits
+    public void TryGetApplyVoxelEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> outputVoxels, ref JobHandle dep) {
+        if (!IsChunkAffectedByVoxelEdits(chunk)) {
             return;
         }
 
@@ -209,7 +213,26 @@ public class VoxelEdits : VoxelBehaviour {
             vertexScaling = VoxelUtils.VertexScaling,
             voxelScale = VoxelUtils.VoxelSizeFactor,
         };
-        newDependency = job.Schedule(VoxelUtils.Volume, 2048);
+        dep = job.Schedule(VoxelUtils.Volume, 2048, dep);
+        return;
+    }
+
+    // Create a list of dependencies to apply to chunks that have been affected by dynamic edits
+    public void TryGetApplyDynamicEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> outputVoxels, ref JobHandle dep) {
+        Debug.Log("Apply dynamic edit to chunk");
+        if (!IsChunkAffectedByDynamicEdits(chunk)) {
+            return;
+        }
+
+        NativeList<JobHandle> handles = new NativeList<JobHandle>(Allocator.Temp);
+        handles.Dispose();
+
+        foreach (var dynamicEdit in dynamicEdits) {
+            JobHandle test = dynamicEdit.Apply(chunk, ref outputVoxels);
+            test.Complete();
+        }
+
+        //dep = JobHandle.CombineDependencies(handles.AsArray());
         return;
     }
 

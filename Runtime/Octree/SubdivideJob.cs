@@ -28,8 +28,28 @@ public struct SubdivideJob<T> : IJob where T: struct, IOctreeSubdivider {
             TrySubdivide(ref node);
         }
 
+        /*
         // Check all nodes to subdivide them again if they have parent siblings 
         // Should stop lower depth nodes being so close to higher depth nodes
+        for (int i = 1; i < nodes.Length; i++) {
+            // Check if siblings are parents
+            int parentIndex = nodes[i].ParentIndex;
+            OctreeNode parent = nodes[parentIndex];
+            bool grandparent = false;
+
+            for (int k = 0; k < 8; k++) {
+                grandparent |= nodes[parent.ChildBaseIndex + k].ChildBaseIndex != -1;
+            }
+
+            // second check shouldn't even matter since it would be impossible for last depth nodes to have a parent who is a grandparent but wtv
+            if (grandparent && nodes[i].Depth < maxDepth && nodes[i].ChildBaseIndex == -1) {
+                ForceSubdivide(nodes[i]);
+            }
+        }
+        */
+        
+
+        pending.Clear();
     }
 
     // Check if we can subdivide this node. This is the part that we can tune to our liking
@@ -50,7 +70,7 @@ public struct SubdivideJob<T> : IJob where T: struct, IOctreeSubdivider {
     };
 
     // Force the subdivision of the current node, even though it might not be valid
-    public void ForceSubdivide(ref OctreeNode node) {
+    public void ForceSubdivide(OctreeNode node) {
         node.ChildBaseIndex = nodes.Length;
 
         for (int i = 0; i < 8; i++) {
@@ -75,8 +95,7 @@ public struct SubdivideJob<T> : IJob where T: struct, IOctreeSubdivider {
 
     // Try to subdivide the current node into 8 octants
     public void TrySubdivide(ref OctreeNode node) {
-        if (ShouldSubdivide(ref node) && node.Depth < maxDepth) {
-            ForceSubdivide(ref node);
-        }
+        if (ShouldSubdivide(ref node) && node.Depth < maxDepth)
+            ForceSubdivide(node);
     }
 }

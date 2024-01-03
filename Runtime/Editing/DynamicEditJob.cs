@@ -16,6 +16,7 @@ struct DynamicEditJob<T> : IJobParallelFor
     [ReadOnly] public float voxelScale;
     [ReadOnly] public int size;
     [ReadOnly] public float vertexScaling;
+    [ReadOnly] public float scalingFactor;
 
     public T dynamicEdit;
     public NativeArray<Voxel> voxels;
@@ -28,10 +29,11 @@ struct DynamicEditJob<T> : IJobParallelFor
         position -= math.float3(1);
         position *= voxelScale;
         position *= vertexScaling;
+        position *= scalingFactor;
         //position += chunkOffset;
 
         // Chunk offsets + vertex scaling
-        position += math.float3((chunkOffset - (size / (size - 3.0f)) * 0.5f));
+        position += math.float3((chunkOffset - ((size * scalingFactor) / (size - 3.0f)) * 0.5f));
 
         // Read, modify, write
         Voxel output = dynamicEdit.Modify(position, voxels[index]);
