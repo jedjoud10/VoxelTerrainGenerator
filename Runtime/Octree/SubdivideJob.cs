@@ -8,7 +8,7 @@ using static UnityEngine.GraphicsBuffer;
 
 // This will handle generating the nodes for one of the starting nodes
 [BurstCompile(CompileSynchronously = true)]
-public struct SubdivideJob : IJob {
+public struct SubdivideJob<T> : IJob where T: struct, IOctreeSubdivider {
     // The total nodes that where generated
     public NativeList<OctreeNode> nodes;
 
@@ -21,26 +21,20 @@ public struct SubdivideJob : IJob {
 
     [ReadOnly] public int maxDepth;
     [ReadOnly] public int segmentSize;
+    public T subdivider;
 
     public void Execute() {
         while (pending.TryDequeue(out OctreeNode node)) {
             TrySubdivide(ref node);
         }
+
+        // Check all nodes to subdivide them again if they have parent siblings 
+        // Should stop lower depth nodes being so close to higher depth nodes
     }
 
     // Check if we can subdivide this node. This is the part that we can tune to our liking
     public bool ShouldSubdivide(ref OctreeNode node) {
-        bool subdivide = false;
-
-        foreach (var target in targets) {
-            float3 minBounds = math.float3(node.Position);
-            float3 maxBounds = math.float3(node.Position) + math.float3(node.Size);
-            float3 clamped = math.clamp(target.center, minBounds, maxBounds);
-            bool local = math.distance(clamped, target.center) < target.radius * node.ScalingFactor;
-            subdivide |= local || (node.Size > segmentSize);
-        }
-
-        return subdivide;
+        return subdivider.ShouldSubdivide(ref node, ref targets);
     }
 
     // Position offsets for creating the nodes
@@ -55,29 +49,34 @@ public struct SubdivideJob : IJob {
         new int3(1, 1, 1),
     };
 
+    // Force the subdivision of the current node, even though it might not be valid
+    public void ForceSubdivide(ref OctreeNode node) {
+        node.ChildBaseIndex = nodes.Length;
+
+        for (int i = 0; i < 8; i++) {
+            float3 offset = math.float3(offsets[i]);
+            OctreeNode child = new OctreeNode {
+                Position = offset * (node.Size / 2.0F) + node.Position,
+                Depth = node.Depth + 1,
+                Size = node.Size / 2,
+                ParentIndex = node.Index,
+                Index = node.ChildBaseIndex + i,
+                ChildBaseIndex = -1,
+                Skirts = 0,
+                ScalingFactor = node.ScalingFactor / 2.0F,
+            };
+
+            pending.Enqueue(child);
+            nodes.Add(child);
+        }
+
+        nodes[node.Index] = node;
+    }
+
     // Try to subdivide the current node into 8 octants
     public void TrySubdivide(ref OctreeNode node) {
         if (ShouldSubdivide(ref node) && node.Depth < maxDepth) {
-            node.ChildBaseIndex = nodes.Length;
-
-            for (int i = 0; i < 8; i++) {
-                float3 offset = math.float3(offsets[i]);
-                OctreeNode child = new OctreeNode {
-                    Position = offset * (node.Size / 2.0F) + node.Position,
-                    Depth = node.Depth + 1,
-                    Size = node.Size / 2,
-                    ParentIndex = node.Index,
-                    Index = node.ChildBaseIndex + i,
-                    ChildBaseIndex = -1,
-                    Skirts = 0,
-                    ScalingFactor = node.ScalingFactor / 2.0F,
-                };
-
-                pending.Enqueue(child);
-                nodes.Add(child);
-            }
-
-            nodes[node.Index] = node;
+            ForceSubdivide(ref node);
         }
     }
 }

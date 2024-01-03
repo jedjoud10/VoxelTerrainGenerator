@@ -50,7 +50,7 @@ public static class VoxelUtils {
     public static int ChunksPerSegmentVolume => ChunksPerSegment * ChunksPerSegment * ChunksPerSegment;
 
     // Number of segments in the world in one axis only
-    public static int MaxSegments => Mathf.CeilToInt(Mathf.Pow(2F, (float)MaxDepth - 1) / (ChunksPerSegment));
+    public static int MaxSegments => Mathf.CeilToInt(Mathf.Pow(2F, (float)MaxDepth - 1) / (ChunksPerSegment)) * 2;
 
     // Max possible number of materials supported by the terrain mesh
     public const int MAX_MATERIAL_COUNT = 256;

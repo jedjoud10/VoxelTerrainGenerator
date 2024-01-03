@@ -5,15 +5,19 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-[assembly: RegisterGenericJobType(typeof(VoxelEditJob<SphereEdit>))]
+[assembly: RegisterGenericJobType(typeof(DynamicEditJob<SphereDynamicEdit>))]
 
-// Simple sphere edit that edits the chunk in a specific radius
-public struct SphereEdit : IVoxelEdit {
+public struct SphereDynamicEdit : IDynamicEdit {
     [ReadOnly] public float3 center;
     [ReadOnly] public float radius;
     [ReadOnly] public float strength;
     [ReadOnly] public ushort material;
     [ReadOnly] public bool writeMaterial;
+    public bool Enabled => true;
+
+    public JobHandle Apply(VoxelChunk chunk) {
+        return IDynamicEdit.ApplyGeneric(chunk, this);
+    }
 
     public Bounds GetBounds() {
         return new Bounds {
@@ -22,11 +26,14 @@ public struct SphereEdit : IVoxelEdit {
         };
     }
 
-    public Voxel Modify(float3 position, Voxel lastDelta) {
-        Voxel voxel = Voxel.Empty;
+    public Voxel Modify(float3 position, Voxel voxel) {
         float density = math.length(position - center) - radius;
-        voxel.material = (density < 0.0F && writeMaterial) ? material : ushort.MaxValue;
-        voxel.density = (density < 0.0F) ? (half)(density * -strength) : lastDelta.density;
+
+        if (density < 1.0 && writeMaterial) {
+            voxel.material = material;
+        }
+
+        voxel.density = (half)math.min(voxel.density, density);
         return voxel;
     }
 }

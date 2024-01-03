@@ -26,7 +26,7 @@ public struct Voxel {
 // Contains the world position and the index where the SparseVoxelDeltaData is stored
 // This will NOT be sent to the job. Solely used as an intermediate type
 [StructLayout(LayoutKind.Sequential)]
-public struct SparseVoxelDeltaChunk {
+internal struct SparseVoxelDeltaChunk {
     public int3 position;
     public int listIndex;
 }

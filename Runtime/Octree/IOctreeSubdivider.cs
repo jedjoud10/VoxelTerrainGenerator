@@ -3,7 +3,28 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Burst;
+using static UnityEngine.GraphicsBuffer;
+using System.Runtime.CompilerServices;
 
 // Custom octree subdivier to allow end users to handle custom octree subdivision logic
 public interface IOctreeSubdivider {
+    // Should we subdivide the given node?
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool ShouldSubdivide(ref OctreeNode node, ref NativeArray<OctreeTarget> targets);
+
+    // MUST CALL THE "ApplyGeneric" function because we can't hide away generics
+    public JobHandle Apply(NativeArray<OctreeTarget> targets, NativeList<OctreeNode> nodes, NativeQueue<OctreeNode> pending);
+
+    // Apply any generic octree subdivider edit onto the octree
+    internal static JobHandle ApplyGeneric<T>(NativeArray<OctreeTarget> targets, NativeList<OctreeNode> nodes, NativeQueue<OctreeNode> pending, T subdivider) where T : struct, IOctreeSubdivider {
+        SubdivideJob<T> job = new SubdivideJob<T> {
+            targets = targets,
+            nodes = nodes,
+            pending = pending,
+            maxDepth = VoxelUtils.MaxDepth,
+            segmentSize = VoxelUtils.SegmentSize,
+            subdivider = subdivider,
+        };
+        return job.Schedule();
+    }
 }

@@ -14,6 +14,9 @@ public class VoxelOctree : VoxelBehaviour {
     public int maxDepth = 8;
     public bool debugGizmos = false;
 
+    // Custom octree subdivider script
+    public IOctreeSubdivider subdivider;
+
     private NativeList<OctreeTarget> targets;
     private Dictionary<OctreeLoader, int> targetsLookup;
 
@@ -44,6 +47,7 @@ public class VoxelOctree : VoxelBehaviour {
 
     // Intialize octree memory
     internal override void Init() {
+        subdivider = new DefaultOctreeSubdivider();
         VoxelUtils.MaxDepth = maxDepth;
         Free = true;
         targets = new NativeList<OctreeTarget>(Allocator.Persistent);
@@ -118,16 +122,7 @@ public class VoxelOctree : VoxelBehaviour {
             newNodesList.Add(root);
 
             // Creates the octree
-            SubdivideJob job = new SubdivideJob {
-                targets = targets.AsArray(),
-                nodes = newNodesList,
-                pending = pending,
-                maxDepth = VoxelUtils.MaxDepth,
-                segmentSize = VoxelUtils.SegmentSize,
-            };
-
-            // Handle scheduling the jobs
-            JobHandle initial = job.Schedule();
+            JobHandle initial = subdivider.Apply(targets.AsArray(), newNodesList, pending);
 
             // We don't need to execute the neighbour job if we have skirts disabled
             JobHandle hashSetJobHandle;

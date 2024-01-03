@@ -1,3 +1,5 @@
+using GluonGui.Dialog;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,25 +9,32 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-// Handles keeping track of voxel edits in the world
+// Handles keeping track of voxel edits and dynamic edits in the world
 public class VoxelEdits : VoxelBehaviour {
-    // Max number of chunks we should edit at the same time (should be less than or equal to max mesh jobs)
-    [Range(0, 8)]
-    public int maxImmediateMeshEditJobsPerEdit = 1;
-    public bool debugGUI = false;
+    // Max number of voxel jobs we will execute per frame
+    [Range(1, 8)]
+    public int voxelEditsJobsPerFrame = 1;
+    public bool debugGizmos = false;
 
     // Dictionary to map chunk positions to sparseVoxelData indices
     // Contains a bitmask telling us what chunks of a specific segment is enabled
     private NativeArray<VoxelDeltaLookup> lookup;
 
     // All the chunks the user has modified in each LOD level
-    // Stored like this: layers -> unsafe list -> sparse voxel delta chunks
     private UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
+
+    // Stores all the dynamic edits that have been applied
+    private List<IDynamicEdit> dynamicEdits;
+
+    // Temporary place for voxel edits that have not been applied yet
+    private Queue<IVoxelEdit> tempVoxelEdits;
 
     // Initialize the voxel edits handler
     internal override void Init() {
         lookup = new NativeArray<VoxelDeltaLookup>(VoxelUtils.MaxSegments * VoxelUtils.MaxSegments * VoxelUtils.MaxSegments, Allocator.Persistent);
         sparseVoxelData = new UnsafeList<SparseVoxelDeltaData>(0, Allocator.Persistent);
+        dynamicEdits = new List<IDynamicEdit>();
+        tempVoxelEdits = new Queue<IVoxelEdit>();
     }
 
     // Dispose of any memory
@@ -43,21 +52,26 @@ public class VoxelEdits : VoxelBehaviour {
             }
 
         }
-        sparseVoxelData.Dispose();
+        //sparseVoxelData.Dispose();
         lookup.Dispose();
     }
 
-    // Apply a voxel edit to the terrain world immediately
-    public void ApplyVoxelEdit<T>(T edit) where T : struct, IVoxelEdit {
-        if (!terrain.Free || !terrain.VoxelGenerator.Free || !terrain.VoxelMesher.Free || !terrain.VoxelOctree.Free)
-            return;
+    private void Update() {
+        IVoxelEdit edit = null;
+        if (tempVoxelEdits.TryDequeue(out edit)) {
+            ApplyVoxelEdit(edit);
+        }
+    }
 
-        // Idk why we have to do this bruh this shit don't make no sense 
-        float extentOffset = VoxelUtils.VoxelSizeFactor * 4.0F;
-        Bounds bound = edit.GetBounds();
-        //bound.Expand(200);
+    // Apply a voxel edit to the terrain world
+    public void ApplyVoxelEdit(IVoxelEdit edit) {
+        if (!terrain.VoxelOctree.Free) {
+            tempVoxelEdits.Append(edit);
+            return;
+        }
 
         // Custom job to find all the octree nodes that touch the bounds
+        Bounds bound = edit.GetBounds();
         NativeList<OctreeNode>? temp;
         terrain.VoxelOctree.TryCheckAABBIntersection(bound, out temp);
 
@@ -67,17 +81,7 @@ public class VoxelEdits : VoxelBehaviour {
         // Modify sparse voxel data
         foreach (var item in sparseVoxelEditChunks) {
             SparseVoxelDeltaData data = sparseVoxelData[item.listIndex];
-            VoxelEditJob<T> job = new VoxelEditJob<T> {
-                chunkOffset = math.float3(item.position) * VoxelUtils.Size * VoxelUtils.VoxelSizeFactor,
-                voxelScale = VoxelUtils.VoxelSizeFactor,
-                size = VoxelUtils.Size,
-                vertexScaling = VoxelUtils.VertexScaling,
-                edit = edit,
-                densities = data.densities,
-                materials = data.materials,
-            };
-
-            JobHandle handle = job.Schedule(VoxelUtils.Volume, 2048);
+            JobHandle handle = edit.Apply(data, item.position);
             handle.Complete();
         }
 
@@ -94,6 +98,11 @@ public class VoxelEdits : VoxelBehaviour {
             }
         }
         temp.Value.Dispose();
+    }
+
+    // Apply a dynamic edit to the terrain world immediately
+    public void ApplyDynamicEdit(IDynamicEdit dynamicEdit) {
+        dynamicEdits.Add(dynamicEdit);
     }
 
     // Makes sure the segments that intersect the bounds are loaded in and ready for modification
@@ -173,6 +182,8 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     // Check if a chunk was modified (or if it contains regions of modified voxels)
+    // ORRRR if it contains a dynamic edit that affects it
+    // In case of ambiguity, should be conservative and take most edges cases
     public bool WasChunkModified(VoxelChunk chunk) {
         return true;
     }
@@ -198,13 +209,12 @@ public class VoxelEdits : VoxelBehaviour {
             vertexScaling = VoxelUtils.VertexScaling,
             voxelScale = VoxelUtils.VoxelSizeFactor,
         };
-        job.Schedule(VoxelUtils.Volume, 2048).Complete();
-        newDependency = new JobHandle();
+        newDependency = job.Schedule(VoxelUtils.Volume, 2048);
         return;
     }
 
     private void OnDrawGizmosSelected() {
-        if (!lookup.IsCreated || !debugGUI)
+        if (!lookup.IsCreated || !debugGizmos)
             return;
 
         for (int i = 0; i < lookup.Length; i++) {

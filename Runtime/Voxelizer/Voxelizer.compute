@@ -1,5 +1,4 @@
 #pragma kernel CSVoxelizer
-#pragma kernel CSEdits
 
 // Chunk offset + scale
 float3 chunkOffset;
@@ -55,9 +54,9 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 	// Chunk offsets + vertex scaling
 	position *= vertexScaling;
 	position *= chunkScale;
+	//position += chunkOffset;
 	position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5);
-	position = round(position * 100) / 100;
-
+	
 	// World offset and scale
 	position = position * worldScale + worldOffset;
 
@@ -91,20 +90,13 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 		packedMaterial = 1;
 	}
 
-	float boxu = sdBox(position, float3(5, 100, 5));
-	uint packedDensity = f32tof16(max(position.y, -boxu + snoise(position * 0.1)*2.0));
-	//uint packedDensity = f32tof16(density);
+	density = position.y - fbmCellular(position.xz * 0.01, 8, 0.32, 2.60).y * 20;
+	density = min(density, sdSphere(position, 5));
+	uint packedDensity = f32tof16(density);
 	uint packedData = packedDensity | (packedMaterial << 16);
 
 	// Morton encode the texture data
 	uint mortonIndex = encodeMorton32(id.xzy);
 	uint3 mortonPos = indexToPos(mortonIndex);
 	voxels[mortonPos.xzy] = packedData;
-}
-
-[numthreads(4, 4, 4)]
-void CSEdits(uint3 id : SV_DispatchThreadID)
-{
-	// Calculate the main world position
-	float3 position = (id.xzy * chunkScale + chunkOffset) * worldScale + worldOffset;
 }

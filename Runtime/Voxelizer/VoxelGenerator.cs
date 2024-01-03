@@ -135,9 +135,6 @@ public class VoxelGenerator : VoxelBehaviour {
                 int count = VoxelUtils.Size / 4;
                 voxelShader.Dispatch(0, count, count, count);
 
-                // Handle terrain edits by overlaying them onto the generated data
-                voxelShader.Dispatch(1, count, count, count);
-
                 // Begin the readback request
                 VoxelReadbackRequest voxelReadbackRequest = new VoxelReadbackRequest {
                     Index = i,

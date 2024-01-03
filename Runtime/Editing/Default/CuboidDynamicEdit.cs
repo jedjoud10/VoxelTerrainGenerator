@@ -5,15 +5,19 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-[assembly: RegisterGenericJobType(typeof(VoxelEditJob<CuboidEdit>))]
+[assembly: RegisterGenericJobType(typeof(DynamicEditJob<CuboidDynamicEdit>))]
 
-// Simple cuboid edit that edits the chunk in a specific extent
-public struct CuboidEdit : IVoxelEdit {
+public struct CuboidDynamicEdit : IDynamicEdit {
     [ReadOnly] public float3 center;
     [ReadOnly] public float3 halfExtents;
     [ReadOnly] public float strength;
     [ReadOnly] public ushort material;
     [ReadOnly] public bool writeMaterial;
+    public bool Enabled => true;
+
+    public JobHandle Apply(VoxelChunk chunk) {
+        return IDynamicEdit.ApplyGeneric(chunk, this);
+    }
 
     public Bounds GetBounds() {
         return new Bounds {
@@ -22,13 +26,15 @@ public struct CuboidEdit : IVoxelEdit {
         };
     }
 
-    public Voxel Modify(float3 position, Voxel lastDelta) {
+    public Voxel Modify(float3 position, Voxel voxel) {
         float3 q = math.abs(position - center) - halfExtents;
         float density = math.length(math.max(q, 0.0F)) + math.min(math.max(q.x, math.max(q.y, q.z)), 0.0F);
 
-        Voxel voxel = Voxel.Empty;
-        voxel.material = (density < 0.0F && writeMaterial) ? material : ushort.MaxValue;
-        voxel.density = (density < 0.0F) ? (half)(-strength) : lastDelta.density;
+        if (density < 1.0 && writeMaterial) {
+            voxel.material = material;
+        }
+
+        voxel.density = (half)math.min(voxel.density, density);
         return voxel;
     }
 }

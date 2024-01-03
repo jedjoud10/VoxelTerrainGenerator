@@ -33,6 +33,7 @@ public class VoxelMesher : VoxelBehaviour {
 
     // Used for collision
     internal Queue<PendingMeshJob> pendingMeshJobs;
+    internal HashSet<VoxelChunk> dedupe;
 
     // Checks if the voxel mesher has completed all the work
     public bool Free {
@@ -47,6 +48,7 @@ public class VoxelMesher : VoxelBehaviour {
     internal override void Init() {
         handlers = new List<MeshJobHandler>(meshJobsPerFrame);
         pendingMeshJobs = new Queue<PendingMeshJob>();
+        dedupe = new HashSet<VoxelChunk>();
         VoxelUtils.MinSkirtDensityThreshold = minSkirtDensityThreshold;
         VoxelUtils.Smoothing = smoothing;
         VoxelUtils.Skirts = skirts;
@@ -59,10 +61,11 @@ public class VoxelMesher : VoxelBehaviour {
     // Begin generating the mesh data using the given chunk and voxel container
     // Automatically creates a dependency from the editing system if it is editing modified chunks
     public void GenerateMesh(VoxelChunk chunk, bool computeCollisions) {
-        if (chunk.container == null) {
+        if (chunk.container == null || dedupe.Contains(chunk)) {
             return;
         }
 
+        dedupe.Add(chunk);
         pendingMeshJobs.Enqueue(new PendingMeshJob {
             chunk = chunk,
             computeCollisions = computeCollisions,
@@ -119,6 +122,7 @@ public class VoxelMesher : VoxelBehaviour {
                 JobHandle dependency = new JobHandle();
                 terrain.VoxelEdits.TryGetApplyJobDependency(output.chunk, ref handler.voxels, out dependency);
                 handler.BeginJob(dependency, output.chunk.node);
+                dedupe.Remove(output.chunk);
             }
         }
     }
