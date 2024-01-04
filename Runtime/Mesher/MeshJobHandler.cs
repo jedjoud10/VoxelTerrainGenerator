@@ -26,8 +26,6 @@ internal class MeshJobHandler {
     public NativeParallelHashSet<ushort> materialHashSet;
     public NativeArray<int> materialSegmentOffsets;
     public NativeCounter materialCounter;
-
-    // Others
     public JobHandle finalJobHandle;
     public VoxelChunk chunk;
     public bool computeCollisions = false;

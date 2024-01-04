@@ -14,8 +14,8 @@ public struct CuboidDynamicEdit : IDynamicEdit {
     [ReadOnly] public bool writeMaterial;
     public bool Enabled => true;
 
-    public JobHandle Apply(VoxelChunk chunk, ref NativeArray<Voxel> voxels) {
-        return IDynamicEdit.ApplyGeneric(chunk, ref voxels, this);
+    public JobHandle Apply(VoxelChunk chunk, ref NativeArray<Voxel> voxels, JobHandle dep) {
+        return IDynamicEdit.ApplyGeneric(chunk, ref voxels, dep, this);
     }
 
     public Bounds GetBounds() {

@@ -63,9 +63,9 @@ Material:
     - _EnableBlendModePreserveSpecularLighting: 1
     - _EnableFogOnTransparent: 1
     - _ExcludeFromTUAndAA: 0
-    - _Factor: 999
+    - _Factor: 20
     - _Metallic: 0
-    - _Offset: -0.9
+    - _Offset: -0.95
     - _OpaqueCullMode: 2
     - _RayTracing: 0
     - _ReceivesSSR: 1

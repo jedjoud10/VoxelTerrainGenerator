@@ -14,13 +14,8 @@ using UnityEngine.UIElements;
 // TODO: At higher LODs take an average of the chunk voxels instead of taking the nearest neighbor value
 [BurstCompile(CompileSynchronously = true)]
 public struct VoxelEditApplyJob : IJobParallelFor {
-    // Voxels of the current chunk at gen (should NOT be modified)
-    [ReadOnly]
-    public NativeArray<Voxel> inputVoxels;
-
     // Output voxels that the mesher will use
-    [WriteOnly]
-    public NativeArray<Voxel> outputVoxels;
+    public NativeArray<Voxel> voxels;
 
     // Octree node of the current chunk
     [ReadOnly]
@@ -71,15 +66,19 @@ public struct VoxelEditApplyJob : IJobParallelFor {
         int voxelIndex = VoxelUtils.PosToIndex(worldVoxelPositive);
 
         if (chunkIndex < temp.bitset.Length && temp.bitset.IsSet(chunkIndex)) {
-            outputVoxels[index] = Voxel.Empty;
             SparseVoxelDeltaData data = sparseVoxelData[sparseIndex];
             half deltaDensity = data.densities[voxelIndex];
             ushort deltaMaterial = data.materials[voxelIndex];
 
             // Voxel sparse offset in case we need to read from higher LOD
-            Voxel cur = inputVoxels[index];
+            Voxel cur = voxels[index];
+
+            if (deltaMaterial != ushort.MaxValue) {
+                cur.material = deltaMaterial;
+            }
+
             cur.density += deltaDensity;
-            outputVoxels[index] = cur;
+            voxels[index] = cur;
         }
     }
 }

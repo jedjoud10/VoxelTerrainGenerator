@@ -21,10 +21,10 @@ public interface IDynamicEdit {
     public Bounds GetBounds();
 
     // MUST CALL THE "ApplyGeneric" function because we can't hide away generics
-    public JobHandle Apply(VoxelChunk chunk, ref NativeArray<Voxel> voxels);
+    public JobHandle Apply(VoxelChunk chunk, ref NativeArray<Voxel> voxels, JobHandle dep);
 
     // Apply any generic dynamic edit onto oncoming data
-    internal static JobHandle ApplyGeneric<T>(VoxelChunk chunk, ref NativeArray<Voxel> voxels, T edit) where T: struct, IDynamicEdit {
+    internal static JobHandle ApplyGeneric<T>(VoxelChunk chunk, ref NativeArray<Voxel> voxels, JobHandle dep, T edit) where T: struct, IDynamicEdit {
         DynamicEditJob<T> job = new DynamicEditJob<T> {
             chunkOffset = math.float3(chunk.node.Position),
             voxelScale = VoxelUtils.VoxelSizeFactor,
@@ -34,6 +34,6 @@ public interface IDynamicEdit {
             dynamicEdit = edit,
             voxels = voxels,
         };
-        return job.Schedule(VoxelUtils.Volume, 2048);
+        return job.Schedule(VoxelUtils.Volume, 2048, dep);
     }
 }

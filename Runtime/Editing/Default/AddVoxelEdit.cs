@@ -28,10 +28,10 @@ public struct AddVoxelEdit : IVoxelEdit {
     }
 
     public Voxel Modify(float3 position, Voxel lastDelta) {
-        Voxel voxel = Voxel.Empty;
+        Voxel voxel = lastDelta;
         float density = math.length(position - center) - radius;
+        voxel.material = (density < 1.0F && writeMaterial) ? material : voxel.material;
         voxel.density = (density < 0.0F) ? (half)(lastDelta.density + strength) : lastDelta.density;
-        voxel.material = (density < 0.0F && writeMaterial) ? material : ushort.MaxValue;
         return voxel;
     }
 }

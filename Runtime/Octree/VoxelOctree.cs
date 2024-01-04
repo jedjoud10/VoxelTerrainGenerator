@@ -5,7 +5,6 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using static UnityEditor.PlayerSettings;
 
 // Handles generating the octree for all octree loaders and creating the octree and detecting the delta
 public class VoxelOctree : VoxelBehaviour {

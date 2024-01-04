@@ -23,6 +23,14 @@ public class VoxelChunk : MonoBehaviour {
     // Shared generated mesh
     public Mesh sharedMesh;
 
+    // Get the AABB world bounds of this chunk
+    public Bounds GetBounds() {
+        return new Bounds {
+            min = node.Position,
+            max = node.Position + node.Size,
+        };
+    }
+
     // Remesh the chunk given the parent terrain
     public void Remesh(VoxelTerrain terrain) {
         if (uniqueVoxelContainer) {

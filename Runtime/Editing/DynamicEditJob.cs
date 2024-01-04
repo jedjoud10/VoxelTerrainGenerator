@@ -36,7 +36,7 @@ struct DynamicEditJob<T> : IJobParallelFor
         position += math.float3((chunkOffset - ((size * scalingFactor) / (size - 3.0f)) * 0.5f));
 
         // Read, modify, write
-        Voxel output = dynamicEdit.Modify(position, voxels[index]);
-        voxels[index] = output;
+        voxels[index] = dynamicEdit.Modify(position, voxels[index]);
+        //voxels[index] = Voxel.Empty;
     }
 }

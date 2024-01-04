@@ -91,7 +91,9 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 	}
 
 	density = position.y - fbmCellular(position.xz * 0.01, 8, 0.32, 2.60).y * 20;
-	density = min(density, sdSphere(position, 5));
+	//float secondaryDensity = position.y - fbmCellular(position.xz * 0.0002, 8, 0.32, 2.60).y * 3200;
+	//density = lerp(secondaryDensity, density, snoise(position.xz * 0.0001) * 0.5 + 0.5);
+	//density = min(density, sdSphere(position, 5));
 	uint packedDensity = f32tof16(density);
 	uint packedData = packedDensity | (packedMaterial << 16);
 

@@ -1,4 +1,3 @@
-using GluonGui.Dialog;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,6 +7,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 // Handles keeping track of voxel edits and dynamic edits in the world
 public class VoxelEdits : VoxelBehaviour {
@@ -45,8 +45,8 @@ public class VoxelEdits : VoxelBehaviour {
                 for (int j = 0; j < VoxelUtils.ChunksPerSegmentVolume; j++) {
                     if (bitset.IsSet(j)) {
                         SparseVoxelDeltaData data = sparseVoxelData[j];
-                        data.materials.Dispose();
-                        data.densities.Dispose();
+                        //data.materials.Dispose();
+                        //data.densities.Dispose();
                     }
                 }
             }
@@ -65,7 +65,7 @@ public class VoxelEdits : VoxelBehaviour {
 
     // Apply a voxel edit to the terrain world
     public void ApplyVoxelEdit(IVoxelEdit edit) {
-        if (!terrain.VoxelOctree.Free) {
+        if (!terrain.VoxelOctree.Free || !terrain.VoxelMesher.Free || tempVoxelEdits.Count > 0) {
             tempVoxelEdits.Append(edit);
             return;
         }
@@ -95,7 +95,6 @@ public class VoxelEdits : VoxelBehaviour {
 
     // Apply a dynamic edit to the terrain world immediately
     public void ApplyDynamicEdit(IDynamicEdit dynamicEdit) {
-        Debug.Log("Add dynamic edit");
         dynamicEdits.Add(dynamicEdit);
 
         // Custom job to find all the octree nodes that touch the bounds
@@ -188,23 +187,29 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     // Check if a chunk contains voxel edits
-    public bool IsChunkAffectedByVoxelEdits(VoxelChunk chunk) { return true; }
+    public bool IsChunkAffectedByVoxelEdits(VoxelChunk chunk) {
+        int3 worldSegment = (int3)math.floor(chunk.node.Position / VoxelUtils.SegmentSize);
+        uint3 unsignedWorldSegment = math.uint3(worldSegment + math.int3(VoxelUtils.MaxSegments / 2));
+        int segmentIndex = VoxelUtils.PosToIndex(unsignedWorldSegment, (uint)VoxelUtils.MaxSegments);
+        return lookup[segmentIndex].bitset.IsCreated;
+    }
     
     // Check if a chunk contains dynamic edits
-    public bool IsChunkAffectedByDynamicEdits(VoxelChunk chunk) { return true; }
+    public bool IsChunkAffectedByDynamicEdits(VoxelChunk chunk) {
+        return dynamicEdits.Any(dynEdit => dynEdit.GetBounds().Intersects(chunk.GetBounds()));
+    }
 
 
     // Create an apply job dependeny for a chunk that has voxel edits
-    public void TryGetApplyVoxelEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> outputVoxels, ref JobHandle dep) {
+    public JobHandle TryGetApplyVoxelEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> voxels, JobHandle dependency) {
         if (!IsChunkAffectedByVoxelEdits(chunk)) {
-            return;
+            return dependency;
         }
 
         VoxelEditApplyJob job = new VoxelEditApplyJob {
             lookup = lookup,
             sparseVoxelData = sparseVoxelData,
-            inputVoxels = chunk.container.voxels,
-            outputVoxels = outputVoxels,
+            voxels = voxels,
             node = chunk.node,
             chunksPerSegment = VoxelUtils.ChunksPerSegment,
             segmentSize = VoxelUtils.SegmentSize,
@@ -213,27 +218,22 @@ public class VoxelEdits : VoxelBehaviour {
             vertexScaling = VoxelUtils.VertexScaling,
             voxelScale = VoxelUtils.VoxelSizeFactor,
         };
-        dep = job.Schedule(VoxelUtils.Volume, 2048, dep);
-        return;
+        return job.Schedule(VoxelUtils.Volume, 2048, dependency);
     }
 
     // Create a list of dependencies to apply to chunks that have been affected by dynamic edits
-    public void TryGetApplyDynamicEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> outputVoxels, ref JobHandle dep) {
-        Debug.Log("Apply dynamic edit to chunk");
+    // Applied BEFORE the voxel edits
+    public JobHandle TryGetApplyDynamicEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> voxels) {
         if (!IsChunkAffectedByDynamicEdits(chunk)) {
-            return;
+            return new JobHandle();
         }
 
-        NativeList<JobHandle> handles = new NativeList<JobHandle>(Allocator.Temp);
-        handles.Dispose();
-
+        JobHandle dep = new JobHandle();
         foreach (var dynamicEdit in dynamicEdits) {
-            JobHandle test = dynamicEdit.Apply(chunk, ref outputVoxels);
-            test.Complete();
+            dep = dynamicEdit.Apply(chunk, ref voxels, dep);
         }
 
-        //dep = JobHandle.CombineDependencies(handles.AsArray());
-        return;
+        return dep;
     }
 
     private void OnDrawGizmosSelected() {

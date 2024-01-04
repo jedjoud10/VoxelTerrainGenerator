@@ -119,10 +119,9 @@ public class VoxelMesher : VoxelBehaviour {
                 handler.computeCollisions = output.computeCollisions;
 
                 // Pass through the edit system for any chunks that should be modifiable
-                JobHandle dependency = new JobHandle();
-                terrain.VoxelEdits.TryGetApplyDynamicEditJobDependency(output.chunk, ref handler.voxels, ref dependency);
-                terrain.VoxelEdits.TryGetApplyVoxelEditJobDependency(output.chunk, ref handler.voxels, ref dependency);
-                handler.BeginJob(dependency, output.chunk.node);
+                JobHandle dynamicEdit = terrain.VoxelEdits.TryGetApplyDynamicEditJobDependency(output.chunk, ref handler.voxels);
+                JobHandle voxelEdit = terrain.VoxelEdits.TryGetApplyVoxelEditJobDependency(output.chunk, ref handler.voxels, dynamicEdit);
+                handler.BeginJob(voxelEdit, output.chunk.node);
                 dedupe.Remove(output.chunk);
             }
         }

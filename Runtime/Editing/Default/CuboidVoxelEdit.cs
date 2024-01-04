@@ -29,9 +29,9 @@ public struct CuboidVoxelEdit : IVoxelEdit {
         float3 q = math.abs(position - center) - halfExtents;
         float density = math.length(math.max(q, 0.0F)) + math.min(math.max(q.x, math.max(q.y, q.z)), 0.0F);
 
-        Voxel voxel = Voxel.Empty;
-        voxel.material = (density < 0.0F && writeMaterial) ? material : ushort.MaxValue;
-        voxel.density = (density < 1.0F) ? (half)(-strength) : lastDelta.density;
+        Voxel voxel = lastDelta;
+        voxel.material = (density < 1.0F && writeMaterial) ? material : voxel.material;
+        voxel.density = (density < 0.0F) ? (half)(-strength) : lastDelta.density;
         return voxel;
     }
 }
