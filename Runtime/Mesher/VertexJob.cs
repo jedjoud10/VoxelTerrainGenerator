@@ -8,8 +8,7 @@ using UnityEngine.UIElements;
 
 // Surface mesh job that will generate the isosurface mesh vertices
 [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast, OptimizeFor = OptimizeFor.Performance)]
-public struct VertexJob : IJobParallelFor
-{
+public struct VertexJob : IJobParallelFor {
     // Positions of the first vertex in edges
     [ReadOnly]
     static readonly uint3[] edgePositions0 = new uint3[] {
@@ -63,7 +62,7 @@ public struct VertexJob : IJobParallelFor
 
     // Vertex Counter
     public NativeCounter.Concurrent counter;
-    
+
     // Static settings
     [ReadOnly] public int size;
     [ReadOnly] public float vertexScale;
@@ -74,21 +73,20 @@ public struct VertexJob : IJobParallelFor
     [ReadOnly] public float minSkirtDensityThreshold;
 
     // Excuted for each cell within the grid
-    public void Execute(int index)
-    {
+    public void Execute(int index) {
         uint3 position = VoxelUtils.IndexToPos(index);
         indices[index] = int.MaxValue;
 
         // Idk bruh
         if (math.any(position > math.uint3(size - 2)))
             return;
-        
+
         float3 vertex = float3.zero;
 
         // Check if we will use this vertex for skirting purposes
         bool3 base_ = (position <= math.uint3(1)) & skirtsBase;
         bool3 end_ = (position == math.uint3(size - 2)) & skirtsEnd;
-        
+
         // Love me some cute femboys in skirts >.<
         bool3 skirts = base_ | end_;
 
@@ -104,15 +102,12 @@ public struct VertexJob : IJobParallelFor
         int count = math.countbits(code);
 
         // Use linear interpolation when smoothing
-        if (!empty)
-        {
-            if (smoothing)
-            {
+        if (!empty) {
+            if (smoothing) {
                 {
                     // Create the smoothed vertex
                     // TODO: Test out QEF or other methods for smoothing here
-                    for (int edge = 0; edge < 12; edge++)
-                    {
+                    for (int edge = 0; edge < 12; edge++) {
                         // Continue if the edge isn't inside
                         if (((code >> edge) & 1) == 0) continue;
 
@@ -131,23 +126,17 @@ public struct VertexJob : IJobParallelFor
                         vertex += math.lerp(startOffset, endOffset, value) - math.float3(0.5);
                     }
                 }
-            }
-            else
-            {
+            } else {
                 // Don't do any smoothing
                 count = 1;
             }
         }
 
         // Handle skirt vertex keko
-        if (math.any(skirts) && empty)
-        {
-            if (voxels[index].density < 0.0 && voxels[index].density > minSkirtDensityThreshold)
-            {
+        if (math.any(skirts) && empty) {
+            if (voxels[index].density < 0.0 && voxels[index].density > minSkirtDensityThreshold) {
                 count = 1;
-            }
-            else
-            {
+            } else {
                 return;
             }
         }

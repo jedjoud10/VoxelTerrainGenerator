@@ -7,8 +7,7 @@ using UnityEngine.UIElements;
 
 // Sum job that will add the offset of each material onto the last one to have a sequential native array
 [BurstCompile(CompileSynchronously = true)]
-public struct SumJob : IJobParallelFor
-{
+public struct SumJob : IJobParallelFor {
     // Offsets for each material type 
     [WriteOnly]
     public NativeArray<int> materialSegmentOffsets;
@@ -21,16 +20,14 @@ public struct SumJob : IJobParallelFor
     [ReadOnly]
     public NativeCounter materialCounter;
 
-    public void Execute(int index)
-    {
+    public void Execute(int index) {
         if (index > materialCounter.Count)
             return;
 
 
         int sum = 0;
 
-        for (int i = 0; i < index; i++)
-        {
+        for (int i = 0; i < index; i++) {
             sum += countersQuad[i];
         }
 
