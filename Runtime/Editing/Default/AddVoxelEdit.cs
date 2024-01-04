@@ -6,7 +6,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Windows;
 
-[assembly: RegisterGenericJobType(typeof(VoxelEditJob<AddVoxelEdit>))]
+[assembly: RegisterGenericJobType(typeof(RunLengthEncoder<AddVoxelEdit>))]
 
 // Will either add / remove matter from the terrain
 public struct AddVoxelEdit : IVoxelEdit {

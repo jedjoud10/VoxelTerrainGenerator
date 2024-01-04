@@ -22,7 +22,7 @@ public interface IVoxelEdit {
 
     // Apply any generic voxel edit onto oncoming data
     internal static JobHandle ApplyGeneric<T>(int3 position, UnsafeList<half> densities, UnsafeList<ushort> materials, T edit) where T : struct, IVoxelEdit {
-        VoxelEditJob<T> job = new VoxelEditJob<T> {
+        RunLengthEncoder<T> job = new RunLengthEncoder<T> {
             chunkOffset = math.float3(position) * VoxelUtils.Size * VoxelUtils.VoxelSizeFactor,
             voxelScale = VoxelUtils.VoxelSizeFactor,
             size = VoxelUtils.Size,

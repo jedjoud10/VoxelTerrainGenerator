@@ -12,7 +12,7 @@ using UnityEngine.UIElements;
 // This executes for VoxelUtils.DeltaVolume size instead of VoxelUtils.Volume
 // Because we must also affect the higher LOD chunk values as well
 [BurstCompile(CompileSynchronously = true)]
-struct VoxelEditJob<T> : IJobParallelFor
+struct RunLengthEncoder<T> : IJobParallelFor
     where T : struct, IVoxelEdit {
     [ReadOnly] public float3 chunkOffset;
     [ReadOnly] public float voxelScale;
