@@ -5,7 +5,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-[assembly: RegisterGenericJobType(typeof(RunLengthEncoder<CuboidVoxelEdit>))]
+[assembly: RegisterGenericJobType(typeof(VoxelEditJob<CuboidVoxelEdit>))]
 
 public struct CuboidVoxelEdit : IVoxelEdit {
     [ReadOnly] public float3 center;

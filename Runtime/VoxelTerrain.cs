@@ -138,7 +138,7 @@ public class VoxelTerrain : MonoBehaviour {
     }
 
     private void Update() {
-        if (!Free && VoxelGenerator.Free && VoxelMesher.Free && VoxelOctree.Free && toMakeVisible.Count > 0) {
+        if (!Free && VoxelGenerator.Free && VoxelMesher.Free && VoxelOctree.Free && VoxelEdits.Free && toMakeVisible.Count > 0) {
             Free = true;
 
             onChunkGenerationDone?.Invoke();
@@ -313,7 +313,7 @@ public class VoxelTerrain : MonoBehaviour {
 
     // Request all the chunks to regenerate their voxels (optional) AND meshes
     public void RequestAll(bool voxel, bool disableColliders = true, bool tempHide = false) {
-        if (Free && VoxelGenerator.Free && VoxelMesher.Free) {
+        if (Free) {
             foreach (var item in Chunks) {
                 if (disableColliders) {
                     item.Value.GetComponent<MeshCollider>().sharedMesh = null;
@@ -341,7 +341,7 @@ public class VoxelTerrain : MonoBehaviour {
         }
 
         if (debugGUI) {
-            GUI.Box(new Rect(0, 0, 300, 300), "");
+            GUI.Box(new Rect(0, 0, 300, 200), "");
             Label($"Pending GPU async readback jobs: {VoxelGenerator.pendingVoxelGenerationChunks.Count}");
             Label($"Pending mesh jobs: {VoxelMesher.pendingMeshJobs.Count}");
             Label($"Pending mesh baking jobs: {VoxelCollisions.ongoingBakeJobs.Count}");

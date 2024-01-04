@@ -1,15 +1,9 @@
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
-using Unity.Mathematics;
-using UnityEngine;
-using UnityEngine.UIElements;
 
 [BurstCompile(CompileSynchronously = true)]
-struct RunLengthDecoder : IJobParallelFor {
+struct RunLengthDecoder : IJob {
     [WriteOnly]
     public NativeArray<ushort> uncompressed;
 
@@ -17,6 +11,17 @@ struct RunLengthDecoder : IJobParallelFor {
     // Last byte: material type
     [ReadOnly]
     public NativeArray<uint> compressed;
-    public void Execute(int index) {
+    public void Execute() {
+        int offset = 0;
+        for (int i = 0; i < compressed.Length; i++) {
+            uint packed = compressed[i];
+            (uint targetCount, ushort material) = VoxelUtils.UnpackRLE(packed);
+
+            for (int k = 0; k < targetCount; k++) {
+                uncompressed[k+offset] = material;
+            }
+
+            offset += (int)targetCount;
+        }
     }
 }

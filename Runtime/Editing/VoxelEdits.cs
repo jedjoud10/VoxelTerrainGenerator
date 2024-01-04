@@ -14,17 +14,18 @@ public class VoxelEdits : VoxelBehaviour {
     // Max number of voxel jobs we will execute per frame
     [Range(1, 8)]
     public int voxelEditsJobsPerFrame = 1;
+    public bool Free { get; private set; } = true;
     public bool debugGizmos = false;
 
     // Dictionary to map chunk positions to sparseVoxelData indices
     // Contains a bitmask telling us what chunks of a specific segment is enabled
-    private NativeArray<VoxelDeltaLookup> lookup;
+    internal NativeArray<VoxelDeltaLookup> lookup;
 
     // All the chunks the user has modified in each LOD level
-    private UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
+    internal UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
 
     // Stores all the dynamic edits that have been applied
-    private List<IDynamicEdit> dynamicEdits;
+    internal List<IDynamicEdit> dynamicEdits;
 
     // Temporary place for voxel edits that have not been applied yet
     private Queue<IVoxelEdit> tempVoxelEdits;
@@ -57,10 +58,12 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     private void Update() {
-        IVoxelEdit edit = null;
+        IVoxelEdit edit;
         if (tempVoxelEdits.TryDequeue(out edit)) {
             ApplyVoxelEdit(edit);
         }
+
+        Free = tempVoxelEdits.Count == 0 && terrain.VoxelMesher.Free;
     }
 
     // Apply a voxel edit to the terrain world

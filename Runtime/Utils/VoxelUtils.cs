@@ -210,4 +210,14 @@ public static class VoxelUtils {
 
         return math.all(boundsMin <= segmentMax) && math.all(segmentMin <= boundsMax);
     }
+
+    // Pack an RLE material into it's compressed form
+    public static uint PackRLE(uint count, ushort material) {
+        return count << 8 | material;
+    }
+    
+    // Unpack an RLE struct into it's tuple data
+    public static (uint, ushort) UnpackRLE(uint data) {
+        return ((uint)(data & ~0xFF) >> 8, (ushort)(data & 0xFF));
+    }
 }
