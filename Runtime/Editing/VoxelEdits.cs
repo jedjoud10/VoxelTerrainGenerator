@@ -28,7 +28,7 @@ public class VoxelEdits : VoxelBehaviour {
     internal List<IDynamicEdit> dynamicEdits;
 
     // Temporary place for voxel edits that have not been applied yet
-    private Queue<IVoxelEdit> tempVoxelEdits;
+    internal Queue<IVoxelEdit> tempVoxelEdits;
 
     // Initialize the voxel edits handler
     internal override void Init() {
@@ -68,8 +68,8 @@ public class VoxelEdits : VoxelBehaviour {
 
     // Apply a voxel edit to the terrain world
     public void ApplyVoxelEdit(IVoxelEdit edit) {
-        if (!terrain.VoxelOctree.Free || !terrain.VoxelMesher.Free || tempVoxelEdits.Count > 0) {
-            tempVoxelEdits.Append(edit);
+        if (!terrain.VoxelOctree.Free || !terrain.VoxelMesher.Free) {
+            tempVoxelEdits.Enqueue(edit);
             return;
         }
 
@@ -166,13 +166,16 @@ public class VoxelEdits : VoxelBehaviour {
                         materials = new UnsafeList<ushort>(VoxelUtils.Volume, Allocator.Persistent),
                     };
 
-                    data.densities.Resize(VoxelUtils.Volume, NativeArrayOptions.ClearMemory);
-                    data.materials.Resize(VoxelUtils.Volume, NativeArrayOptions.ClearMemory);
+                    //data.densities.Resize(VoxelUtils.Volume, NativeArrayOptions.ClearMemory);
+                    //data.materials.Resize(VoxelUtils.Volume, NativeArrayOptions.ClearMemory);
+
+                    data.densities.AddReplicate(half.zero, VoxelUtils.Volume);
+                    data.materials.AddReplicate(ushort.MaxValue, VoxelUtils.Volume);
 
                     /*
                     for (int k = 0; k < VoxelUtils.Volume; k++) {
                         data.densities[i] = half.zero;
-                        data.materials[i] = ushort.MaxValue;
+                        data.materials[i] = 2;
                     }
                     */
 

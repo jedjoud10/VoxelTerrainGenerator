@@ -86,7 +86,7 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 	float density = lerp(lerp(density1, density2, mixer), density3, mixer2) + position.y;
 
 	uint packedMaterial = 0;
-	if (sdBox(position, float3(10, 100, 10)) < 0) {
+	if (sdBox(position, float3(10, 100, 10)) < 0 || snoise(position.xz * 0.001) < 0.0) {
 		packedMaterial = 1;
 	}
 

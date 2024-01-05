@@ -47,12 +47,6 @@ public struct VoxelEditApplyJob : IJobParallelFor {
         //position += math.float3((node.Position - (size / (size - 3.0f)) * 0.5f));
         position += node.Position;
 
-        if (node.ScalingFactor == 2f) {
-            position -= 1;
-        } else if (node.ScalingFactor == 4f) {
-            position -= 5;
-        }
-
         // Get the segment and chunk in which this voxel resides
         int3 worldSegment = (int3)math.floor(position / segmentSize);
         

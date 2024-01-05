@@ -31,7 +31,7 @@ public struct CuboidVoxelEdit : IVoxelEdit {
 
         Voxel voxel = lastDelta;
         voxel.material = (density < 1.0F && writeMaterial) ? material : voxel.material;
-        voxel.density = (density < 0.0F) ? (half)(-strength) : lastDelta.density;
+        voxel.density = (density < 0.0F) ? (half)(strength * density) : lastDelta.density;
         return voxel;
     }
 }

@@ -211,13 +211,66 @@ public static class VoxelUtils {
         return math.all(boundsMin <= segmentMax) && math.all(segmentMin <= boundsMax);
     }
 
-    // Pack an RLE material into it's compressed form
-    public static uint PackRLE(uint count, ushort material) {
-        return count << 8 | material;
+    // Pack an RLE ushort into it's compressed form
+    public static uint PackMaterialRLE(int count, ushort value) {
+        uint newVal = (uint)math.clamp(value, 0, byte.MaxValue);
+
+        return (uint)count << 8 | newVal;
     }
     
     // Unpack an RLE struct into it's tuple data
-    public static (uint, ushort) UnpackRLE(uint data) {
-        return ((uint)(data & ~0xFF) >> 8, (ushort)(data & 0xFF));
+    public static (int, ushort) UnpackMaterialRLE(uint data) {
+        int count = (int)(data & ~0xFF) >> 8;
+        ushort value = (byte)(data & 0xFF);
+
+        if (value == byte.MaxValue) {
+            value = ushort.MaxValue;
+        }
+
+        return (count, value);
+    }
+
+    // Check if we can use delta compression using the current and last densities
+    // Basically checks if the 9 bit MSBs are equal
+    public static bool CouldDelta(ushort last, ushort current) {
+        int test1 = last & ~0x7F;
+        int test2 = current & ~0x7F;
+        return test1 == test2;
+    }
+
+    // Actually does two things at once
+    // 1) Sets the new density values (MSB) so we can use delta encoding
+    // 2) Writes the RLE length for the LAST density values set
+    public static int PackRLEBatch(ushort newDensity, int lastDensityCount) {
+        int msb = newDensity >> 7;
+        return 0 << 31 | msb << 22 | lastDensityCount;
+    }
+
+    // Unpacks the new density value for delta and the count for the LAST one
+    public static void UnpackRLEBatch(int packed, out ushort newDensityMSB, out int lastDensityCount) {
+        newDensityMSB = (ushort)((packed >> 22) & 0x1FF);
+        lastDensityCount = packed & 0x3FFFFF;
+    } 
+
+    // Encode delta values for the density (7 LSbs)
+    public static byte EncodeDelta(ushort density) {
+        return (byte)(0b1 << 7 | density & 0x7F);
+    }
+
+    // Decode delta values for the density (7 LSbs)
+    public static ushort DecodeDelta(byte encoded) {
+        return (ushort)(encoded & 0x7F);
+    }
+
+    // Convert a half to a ushort
+    public static ushort AsUshort(half val) {
+        return val.value;
+    }
+
+    // Convert a ushort to a half
+    public static half AsHalf(ushort val) {
+        return new half {
+            value = val
+        };
     }
 }

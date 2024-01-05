@@ -29,7 +29,7 @@ public struct SphereVoxelEdit : IVoxelEdit {
         Voxel voxel = lastDelta;
         float density = math.length(position - center) - radius;
         voxel.material = (density < 1.0F && writeMaterial) ? material : voxel.material;
-        voxel.density = (density < 0.0F) ? (half)(density * -strength) : lastDelta.density;
+        voxel.density = (density < 0.0F) ? (half)(density * strength) : lastDelta.density;
         return voxel;
     }
 }

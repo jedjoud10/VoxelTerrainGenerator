@@ -341,7 +341,7 @@ public class VoxelTerrain : MonoBehaviour {
         }
 
         if (debugGUI) {
-            GUI.Box(new Rect(0, 0, 300, 200), "");
+            GUI.Box(new Rect(0, 0, 300, 185), "");
             Label($"Pending GPU async readback jobs: {VoxelGenerator.pendingVoxelGenerationChunks.Count}");
             Label($"Pending mesh jobs: {VoxelMesher.pendingMeshJobs.Count}");
             Label($"Pending mesh baking jobs: {VoxelCollisions.ongoingBakeJobs.Count}");
@@ -353,6 +353,8 @@ public class VoxelTerrain : MonoBehaviour {
             Label($"# of chunks to make visible: {toMakeVisible.Count}");
             Label($"# of enabled chunks: {Chunks.Select(x => x.Value.gameObject.activeSelf).Count()}");
             Label($"# of chunks to remove: {toRemoveChunk.Count}");
+            Label($"# of dynamic edits: {VoxelEdits.dynamicEdits.Count}");
+            Label($"# of pending voxel edits: {VoxelEdits.tempVoxelEdits.Count}");
             int mul = System.Runtime.InteropServices.Marshal.SizeOf(Voxel.Empty) * VoxelUtils.Volume;
             int bytes = pooledVoxelChunkContainers.Count * mul;
             int kbs = bytes / 1024;
