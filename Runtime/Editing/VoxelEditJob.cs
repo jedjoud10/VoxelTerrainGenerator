@@ -1,12 +1,8 @@
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEngine;
-using UnityEngine.UIElements;
 
 // Edit job that will create the delta voxel data for each chunk
 // This executes for VoxelUtils.DeltaVolume size instead of VoxelUtils.Volume
@@ -15,13 +11,14 @@ using UnityEngine.UIElements;
 struct VoxelEditJob<T> : IJobParallelFor
     where T : struct, IVoxelEdit {
     [ReadOnly] public float3 chunkOffset;
+    [ReadOnly] public float scalingFactor;
     [ReadOnly] public float voxelScale;
     [ReadOnly] public int size;
     [ReadOnly] public float vertexScaling;
 
     public T edit;
-    public UnsafeList<half> densities;
-    public UnsafeList<ushort> materials;
+    public NativeArray<half> densities;
+    public NativeArray<ushort> materials;
 
     public void Execute(int index) {
         uint3 id = VoxelUtils.IndexToPos(index);
@@ -31,10 +28,10 @@ struct VoxelEditJob<T> : IJobParallelFor
         position -= math.float3(1);
         position *= voxelScale;
         position *= vertexScaling;
-        //position += chunkOffset;
+        position *= scalingFactor;
 
         // Chunk offsets + vertex scaling
-        position += math.float3((chunkOffset - (size / (size - 3.0f)) * 0.5f));
+        position += math.float3((chunkOffset - (scalingFactor * size / (size - 3.0f)) * 0.5f));
 
         // Read, modify, write
         ushort material = materials[index];

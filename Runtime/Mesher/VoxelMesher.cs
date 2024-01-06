@@ -1,16 +1,8 @@
-using System.Runtime.InteropServices;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using Unity.Collections;
 using Unity.Jobs;
-using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
-using UnityEngine.Rendering;
 using System.Linq;
-using System.Threading;
-using UnityEngine.Playables;
 
 // Responsible for creating and executing the mesh generation jobs
 public class VoxelMesher : VoxelBehaviour {

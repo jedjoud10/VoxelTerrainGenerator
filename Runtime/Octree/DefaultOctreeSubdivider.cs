@@ -1,9 +1,6 @@
-using UnityEngine;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
-using Unity.Burst;
-using static UnityEngine.GraphicsBuffer;
 
 // Default implementation of the octree subdivider
 [assembly: RegisterGenericJobType(typeof(SubdivideJob<DefaultOctreeSubdivider>))]
@@ -23,6 +20,6 @@ public struct DefaultOctreeSubdivider : IOctreeSubdivider {
             subdivide |= local;
         }
 
-        return subdivide | node.Size > 256;
+        return subdivide;
     }
 }

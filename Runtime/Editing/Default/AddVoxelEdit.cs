@@ -1,10 +1,7 @@
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Windows;
 
 [assembly: RegisterGenericJobType(typeof(VoxelEditJob<AddVoxelEdit>))]
 
@@ -16,8 +13,8 @@ public struct AddVoxelEdit : IVoxelEdit {
     [ReadOnly] public ushort material;
     [ReadOnly] public bool writeMaterial;
 
-    public JobHandle Apply(SparseVoxelDeltaData data, int3 position) {
-        return IVoxelEdit.ApplyGeneric(position, data.densities, data.materials, this);
+    public JobHandle Apply(SparseVoxelDeltaData data) {
+        return IVoxelEdit.ApplyGeneric(data, this);
     }
 
     public Bounds GetBounds() {

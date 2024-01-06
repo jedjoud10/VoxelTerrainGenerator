@@ -1,7 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics.Contracts;
-using Unity.Mathematics;
 using UnityEngine;
 
 // Will be used by the octree system to load specific regions of the map

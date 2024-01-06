@@ -1,9 +1,6 @@
-using UnityEngine;
 using Unity.Collections;
 using Unity.Jobs;
-using Unity.Mathematics;
 using Unity.Burst;
-using UnityEngine.UIElements;
 
 // Sum job that will add the offset of each material onto the last one to have a sequential native array
 [BurstCompile(CompileSynchronously = true)]

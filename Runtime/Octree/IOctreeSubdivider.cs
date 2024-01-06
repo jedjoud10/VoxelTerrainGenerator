@@ -1,9 +1,5 @@
-using UnityEngine;
 using Unity.Collections;
 using Unity.Jobs;
-using Unity.Mathematics;
-using Unity.Burst;
-using static UnityEngine.GraphicsBuffer;
 using System.Runtime.CompilerServices;
 
 // Custom octree subdivier to allow end users to handle custom octree subdivision logic
@@ -22,7 +18,6 @@ public interface IOctreeSubdivider {
             nodes = nodes,
             pending = pending,
             maxDepth = VoxelUtils.MaxDepth,
-            segmentSize = VoxelUtils.SegmentSize,
             subdivider = subdivider,
         };
         return job.Schedule();

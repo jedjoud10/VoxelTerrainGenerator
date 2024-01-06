@@ -1,13 +1,10 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 // Handles keeping track of voxel edits and dynamic edits in the world
 public class VoxelEdits : VoxelBehaviour {
@@ -17,12 +14,11 @@ public class VoxelEdits : VoxelBehaviour {
     public bool Free { get; private set; } = true;
     public bool debugGizmos = false;
 
-    // Dictionary to map chunk positions to sparseVoxelData indices
-    // Contains a bitmask telling us what chunks of a specific segment is enabled
-    internal NativeArray<VoxelDeltaLookup> lookup;
+    // Dictionary to map octree nodes to sparseVoxelData indices
+    internal NativeHashMap<VoxelEditOctreeNode, int> lookup;
 
-    // All the chunks the user has modified in each LOD level
-    internal UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
+    // All the chunks the user has modified (different LODs as well)
+    internal List<SparseVoxelDeltaData> sparseVoxelData;
 
     // Stores the containers of the different types of world edits
     internal WorldEditTypeRegistry worldEditRegistry;
@@ -36,16 +32,8 @@ public class VoxelEdits : VoxelBehaviour {
 
     // Initialize the voxel edits handler
     internal override void Init() {
-        lookup = new NativeArray<VoxelDeltaLookup>(VoxelUtils.MaxSegmentsVolume, Allocator.Persistent);
-        
-        for (int i = 0; i < VoxelUtils.MaxSegments; i++) {
-            lookup[i] = new VoxelDeltaLookup {
-                startingIndex = -1,
-                bitset = new BitField64(),
-            };
-        }
-
-        sparseVoxelData = new UnsafeList<SparseVoxelDeltaData>(0, Allocator.Persistent);
+        lookup = new NativeHashMap<VoxelEditOctreeNode, int>(0, Allocator.Persistent);
+        sparseVoxelData = new List<SparseVoxelDeltaData>();
         worldEditRegistry = new WorldEditTypeRegistry();
         tempVoxelEdits = new Queue<IVoxelEdit>();
 
@@ -61,22 +49,11 @@ public class VoxelEdits : VoxelBehaviour {
 
     // Dispose of any memory
     internal override void Dispose() {
-        for (int i = 0; i < lookup.Length; i++) {
-            /*
-            UnsafeBitArray bitset = lookup[i].bitset;
-            if (bitset.IsCreated && !bitset.IsEmpty) {
-                for (int j = 0; j < VoxelUtils.ChunksPerSegmentVolume; j++) {
-                    if (bitset.IsSet(j)) {
-                        SparseVoxelDeltaData data = sparseVoxelData[j];
-                        //data.materials.Dispose();
-                        //data.densities.Dispose();
-                    }
-                }
-            }
-            */
-
+        foreach (var data in sparseVoxelData) {
+            data.densities.Dispose();
+            data.materials.Dispose();
         }
-        //sparseVoxelData.Dispose();
+        
         lookup.Dispose();
     }
 
@@ -97,27 +74,62 @@ public class VoxelEdits : VoxelBehaviour {
             return;
         }
 
+        // Update voxel edits octree (run subdivision job on new bounds)
+        NativeQueue<VoxelEditOctreeNode> pending = new NativeQueue<VoxelEditOctreeNode>(Allocator.TempJob);
+
+        // Kinda stupid since we need the *updated* root node but wtv it works
+        VoxelEditOctreeNode root = VoxelEditOctreeNode.RootNode(VoxelUtils.MaxDepth);
+        if (lookup.Count > 1) {
+            root.Parent = true;
+        }
+
+        pending.Enqueue(root);
+        NativeList<int> chunksToUpdate = new NativeList<int>(Allocator.TempJob);
+        NativeList<PosScale> addedNodes = new NativeList<PosScale>(Allocator.TempJob);
+
+        VoxelEditSubdivisionJob subdivision = new VoxelEditSubdivisionJob {
+            voxelEditBounds = edit.GetBounds(),
+            maxDepth = VoxelUtils.MaxDepth,
+            sparseVoxelCountOffset = sparseVoxelData.Count,
+            lookup = lookup,
+            addedNodes = addedNodes,
+            pending = pending,
+            chunksToUpdate = chunksToUpdate
+        };
+        subdivision.Schedule().Complete();
+
+        foreach (var added in addedNodes) {
+            SparseVoxelDeltaData data = new SparseVoxelDeltaData {
+                position = added.position,
+                scalingFactor = added.scalingFactor,
+                densities = new NativeArray<half>(VoxelUtils.Volume, Allocator.Persistent),
+                materials = new NativeArray<ushort>(VoxelUtils.Volume, Allocator.Persistent),
+            };
+
+            sparseVoxelData.Add(data);
+        }
+
+        foreach (var item in chunksToUpdate) {
+            SparseVoxelDeltaData data = sparseVoxelData[item];
+            JobHandle handle = edit.Apply(data);
+            handle.Complete();
+        }
+
         // Custom job to find all the octree nodes that touch the bounds
         Bounds bound = edit.GetBounds();
         NativeList<OctreeNode>? temp;
         terrain.VoxelOctree.TryCheckAABBIntersection(bound, out temp);
-
-        // Sparse voxel chunks that we must edit
-        List<SparseVoxelDeltaChunk> sparseVoxelEditChunks = InitSegmentsFindSparseChunks(bound);
-
-        // Modify sparse voxel data
-        foreach (var item in sparseVoxelEditChunks) {
-            SparseVoxelDeltaData data = sparseVoxelData[item.listIndex];
-            JobHandle handle = edit.Apply(data, item.position);
-            handle.Complete();
-        }
 
         // Re-mesh the chunks
         foreach (var node in temp) {
             VoxelChunk chunk = terrain.Chunks[node];
             chunk.Remesh(terrain);
         }
+
         temp.Value.Dispose();
+        pending.Dispose();
+        chunksToUpdate.Dispose();
+        addedNodes.Dispose();
     }
 
     // Apply a world edit to the terrain world immediately
@@ -139,89 +151,16 @@ public class VoxelEdits : VoxelBehaviour {
         return worldEditRegistry.Add(worldEdit);
     }
 
-    // Makes sure the segments that intersect the bounds are loaded in and ready for modification
-    // This will also return the sparse voxel delta chunks that have been initialized and that must be written to
-    private List<SparseVoxelDeltaChunk> InitSegmentsFindSparseChunks(Bounds bounds) {
-        List<SparseVoxelDeltaChunk> sparseVoxelEditChunks = new List<SparseVoxelDeltaChunk>();
-        int3 offset = -VoxelUtils.MaxSegments / 2;
-
-        for (int x = 0; x < VoxelUtils.MaxSegments; x++) {
-            for (int y = 0; y < VoxelUtils.MaxSegments; y++) {
-                for (int z = 0; z < VoxelUtils.MaxSegments; z++) {
-                    int3 segmentCoords = math.int3(x, y, z);
-                    int3 worldSegmentCoords = segmentCoords + offset;
-                    if (VoxelUtils.SegmentCoordsIntersectBounds(worldSegmentCoords, bounds)) {
-                        InitSegmentFindSparseChunks(bounds, worldSegmentCoords, ref sparseVoxelEditChunks);
-                    }
-                }
-            }
-        }
-
-        return sparseVoxelEditChunks;
-    }
-
-    // Makes sure the chunks that intersects the bounds (for this segment) are ready for editing
-    private void InitSegmentFindSparseChunks(Bounds bounds, int3 worldSegmentCoords, ref List<SparseVoxelDeltaChunk> sparseVoxelEditChunks) {
-        uint3 uintSegmentCoords = math.uint3(worldSegmentCoords + VoxelUtils.MaxSegments / 2);
-        int segmentIndex = VoxelUtils.PosToIndex(uintSegmentCoords, (uint)VoxelUtils.MaxSegments);
-        VoxelDeltaLookup segment = lookup[segmentIndex];
-
-        // This will initialize the segment if it does not contain any chunks
-        if (segment.startingIndex == -1) {
-            segment.bitset = new BitField64();
-            segment.startingIndex = sparseVoxelData.Length;
-
-            for (int i = 0; i < VoxelUtils.ChunksPerSegmentVolume; i++) {
-                sparseVoxelData.Add(SparseVoxelDeltaData.Empty);
-            }
-        }
-
-        // This loop will create the memory allocations for edited chunks
-        for (int i = 0; i < VoxelUtils.ChunksPerSegmentVolume; i++) {
-            int3 localChunkCoords = math.int3(VoxelUtils.IndexToPos(i, (uint)VoxelUtils.ChunksPerSegment));
-            int3 globalChunkCoords = worldSegmentCoords * VoxelUtils.ChunksPerSegment + localChunkCoords;
-
-            // Check if the chunk intersects the given input bounds
-            if (VoxelUtils.ChunkCoordsIntersectBounds(globalChunkCoords, bounds)) {
-                // Initialize the SparseVoxelDeltaData chunk if it was not already initialized
-                if (!segment.bitset.IsSet(i)) {
-                    segment.bitset.SetBits(i, true);
-
-                    SparseVoxelDeltaData data = new SparseVoxelDeltaData {
-                        densities = new UnsafeList<half>(VoxelUtils.Volume, Allocator.Persistent),
-                        materials = new UnsafeList<ushort>(VoxelUtils.Volume, Allocator.Persistent),
-                    };
-
-                    data.densities.AddReplicate(half.zero, VoxelUtils.Volume);
-                    data.materials.AddReplicate(ushort.MaxValue, VoxelUtils.Volume);
-
-                    sparseVoxelData[segment.startingIndex + i] = data;
-                }
-
-                sparseVoxelEditChunks.Add(new SparseVoxelDeltaChunk {
-                    position = globalChunkCoords,
-                    listIndex = segment.startingIndex + i,
-                });
-            }
-        }
-
-        lookup[segmentIndex] = segment;
-    }
-
     // Check if a chunk contains voxel edits
     public bool IsChunkAffectedByVoxelEdits(VoxelChunk chunk) {
-        int3 worldSegment = (int3)math.floor(chunk.node.Position / VoxelUtils.SegmentSize);
-        uint3 unsignedWorldSegment = math.uint3(worldSegment + math.int3(VoxelUtils.MaxSegments / 2));
-        int segmentIndex = VoxelUtils.PosToIndex(unsignedWorldSegment, (uint)VoxelUtils.MaxSegments);
-        return lookup[segmentIndex].startingIndex != -1;
+        return lookup.ContainsKey(chunk.node.ToVoxelEditOctreeNode());
     }
     
     // Check if a chunk contains dynamic edits
     public bool IsChunkAffectedByDynamicEdits(VoxelChunk chunk) {
-        return true;
-        //return dynamicEdits.Any(dynEdit => dynEdit.GetBounds().Intersects(chunk.GetBounds()));
+        Bounds chunkBounds = chunk.GetBounds();
+        return worldEditRegistry.AllBounds().Any(bound => bound.Intersects(chunkBounds));
     }
-
 
     // Create an apply job dependeny for a chunk that has voxel edits
     public JobHandle TryGetApplyVoxelEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> voxels, JobHandle dependency) {
@@ -229,17 +168,12 @@ public class VoxelEdits : VoxelBehaviour {
             return dependency;
         }
 
+        int index = lookup[chunk.node.ToVoxelEditOctreeNode()];
+        SparseVoxelDeltaData data = sparseVoxelData[index];
+
         VoxelEditApplyJob job = new VoxelEditApplyJob {
-            lookup = lookup,
-            sparseVoxelData = sparseVoxelData,
+            data = data,
             voxels = voxels,
-            node = chunk.node,
-            chunksPerSegment = VoxelUtils.ChunksPerSegment,
-            segmentSize = VoxelUtils.SegmentSize,
-            maxSegments = VoxelUtils.MaxSegments,
-            size = VoxelUtils.Size,
-            vertexScaling = VoxelUtils.VertexScaling,
-            voxelScale = VoxelUtils.VoxelSizeFactor,
         };
         return job.Schedule(VoxelUtils.Volume, 2048, dependency);
     }
@@ -266,6 +200,12 @@ public class VoxelEdits : VoxelBehaviour {
         if (!lookup.IsCreated || !debugGizmos)
             return;
 
+        Gizmos.color = new Color(1f, 1f, 1f, 0.3f);
+        foreach (var item in lookup) {
+            Gizmos.DrawWireCube(item.Key.Center, item.Key.Size * Vector3.one);
+        }
+
+        /*
         for (int i = 0; i < lookup.Length; i++) {
             Gizmos.color = new Color(1f, 1f, 1f, 1f);
             uint3 segmentCoordsUint = VoxelUtils.IndexToPos(i, (uint)VoxelUtils.MaxSegments);
@@ -295,5 +235,6 @@ public class VoxelEdits : VoxelBehaviour {
                 Gizmos.DrawWireCube(pos2 * size + offsetTwoIdfk + chunkOffset, chunkSize);
             }
         }
+        */
     }
 }

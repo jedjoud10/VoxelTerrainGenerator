@@ -1,9 +1,6 @@
-using UnityEngine;
 using Unity.Collections;
 using Unity.Jobs;
-using Unity.Mathematics;
 using Unity.Burst;
-using UnityEngine.UIElements;
 
 
 // Material job that will count the number of unique materials for the mesh

@@ -1,12 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Text;
-using System.Threading.Tasks;
 using Unity.Netcode;
-using Unity.VisualScripting.YamlDotNet.Serialization;
 using UnityEngine;
 
 public class WorldEditTypeRegistry {
@@ -55,6 +50,14 @@ public class WorldEditTypeRegistry {
             types[i].Deserialize(reader);
         }
     }
+
+    internal List<Bounds> AllBounds() {
+        List<Bounds> list = new List<Bounds>();
+        foreach (var item in types) {
+            item.AddBounds(ref list);
+        }
+        return list;
+    }
 }
 
 // Dictionary<Type, Container>
@@ -66,6 +69,7 @@ public class WorldEditTypeRegistry {
 
 internal interface IWorldEditRegistry {
     public IList List { get; }
+    public void AddBounds(ref List<Bounds> bounds);
     public void Serialize(FastBufferWriter writer);
     public void Deserialize(FastBufferReader reader);
 }
@@ -75,6 +79,8 @@ struct TypedThingy<T> : IWorldEditRegistry where T : struct, IWorldEdit {
     internal List<T> list;
     internal byte index;
     public IList List => list;
+
+
 
     public void Serialize(FastBufferWriter writer) {
         Debug.Log($"Serializing world edit type {typeof(T).Name}");
@@ -93,5 +99,11 @@ struct TypedThingy<T> : IWorldEditRegistry where T : struct, IWorldEdit {
         reader.ReadValueSafe(out T[] temp);
         list.Clear();
         list.AddRange(temp);
+    }
+
+    public void AddBounds(ref List<Bounds> bounds) {
+        foreach (var item in list) {
+            bounds.Add(item.GetBounds());
+        }
     }
 }

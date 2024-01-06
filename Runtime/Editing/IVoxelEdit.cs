@@ -1,7 +1,4 @@
-using System.Collections;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -18,18 +15,19 @@ public interface IVoxelEdit {
     public Bounds GetBounds();
 
     // MUST CALL THE "ApplyGeneric" function because we can't hide away generics
-    public JobHandle Apply(SparseVoxelDeltaData data, int3 position);
+    public JobHandle Apply(SparseVoxelDeltaData data);
 
     // Apply any generic voxel edit onto oncoming data
-    internal static JobHandle ApplyGeneric<T>(int3 position, UnsafeList<half> densities, UnsafeList<ushort> materials, T edit) where T : struct, IVoxelEdit {
+    internal static JobHandle ApplyGeneric<T>(SparseVoxelDeltaData data, T edit) where T : struct, IVoxelEdit {
         VoxelEditJob<T> job = new VoxelEditJob<T> {
-            chunkOffset = math.float3(position) * VoxelUtils.Size * VoxelUtils.VoxelSizeFactor,
+            chunkOffset = data.position,
+            scalingFactor = data.scalingFactor,
             voxelScale = VoxelUtils.VoxelSizeFactor,
             size = VoxelUtils.Size,
             vertexScaling = VoxelUtils.VertexScaling,
             edit = edit,
-            densities = densities,
-            materials = materials,
+            densities = data.densities,
+            materials = data.materials,
         };
         return job.Schedule(VoxelUtils.Volume, 2048);
     }

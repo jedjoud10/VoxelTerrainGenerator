@@ -1,10 +1,7 @@
-using UnityEngine;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Burst;
-using UnityEngine.UIElements;
-using System;
 
 // Checks if the node has neighbours of different sizes or not
 // Used for creating the appropriate skirts

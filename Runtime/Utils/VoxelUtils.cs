@@ -1,13 +1,7 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Drawing;
 using System.Runtime.CompilerServices;
-using Unity.Burst;
 using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Mathematics;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 
@@ -41,26 +35,23 @@ public static class VoxelUtils {
     // Should we enable smoothing when meshing?
     public static bool Smoothing { get; internal set; }
 
-    // Size of the segments in voxel size
-    public static int SegmentSize => Size * ChunksPerSegment;
-
-    // Highest resolution chunks per segment in ONE axis
-    public static int ChunksPerSegment => 4;
-
-    // Total number of chunks per segment in a volume
-    public static int ChunksPerSegmentVolume => ChunksPerSegment * ChunksPerSegment * ChunksPerSegment;
-
-    // Number of segments in the world in one axis only
-    public static int MaxSegments => Mathf.CeilToInt(Mathf.Pow(2F, (float)MaxDepth - 1) / (ChunksPerSegment)) * 2;
-    
-    // Number of segments in the world as a volume
-    public static int MaxSegmentsVolume => MaxSegments * MaxSegments * MaxSegments;
-
     // Max possible number of materials supported by the terrain mesh
     public const int MAX_MATERIAL_COUNT = 256;
 
     // Max possible number of dynamic edit types supported by the terrain
     public const int MAX_DYNAIMC_EDIT_TYPE_COUNT = 256;
+
+    // Offsets used for octree generation
+    public static readonly int3[] OctreeChildOffset = {
+        new int3(0, 0, 0),
+        new int3(0, 0, 1),
+        new int3(1, 0, 0),
+        new int3(1, 0, 1),
+        new int3(0, 1, 0),
+        new int3(0, 1, 1),
+        new int3(1, 1, 0),
+        new int3(1, 1, 1),
+    };
 
     // Stolen from https://gist.github.com/dwilliamson/c041e3454a713e58baf6e4f8e5fffecd
     public static readonly ushort[] EdgeMasks = new ushort[] {
@@ -198,26 +189,6 @@ public static class VoxelUtils {
         return (half)mixed6;
     }
 
-    // Check if the given chunk intersects the given bounds
-    public static bool ChunkCoordsIntersectBounds(int3 chunk, Bounds bounds) {
-        float3 chunkMin = math.float3(chunk) * Size * VoxelSizeFactor;
-        float3 chunkMax = math.float3(chunk + 1) * Size * VoxelSizeFactor;
-        float3 boundsMin = math.float3(bounds.min.x, bounds.min.y, bounds.min.z);
-        float3 boundsMax = math.float3(bounds.max.x, bounds.max.y, bounds.max.z);
-
-        return math.all(boundsMin <= chunkMax) && math.all(chunkMin <= boundsMax);
-    }
-
-    // Check if the given segment intersects the given bounds
-    public static bool SegmentCoordsIntersectBounds(int3 segment, Bounds bounds) {
-        float3 segmentMin = math.float3(segment) * SegmentSize * VoxelSizeFactor;
-        float3 segmentMax = math.float3(segment + 1) * SegmentSize * VoxelSizeFactor;
-        float3 boundsMin = math.float3(bounds.min.x, bounds.min.y, bounds.min.z);
-        float3 boundsMax = math.float3(bounds.max.x, bounds.max.y, bounds.max.z);
-
-        return math.all(boundsMin <= segmentMax) && math.all(segmentMin <= boundsMax);
-    }
-
     // Pack an RLE ushort into it's compressed form
     public static uint PackMaterialRle(int count, ushort value) {
         uint newVal = (uint)math.clamp(value, 0, byte.MaxValue);
@@ -278,6 +249,4 @@ public static class VoxelUtils {
     public static ushort BytesToUshort(byte first, byte second) {
         return (ushort)(first << 8 | second);
     }
-
-    // Get the dynamic edit
 }

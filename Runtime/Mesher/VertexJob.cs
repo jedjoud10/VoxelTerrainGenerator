@@ -1,9 +1,7 @@
-using System.Buffers.Text;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEngine.UIElements;
 
 
 // Surface mesh job that will generate the isosurface mesh vertices

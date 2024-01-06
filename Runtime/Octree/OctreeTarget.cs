@@ -1,8 +1,4 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics.Contracts;
 using Unity.Mathematics;
-using UnityEngine;
 
 // Created from the octree loader objects
 // All parameters are stored in octree space
