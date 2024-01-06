@@ -65,7 +65,7 @@ public struct VoxelEditApplyJob : IJobParallelFor {
         uint3 worldVoxelPositive = (uint3)VoxelUtils.Mod(position, size);
         int voxelIndex = VoxelUtils.PosToIndex(worldVoxelPositive);
 
-        if (chunkIndex < temp.bitset.Length && temp.bitset.IsSet(chunkIndex)) {
+        if (chunkIndex < 64 && temp.bitset.IsSet(chunkIndex)) {
             SparseVoxelDeltaData data = sparseVoxelData[sparseIndex];
             half deltaDensity = data.densities[voxelIndex];
             ushort deltaMaterial = data.materials[voxelIndex];

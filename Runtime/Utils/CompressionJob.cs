@@ -28,39 +28,62 @@ struct CompressionJob : IJob {
             if (cur == lastMaterial) {
                 materialCount++;
             } else {
-                materialsOut.Add(VoxelUtils.PackMaterialRLE(materialCount, lastMaterial));
+                materialsOut.Add(VoxelUtils.PackMaterialRle(materialCount, lastMaterial));
                 lastMaterial = cur;
                 materialCount = 1;
             }
         }
 
-        /*
         ushort lastDensity = VoxelUtils.AsUshort(densitiesIn[0]);
         int densityCount = 0;
-        bool 
-        AddInt(VoxelUtils.PackRLEBatch(lastDensity, 0));
+        bool rlePerfect = true;
+
+        AddUshort(0);
+        AddUshort(lastDensity);
+
         for (int i = 0; i < densitiesIn.Length; i++) {
             ushort newDensity = VoxelUtils.AsUshort(densitiesIn[i]);
+
             if (newDensity == lastDensity) {
-                densitiesOut.Add(VoxelUtils.EncodeDelta(newDensity));
                 densityCount++;
             } else if (VoxelUtils.CouldDelta(lastDensity, newDensity)) {
+                if (rlePerfect) {
+                    AddUshort((ushort)densityCount);
+                    AddUshort(newDensity);
+                    lastDensity = newDensity;
+                    densityCount = 0;
+                    rlePerfect = false;
+                }
+
                 densitiesOut.Add(VoxelUtils.EncodeDelta(newDensity));
                 densityCount++;
             } else {
-                AddInt(VoxelUtils.PackRLEBatch(newDensity, densityCount));
+                rlePerfect = true;
+                AddUshort((ushort)densityCount);
+                AddUshort(newDensity);
                 lastDensity = newDensity;
                 densityCount = 1;
             }
+
+            if (densityCount == 32767) {
+                rlePerfect = true;
+                AddUshort((ushort)densityCount);
+                AddUshort(newDensity);
+                lastDensity = newDensity;
+                densityCount = 0;
+            }
         }
-        */
     }
 
     private void AddInt(int packed) {
         densitiesOut.Add((byte)(packed >> 24));
         densitiesOut.Add((byte)(packed >> 16));
         densitiesOut.Add((byte)(packed >> 8));
-        densitiesOut.Add((byte)(packed));
+        densitiesOut.Add((byte)packed);
     }
 
+    private void AddUshort(ushort packed) {
+        densitiesOut.Add((byte)(packed >> 8));
+        densitiesOut.Add((byte)packed);
+    }
 }

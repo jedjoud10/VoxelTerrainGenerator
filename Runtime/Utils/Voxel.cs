@@ -53,7 +53,7 @@ public struct SparseVoxelDeltaData {
 [StructLayout(LayoutKind.Sequential)]
 public struct VoxelDeltaLookup {
     // Bitset containing the highest LOD chunks that are active
-    public UnsafeBitArray bitset;
+    public BitField64 bitset;
     public int startingIndex;
 }
 

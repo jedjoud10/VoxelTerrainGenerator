@@ -59,6 +59,10 @@ public class VoxelTerrain : MonoBehaviour {
     public delegate void ChunkGenerationDone();
     public event ChunkGenerationDone onChunkGenerationDone;
 
+    // Used to register custom dynamic edit types
+    public delegate void RegisterDynamicEditType(WorldEditTypeRegistry registry);
+    public event RegisterDynamicEditType registerDynamicEditTypes;
+
     public bool Free { get; private set; } = true;
     internal bool started = false;
     private System.Diagnostics.Stopwatch timer;
@@ -101,6 +105,9 @@ public class VoxelTerrain : MonoBehaviour {
         VoxelCollisions.InitWith(this);
         VoxelOctree.InitWith(this);
         VoxelEdits.InitWith(this);
+
+        // Register custom dynamic edit types
+        registerDynamicEditTypes?.Invoke(VoxelEdits.registry);
 
         // Register the events
         VoxelGenerator.onVoxelGenerationComplete += OnVoxelGenerationComplete;
@@ -341,7 +348,7 @@ public class VoxelTerrain : MonoBehaviour {
         }
 
         if (debugGUI) {
-            GUI.Box(new Rect(0, 0, 300, 185), "");
+            GUI.Box(new Rect(0, 0, 300, 215), "");
             Label($"Pending GPU async readback jobs: {VoxelGenerator.pendingVoxelGenerationChunks.Count}");
             Label($"Pending mesh jobs: {VoxelMesher.pendingMeshJobs.Count}");
             Label($"Pending mesh baking jobs: {VoxelCollisions.ongoingBakeJobs.Count}");
@@ -353,7 +360,7 @@ public class VoxelTerrain : MonoBehaviour {
             Label($"# of chunks to make visible: {toMakeVisible.Count}");
             Label($"# of enabled chunks: {Chunks.Select(x => x.Value.gameObject.activeSelf).Count()}");
             Label($"# of chunks to remove: {toRemoveChunk.Count}");
-            Label($"# of dynamic edits: {VoxelEdits.dynamicEdits.Count}");
+            //Label($"# of dynamic edits: {VoxelEdits.dynamicEdits.Count}");
             Label($"# of pending voxel edits: {VoxelEdits.tempVoxelEdits.Count}");
             int mul = System.Runtime.InteropServices.Marshal.SizeOf(Voxel.Empty) * VoxelUtils.Volume;
             int bytes = pooledVoxelChunkContainers.Count * mul;

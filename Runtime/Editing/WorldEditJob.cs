@@ -10,8 +10,8 @@ using UnityEngine.UIElements;
 
 // Edit job for dynamic edits
 [BurstCompile(CompileSynchronously = true)]
-struct DynamicEditJob<T> : IJobParallelFor
-    where T : struct, IDynamicEdit {
+struct WorldEditJob<T> : IJobParallelFor
+    where T : struct, IWorldEdit {
     [ReadOnly] public float3 chunkOffset;
     [ReadOnly] public float voxelScale;
     [ReadOnly] public int size;

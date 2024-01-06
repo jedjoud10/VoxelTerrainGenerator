@@ -14,7 +14,7 @@ public class VoxelGenerator : VoxelBehaviour {
     public Vector3 worldScale = Vector3.one;
 
     [Header("Seeding Behavior")]
-    public string seed = "DefaultSeed123";
+    public int seed = 1234;
     public Vector3Int permutationSeed = Vector3Int.zero;
     public Vector3Int moduloSeed = Vector3Int.zero;
 
@@ -74,27 +74,23 @@ public class VoxelGenerator : VoxelBehaviour {
 
     // Convert the seed as permutation seeds
     public void SeedToPerms() {
-        var hash = Hash128.Compute(seed);
-        int hashCode = hash.GetHashCode();
-        var random = new System.Random(hashCode);
+        var random = new System.Random(seed);
 
-        permutationSeed.x = random.Next(-100, 100);
-        permutationSeed.y = random.Next(-100, 100);
-        permutationSeed.z = random.Next(-100, 100);
+        permutationSeed.x = random.Next(-1000, 1000);
+        permutationSeed.y = random.Next(-1000, 1000);
+        permutationSeed.z = random.Next(-1000, 1000);
 
-        moduloSeed.x = random.Next(-100, 100);
-        moduloSeed.y = random.Next(-100, 100);
-        moduloSeed.z = random.Next(-100, 100);
+        moduloSeed.x = random.Next(-1000, 1000);
+        moduloSeed.y = random.Next(-1000, 1000);
+        moduloSeed.z = random.Next(-1000, 1000);
         UpdateStaticComputeFields();
     }
 
 
-    // Randomize the seed string
+    // Randomize the seed value
     public void RandomizeSeed() {
-        seed = "";
-
         for (int i = 0; i < 16; i++) {
-            seed += (char)(UnityEngine.Random.Range(33, 126));
+            seed = UnityEngine.Random.Range(-ushort.MinValue, ushort.MaxValue);
         }
 
         SeedToPerms();

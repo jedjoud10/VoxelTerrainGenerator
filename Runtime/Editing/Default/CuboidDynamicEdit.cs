@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.Netcode;
 using UnityEngine;
 
-[assembly: RegisterGenericJobType(typeof(DynamicEditJob<CuboidDynamicEdit>))]
+[assembly: RegisterGenericJobType(typeof(WorldEditJob<CuboidDynamicEdit>))]
 
-public struct CuboidDynamicEdit : IDynamicEdit {
+public struct CuboidDynamicEdit : IWorldEdit {
     [ReadOnly] public float3 center;
     [ReadOnly] public float3 halfExtents;
     [ReadOnly] public ushort material;
@@ -15,7 +16,7 @@ public struct CuboidDynamicEdit : IDynamicEdit {
     public bool Enabled => true;
 
     public JobHandle Apply(VoxelChunk chunk, ref NativeArray<Voxel> voxels, JobHandle dep) {
-        return IDynamicEdit.ApplyGeneric(chunk, ref voxels, dep, this);
+        return IWorldEdit.ApplyGeneric(chunk, ref voxels, dep, this);
     }
 
     public Bounds GetBounds() {
@@ -35,5 +36,16 @@ public struct CuboidDynamicEdit : IDynamicEdit {
 
         voxel.density = (half)math.min(voxel.density, density);
         return voxel;
+    }
+
+    public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter {
+        serializer.SerializeValue(ref center.x);
+        serializer.SerializeValue(ref center.y);
+        serializer.SerializeValue(ref center.z);
+        serializer.SerializeValue(ref halfExtents.x);
+        serializer.SerializeValue(ref halfExtents.y);
+        serializer.SerializeValue(ref halfExtents.z);
+        serializer.SerializeValue(ref material);
+        serializer.SerializeValue(ref writeMaterial);
     }
 }

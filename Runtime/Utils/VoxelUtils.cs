@@ -7,6 +7,7 @@ using Unity.Burst;
 using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 
@@ -51,9 +52,15 @@ public static class VoxelUtils {
 
     // Number of segments in the world in one axis only
     public static int MaxSegments => Mathf.CeilToInt(Mathf.Pow(2F, (float)MaxDepth - 1) / (ChunksPerSegment)) * 2;
+    
+    // Number of segments in the world as a volume
+    public static int MaxSegmentsVolume => MaxSegments * MaxSegments * MaxSegments;
 
     // Max possible number of materials supported by the terrain mesh
     public const int MAX_MATERIAL_COUNT = 256;
+
+    // Max possible number of dynamic edit types supported by the terrain
+    public const int MAX_DYNAIMC_EDIT_TYPE_COUNT = 256;
 
     // Stolen from https://gist.github.com/dwilliamson/c041e3454a713e58baf6e4f8e5fffecd
     public static readonly ushort[] EdgeMasks = new ushort[] {
@@ -212,14 +219,14 @@ public static class VoxelUtils {
     }
 
     // Pack an RLE ushort into it's compressed form
-    public static uint PackMaterialRLE(int count, ushort value) {
+    public static uint PackMaterialRle(int count, ushort value) {
         uint newVal = (uint)math.clamp(value, 0, byte.MaxValue);
 
         return (uint)count << 8 | newVal;
     }
     
     // Unpack an RLE struct into it's tuple data
-    public static (int, ushort) UnpackMaterialRLE(uint data) {
+    public static (int, ushort) UnpackMaterialRle(uint data) {
         int count = (int)(data & ~0xFF) >> 8;
         ushort value = (byte)(data & 0xFF);
 
@@ -238,20 +245,6 @@ public static class VoxelUtils {
         return test1 == test2;
     }
 
-    // Actually does two things at once
-    // 1) Sets the new density values (MSB) so we can use delta encoding
-    // 2) Writes the RLE length for the LAST density values set
-    public static int PackRLEBatch(ushort newDensity, int lastDensityCount) {
-        int msb = newDensity >> 7;
-        return 0 << 31 | msb << 22 | lastDensityCount;
-    }
-
-    // Unpacks the new density value for delta and the count for the LAST one
-    public static void UnpackRLEBatch(int packed, out ushort newDensityMSB, out int lastDensityCount) {
-        newDensityMSB = (ushort)((packed >> 22) & 0x1FF);
-        lastDensityCount = packed & 0x3FFFFF;
-    } 
-
     // Encode delta values for the density (7 LSbs)
     public static byte EncodeDelta(ushort density) {
         return (byte)(0b1 << 7 | density & 0x7F);
@@ -263,14 +256,28 @@ public static class VoxelUtils {
     }
 
     // Convert a half to a ushort
+    // Could use fixed point if we want
     public static ushort AsUshort(half val) {
         return val.value;
     }
 
     // Convert a ushort to a half
+    // Could use fixed point if we want
     public static half AsHalf(ushort val) {
         return new half {
             value = val
         };
     }
+
+    // Convert a ushort to two bytes
+    public static (byte, byte) UshortToBytes(ushort val) {
+        return ((byte)(val >> 8), (byte)(val & 0xFF));
+    } 
+    
+    // Convert two bytes to a ushort
+    public static ushort BytesToUshort(byte first, byte second) {
+        return (ushort)(first << 8 | second);
+    }
+
+    // Get the dynamic edit
 }

@@ -24,23 +24,32 @@ public class VoxelEdits : VoxelBehaviour {
     // All the chunks the user has modified in each LOD level
     internal UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
 
-    // Stores all the dynamic edits that have been applied
-    internal List<IDynamicEdit> dynamicEdits;
+    // Stores the containers of the different types of dynamic edits
+    internal WorldEditTypeRegistry registry;
 
     // Temporary place for voxel edits that have not been applied yet
     internal Queue<IVoxelEdit> tempVoxelEdits;
 
     // Initialize the voxel edits handler
     internal override void Init() {
-        lookup = new NativeArray<VoxelDeltaLookup>(VoxelUtils.MaxSegments * VoxelUtils.MaxSegments * VoxelUtils.MaxSegments, Allocator.Persistent);
+        lookup = new NativeArray<VoxelDeltaLookup>(VoxelUtils.MaxSegmentsVolume, Allocator.Persistent);
+        
+        for (int i = 0; i < VoxelUtils.MaxSegments; i++) {
+            lookup[i] = new VoxelDeltaLookup {
+                startingIndex = -1,
+                bitset = new BitField64(),
+            };
+        }
+
         sparseVoxelData = new UnsafeList<SparseVoxelDeltaData>(0, Allocator.Persistent);
-        dynamicEdits = new List<IDynamicEdit>();
+        registry = new WorldEditTypeRegistry();
         tempVoxelEdits = new Queue<IVoxelEdit>();
     }
 
     // Dispose of any memory
     internal override void Dispose() {
         for (int i = 0; i < lookup.Length; i++) {
+            /*
             UnsafeBitArray bitset = lookup[i].bitset;
             if (bitset.IsCreated && !bitset.IsEmpty) {
                 for (int j = 0; j < VoxelUtils.ChunksPerSegmentVolume; j++) {
@@ -51,6 +60,7 @@ public class VoxelEdits : VoxelBehaviour {
                     }
                 }
             }
+            */
 
         }
         //sparseVoxelData.Dispose();
@@ -60,16 +70,17 @@ public class VoxelEdits : VoxelBehaviour {
     private void Update() {
         IVoxelEdit edit;
         if (tempVoxelEdits.TryDequeue(out edit)) {
-            ApplyVoxelEdit(edit);
+            ApplyVoxelEdit(edit, true);
         }
 
         Free = tempVoxelEdits.Count == 0 && terrain.VoxelMesher.Free;
     }
 
     // Apply a voxel edit to the terrain world
-    public void ApplyVoxelEdit(IVoxelEdit edit) {
-        if (!terrain.VoxelOctree.Free || !terrain.VoxelMesher.Free) {
-            tempVoxelEdits.Enqueue(edit);
+    public void ApplyVoxelEdit(IVoxelEdit edit, bool neverForget = false) {
+        if ((!terrain.VoxelOctree.Free || !terrain.VoxelMesher.Free)) {
+            if (neverForget)
+                tempVoxelEdits.Enqueue(edit);
             return;
         }
 
@@ -97,8 +108,8 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     // Apply a dynamic edit to the terrain world immediately
-    public void ApplyDynamicEdit(IDynamicEdit dynamicEdit) {
-        dynamicEdits.Add(dynamicEdit);
+    public void ApplyDynamicEdit(IWorldEdit dynamicEdit) {
+        registry.Add(dynamicEdit);
 
         // Custom job to find all the octree nodes that touch the bounds
         Bounds bound = dynamicEdit.GetBounds();
@@ -141,8 +152,8 @@ public class VoxelEdits : VoxelBehaviour {
         VoxelDeltaLookup segment = lookup[segmentIndex];
 
         // This will initialize the segment if it does not contain any chunks
-        if (!segment.bitset.IsCreated) {
-            segment.bitset = new UnsafeBitArray(VoxelUtils.ChunksPerSegmentVolume, Allocator.Persistent);
+        if (segment.startingIndex == -1) {
+            segment.bitset = new BitField64();
             segment.startingIndex = sparseVoxelData.Length;
 
             for (int i = 0; i < VoxelUtils.ChunksPerSegmentVolume; i++) {
@@ -159,25 +170,15 @@ public class VoxelEdits : VoxelBehaviour {
             if (VoxelUtils.ChunkCoordsIntersectBounds(globalChunkCoords, bounds)) {
                 // Initialize the SparseVoxelDeltaData chunk if it was not already initialized
                 if (!segment.bitset.IsSet(i)) {
-                    segment.bitset.Set(i, true);
+                    segment.bitset.SetBits(i, true);
 
                     SparseVoxelDeltaData data = new SparseVoxelDeltaData {
                         densities = new UnsafeList<half>(VoxelUtils.Volume, Allocator.Persistent),
                         materials = new UnsafeList<ushort>(VoxelUtils.Volume, Allocator.Persistent),
                     };
 
-                    //data.densities.Resize(VoxelUtils.Volume, NativeArrayOptions.ClearMemory);
-                    //data.materials.Resize(VoxelUtils.Volume, NativeArrayOptions.ClearMemory);
-
                     data.densities.AddReplicate(half.zero, VoxelUtils.Volume);
                     data.materials.AddReplicate(ushort.MaxValue, VoxelUtils.Volume);
-
-                    /*
-                    for (int k = 0; k < VoxelUtils.Volume; k++) {
-                        data.densities[i] = half.zero;
-                        data.materials[i] = 2;
-                    }
-                    */
 
                     sparseVoxelData[segment.startingIndex + i] = data;
                 }
@@ -197,12 +198,13 @@ public class VoxelEdits : VoxelBehaviour {
         int3 worldSegment = (int3)math.floor(chunk.node.Position / VoxelUtils.SegmentSize);
         uint3 unsignedWorldSegment = math.uint3(worldSegment + math.int3(VoxelUtils.MaxSegments / 2));
         int segmentIndex = VoxelUtils.PosToIndex(unsignedWorldSegment, (uint)VoxelUtils.MaxSegments);
-        return lookup[segmentIndex].bitset.IsCreated;
+        return lookup[segmentIndex].startingIndex != -1;
     }
     
     // Check if a chunk contains dynamic edits
     public bool IsChunkAffectedByDynamicEdits(VoxelChunk chunk) {
-        return dynamicEdits.Any(dynEdit => dynEdit.GetBounds().Intersects(chunk.GetBounds()));
+        return true;
+        //return dynamicEdits.Any(dynEdit => dynEdit.GetBounds().Intersects(chunk.GetBounds()));
     }
 
 
@@ -234,12 +236,15 @@ public class VoxelEdits : VoxelBehaviour {
             return new JobHandle();
         }
 
+        /*
         JobHandle dep = new JobHandle();
         foreach (var dynamicEdit in dynamicEdits) {
             dep = dynamicEdit.Apply(chunk, ref voxels, dep);
         }
 
         return dep;
+        */
+        return new JobHandle();
     }
 
     private void OnDrawGizmosSelected() {
@@ -253,7 +258,7 @@ public class VoxelEdits : VoxelBehaviour {
 
             VoxelDeltaLookup segment = lookup[i];
 
-            if (!segment.bitset.IsCreated)
+            if (segment.startingIndex == -1)
                 continue;
 
             var offset = (float)VoxelUtils.SegmentSize;
