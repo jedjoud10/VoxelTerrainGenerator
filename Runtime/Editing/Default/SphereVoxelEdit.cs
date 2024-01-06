@@ -6,7 +6,6 @@ using Unity.Mathematics;
 using UnityEngine;
 
 [assembly: RegisterGenericJobType(typeof(VoxelEditJob<SphereVoxelEdit>))]
-
 public struct SphereVoxelEdit : IVoxelEdit {
     [ReadOnly] public float3 center;
     [ReadOnly] public float radius;

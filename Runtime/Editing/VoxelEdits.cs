@@ -24,8 +24,8 @@ public class VoxelEdits : VoxelBehaviour {
     // All the chunks the user has modified in each LOD level
     internal UnsafeList<SparseVoxelDeltaData> sparseVoxelData;
 
-    // Stores the containers of the different types of dynamic edits
-    internal WorldEditTypeRegistry registry;
+    // Stores the containers of the different types of world edits
+    internal WorldEditTypeRegistry worldEditRegistry;
 
     // Temporary place for voxel edits that have not been applied yet
     internal Queue<IVoxelEdit> tempVoxelEdits;
@@ -42,7 +42,7 @@ public class VoxelEdits : VoxelBehaviour {
         }
 
         sparseVoxelData = new UnsafeList<SparseVoxelDeltaData>(0, Allocator.Persistent);
-        registry = new WorldEditTypeRegistry();
+        worldEditRegistry = new WorldEditTypeRegistry();
         tempVoxelEdits = new Queue<IVoxelEdit>();
     }
 
@@ -107,12 +107,11 @@ public class VoxelEdits : VoxelBehaviour {
         temp.Value.Dispose();
     }
 
-    // Apply a dynamic edit to the terrain world immediately
-    public void ApplyDynamicEdit(IWorldEdit dynamicEdit) {
-        registry.Add(dynamicEdit);
-
+    // Apply a world edit to the terrain world immediately
+    // The returned int is the index inside the registry for the world edit
+    public int ApplyWorldEdit<T>(T worldEdit) where T: struct, IWorldEdit {
         // Custom job to find all the octree nodes that touch the bounds
-        Bounds bound = dynamicEdit.GetBounds();
+        Bounds bound = worldEdit.GetBounds();
         NativeList<OctreeNode>? temp;
         terrain.VoxelOctree.TryCheckAABBIntersection(bound, out temp);
 
@@ -122,6 +121,9 @@ public class VoxelEdits : VoxelBehaviour {
             chunk.Remesh(terrain);
         }
         temp.Value.Dispose();
+
+        // We can add this later since the mesher isn't immediate; it will mesh next frame
+        return worldEditRegistry.Add(worldEdit);
     }
 
     // Makes sure the segments that intersect the bounds are loaded in and ready for modification
@@ -236,15 +238,15 @@ public class VoxelEdits : VoxelBehaviour {
             return new JobHandle();
         }
 
-        /*
         JobHandle dep = new JobHandle();
-        foreach (var dynamicEdit in dynamicEdits) {
-            dep = dynamicEdit.Apply(chunk, ref voxels, dep);
+        foreach (var registry in worldEditRegistry.types) {
+            foreach (var worldEdit in registry.List) {
+                IWorldEdit edit = (IWorldEdit)worldEdit;
+                dep = edit.Apply(chunk, ref voxels, dep);
+            }
         }
 
         return dep;
-        */
-        return new JobHandle();
     }
 
     private void OnDrawGizmosSelected() {

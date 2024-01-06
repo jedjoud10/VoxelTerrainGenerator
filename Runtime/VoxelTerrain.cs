@@ -106,8 +106,14 @@ public class VoxelTerrain : MonoBehaviour {
         VoxelOctree.InitWith(this);
         VoxelEdits.InitWith(this);
 
+        // Register common dynamic edit types
+        registerDynamicEditTypes += (WorldEditTypeRegistry registry) => {
+            registry.Register<SphereWorldEdit>();
+            registry.Register<CuboidWorldEdit>();
+        };
+
         // Register custom dynamic edit types
-        registerDynamicEditTypes?.Invoke(VoxelEdits.registry);
+        registerDynamicEditTypes?.Invoke(VoxelEdits.worldEditRegistry);
 
         // Register the events
         VoxelGenerator.onVoxelGenerationComplete += OnVoxelGenerationComplete;

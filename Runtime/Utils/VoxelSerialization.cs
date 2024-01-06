@@ -6,10 +6,12 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Netcode;
+using Unity.VisualScripting.YamlDotNet.Serialization;
 using UnityEngine;
 
 // General static class we will use for serializing the edits and world seed
 public static class VoxelSerialization {
+
     // Serialize all edits, world region files, and seed and save it
     public static void Serialize(ref FastBufferWriter writer, VoxelTerrain terrain) {
         if (!terrain.Free) {
@@ -19,8 +21,8 @@ public static class VoxelSerialization {
 
         Debug.LogWarning("Serializing terrain using FastBufferWriter...");
         writer.WriteValueSafe(terrain.VoxelGenerator.seed);
-        //writer.WriteNetworkSerializable(terrain.VoxelEdits.dynamicEdits.ToArray());
-        writer.WriteValueSafe(terrain.VoxelEdits.lookup);
+        terrain.VoxelEdits.worldEditRegistry.Serialize(writer);
+        //writer.WriteValueSafe(terrain.VoxelEdits.lookup);
 
         int compressedBytes = 0;
         long uncompressedBytes = 0;
@@ -75,6 +77,7 @@ public static class VoxelSerialization {
 
         Debug.LogWarning("Deserializing terrain using FastBufferReader...");
         reader.ReadValueSafe(out terrain.VoxelGenerator.seed);
+        terrain.VoxelEdits.worldEditRegistry.Deserialize(reader);
         terrain.VoxelGenerator.SeedToPerms();
 
         /*

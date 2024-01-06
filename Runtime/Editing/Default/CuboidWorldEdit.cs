@@ -6,9 +6,8 @@ using Unity.Mathematics;
 using Unity.Netcode;
 using UnityEngine;
 
-[assembly: RegisterGenericJobType(typeof(WorldEditJob<CuboidDynamicEdit>))]
-
-public struct CuboidDynamicEdit : IWorldEdit {
+[assembly: RegisterGenericJobType(typeof(WorldEditJob<CuboidWorldEdit>))]
+public struct CuboidWorldEdit : IWorldEdit {
     [ReadOnly] public float3 center;
     [ReadOnly] public float3 halfExtents;
     [ReadOnly] public ushort material;

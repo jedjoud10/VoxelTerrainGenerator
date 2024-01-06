@@ -6,9 +6,9 @@ using Unity.Mathematics;
 using Unity.Netcode;
 using UnityEngine;
 
-[assembly: RegisterGenericJobType(typeof(WorldEditJob<SphereDynamicEdit>))]
+[assembly: RegisterGenericJobType(typeof(WorldEditJob<SphereWorldEdit>))]
 
-public struct SphereDynamicEdit : IWorldEdit {
+public struct SphereWorldEdit : IWorldEdit {
     [ReadOnly] public float3 center;
     [ReadOnly] public float radius;
     [ReadOnly] public ushort material;
