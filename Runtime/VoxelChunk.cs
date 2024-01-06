@@ -21,8 +21,8 @@ public class VoxelChunk : MonoBehaviour {
     // Get the AABB world bounds of this chunk
     public Bounds GetBounds() {
         return new Bounds {
-            min = node.Position,
-            max = node.Position + node.Size,
+            min = node.position,
+            max = node.position + node.size,
         };
     }
 

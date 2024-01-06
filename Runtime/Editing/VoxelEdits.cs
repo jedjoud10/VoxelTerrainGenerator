@@ -14,11 +14,11 @@ public class VoxelEdits : VoxelBehaviour {
     public bool Free { get; private set; } = true;
     public bool debugGizmos = false;
 
-    // Chunk nodes to sparse voxel data indices DIRECTLY
-    internal NativeHashMap<OctreeNode, int> chunkLookup;
-
     // Voxel edit octree nodes
     internal NativeList<VoxelEditOctreeNode> nodes;
+
+    // Chunk nodes to sparse voxel data indices DIRECTLY
+    internal NativeHashMap<VoxelEditOctreeNode.RawNode, int> chunkLookup;
 
     // Dictionary to map octree nodes to sparseVoxelData indices
     internal NativeHashMap<int, int> lookup;
@@ -38,7 +38,7 @@ public class VoxelEdits : VoxelBehaviour {
 
     // Initialize the voxel edits handler
     internal override void Init() {
-        chunkLookup = new NativeHashMap<OctreeNode, int>(0, Allocator.Persistent);
+        chunkLookup = new NativeHashMap<VoxelEditOctreeNode.RawNode, int>(0, Allocator.Persistent);
         nodes = new NativeList<VoxelEditOctreeNode>(Allocator.Persistent);
         nodes.Add(VoxelEditOctreeNode.RootNode(VoxelUtils.MaxDepth));
 
@@ -90,7 +90,7 @@ public class VoxelEdits : VoxelBehaviour {
         NativeQueue<VoxelEditOctreeNode> pending = new NativeQueue<VoxelEditOctreeNode>(Allocator.TempJob);
         pending.Enqueue(nodes[0]);
         NativeList<int> chunksToUpdate = new NativeList<int>(Allocator.TempJob);
-        NativeList<PosScale> addedNodes = new NativeList<PosScale>(Allocator.TempJob);
+        NativeList<int> addedNodes = new NativeList<int>(Allocator.TempJob);
 
         VoxelEditSubdivisionJob subdivision = new VoxelEditSubdivisionJob {
             nodes = nodes,
@@ -106,9 +106,11 @@ public class VoxelEdits : VoxelBehaviour {
         subdivision.Schedule().Complete();
 
         foreach (var added in addedNodes) {
+            VoxelEditOctreeNode node = nodes[added]; 
+
             SparseVoxelDeltaData data = new SparseVoxelDeltaData {
-                position = added.position,
-                scalingFactor = added.scalingFactor,
+                position = node.position,
+                scalingFactor = node.scalingFactor,
                 densities = new NativeArray<half>(VoxelUtils.Volume, Allocator.Persistent),
                 materials = new NativeArray<ushort>(VoxelUtils.Volume, Allocator.Persistent),
             };
@@ -164,8 +166,13 @@ public class VoxelEdits : VoxelBehaviour {
 
     // Check if a chunk contains voxel edits
     public bool IsChunkAffectedByVoxelEdits(VoxelChunk chunk) {
-        return false;
-        //return chunkLookup.ContainsKey(chunk.node);
+        VoxelEditOctreeNode.RawNode raw = new VoxelEditOctreeNode.RawNode {
+            position = chunk.node.position,
+            depth = chunk.node.depth,
+            size = chunk.node.size,
+        };
+
+        return chunkLookup.ContainsKey(raw);
     }
     
     // Check if a chunk contains dynamic edits
@@ -180,9 +187,13 @@ public class VoxelEdits : VoxelBehaviour {
             return dependency;
         }
 
-        throw new NotImplementedException();
-        /*
-        int index = chunkLookup[chunk.node];
+        VoxelEditOctreeNode.RawNode raw = new VoxelEditOctreeNode.RawNode {
+            position = chunk.node.position,
+            depth = chunk.node.depth,
+            size = chunk.node.size,
+        };
+
+        int index = chunkLookup[raw];
         SparseVoxelDeltaData data = sparseVoxelData[index];
 
         VoxelEditApplyJob job = new VoxelEditApplyJob {
@@ -190,7 +201,6 @@ public class VoxelEdits : VoxelBehaviour {
             voxels = voxels,
         };
         return job.Schedule(VoxelUtils.Volume, 2048, dependency);
-        */
     }
 
     // Create a list of dependencies to apply to chunks that have been affected by dynamic edits
@@ -215,41 +225,15 @@ public class VoxelEdits : VoxelBehaviour {
         if (!lookup.IsCreated || !debugGizmos)
             return;
 
-        Gizmos.color = new Color(1f, 1f, 1f, 0.3f);
         foreach (var item in nodes) {
-            Gizmos.DrawWireCube(item.Center, item.size * Vector3.one);
-        }
-
-        /*
-        for (int i = 0; i < lookup.Length; i++) {
-            Gizmos.color = new Color(1f, 1f, 1f, 1f);
-            uint3 segmentCoordsUint = VoxelUtils.IndexToPos(i, (uint)VoxelUtils.MaxSegments);
-            int3 segmentCoords = math.int3(segmentCoordsUint) - math.int3(VoxelUtils.MaxSegments / 2);
-
-            VoxelDeltaLookup segment = lookup[i];
-
-            if (segment.startingIndex == -1)
-                continue;
-
-            var offset = (float)VoxelUtils.SegmentSize;
-            Vector3 segmentCenter = new Vector3(segmentCoords.x, segmentCoords.y, segmentCoords.z) * VoxelUtils.SegmentSize + Vector3.one * offset / 2F;
-            Gizmos.DrawWireCube(segmentCenter * VoxelUtils.VoxelSizeFactor, Vector3.one * offset * VoxelUtils.VoxelSizeFactor);
-            Vector3 offsetTwoIdfk = new Vector3(segmentCoords.x, segmentCoords.y, segmentCoords.z) * VoxelUtils.SegmentSize * VoxelUtils.VoxelSizeFactor;
-
             Gizmos.color = new Color(1f, 1f, 1f, 0.3f);
-            float size = VoxelUtils.VoxelSizeFactor * VoxelUtils.Size;
-            for (int k = 0; k < VoxelUtils.ChunksPerSegmentVolume; k++) {
-                if (!segment.bitset.IsSet(k))
-                    continue;
-
-                uint3 pos = VoxelUtils.IndexToPos(k, (uint)VoxelUtils.ChunksPerSegment);
-                Vector3 pos2 = new Vector3(pos.x, pos.y, pos.z);
-                Vector3 chunkOffset = Vector3.one * size * 0.5f;
-                Vector3 chunkSize = new Vector3(size, size, size);
-                Gizmos.color = new Color(1f, 1f, 1f, 0.3f);
-                Gizmos.DrawWireCube(pos2 * size + offsetTwoIdfk + chunkOffset, chunkSize);
+            Gizmos.DrawWireCube(item.Center, item.size * Vector3.one);
+            
+            if (item.lookup != -1) {
+                Gizmos.color = new Color(1f, 0f, 0f, 1.0f);
+                Gizmos.DrawWireCube(item.Center, item.size * Vector3.one * 0.9f);
             }
+
         }
-        */
     }
 }

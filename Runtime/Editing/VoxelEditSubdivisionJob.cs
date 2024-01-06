@@ -6,11 +6,11 @@ using Unity.Burst;
 
 [BurstCompile(CompileSynchronously = true)]
 internal struct VoxelEditSubdivisionJob : IJob {
-    public NativeHashMap<OctreeNode, int> chunkLookup;
+    public NativeHashMap<VoxelEditOctreeNode.RawNode, int> chunkLookup;
     public NativeList<VoxelEditOctreeNode> nodes;
     public NativeHashMap<int, int> lookup;
     public int sparseVoxelCountOffset;
-    public NativeList<PosScale> addedNodes;
+    public NativeList<int> addedNodes;
     public NativeList<int> chunksToUpdate;
     public Bounds voxelEditBounds;
 
@@ -25,24 +25,25 @@ internal struct VoxelEditSubdivisionJob : IJob {
 
     public void TrySubdivide(ref VoxelEditOctreeNode node) {
         if (node.Bounds.Intersects(voxelEditBounds) && node.depth <= maxDepth) {
+            
             if (!lookup.ContainsKey(node.index)) {
                 int lookupIndex = sparseVoxelCountOffset + addedNodes.Length;
                 node.lookup = lookupIndex;
-                addedNodes.Add(new PosScale { position = node.position, scalingFactor = node.scalingFactor });
-                chunkLookup.Add(new OctreeNode {
-                    Position = node.position,
-                    Depth = node.depth,
-                    Size = node.size,
-                    ChildBaseIndex = -1
+                addedNodes.Add(node.index);
+                chunkLookup.Add(new VoxelEditOctreeNode.RawNode {
+                    position = node.position,
+                    depth = node.depth,
+                    size = node.size,
                 }, lookupIndex);
                 lookup.Add(node.index, lookupIndex);
+                nodes[node.index] = node;
             }
 
             if (node.lookup != -1) {
                 chunksToUpdate.Add(node.lookup);
             }
 
-            if (node.depth < maxDepth) {
+            if (node.childBaseIndex == -1 && node.depth < maxDepth) {
                 node.childBaseIndex = nodes.Length;
                 nodes[node.index] = node;
 
@@ -60,6 +61,10 @@ internal struct VoxelEditSubdivisionJob : IJob {
 
                     pending.Enqueue(child);
                     nodes.Add(child);
+                }
+            } else if (node.depth < maxDepth) {
+                for (int i = 0; i < 8; i++) {
+                    pending.Enqueue(nodes[node.childBaseIndex + i]);
                 }
             }
         }

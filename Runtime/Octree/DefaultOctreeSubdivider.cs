@@ -13,8 +13,8 @@ public struct DefaultOctreeSubdivider : IOctreeSubdivider {
         bool subdivide = false;
 
         foreach (var target in targets) {
-            float3 minBounds = math.float3(node.Position);
-            float3 maxBounds = math.float3(node.Position) + math.float3(node.Size);
+            float3 minBounds = math.float3(node.position);
+            float3 maxBounds = math.float3(node.position) + math.float3(node.size);
             float3 clamped = math.clamp(target.center, minBounds, maxBounds);
             bool local = math.distance(clamped, target.center) < target.radius * node.ScalingFactor;
             subdivide |= local;

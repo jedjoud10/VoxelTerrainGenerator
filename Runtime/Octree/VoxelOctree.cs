@@ -236,7 +236,7 @@ public class VoxelOctree : VoxelBehaviour {
 
             Gizmos.color = new Color(1f, 1f, 1f, 0.3f);
             foreach (var node in nodes) {
-                Gizmos.DrawWireCube(node.Center, node.Size * Vector3.one);
+                Gizmos.DrawWireCube(node.Center, node.size * Vector3.one);
             }
         }
     }

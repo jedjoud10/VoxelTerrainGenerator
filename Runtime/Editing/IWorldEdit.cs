@@ -25,7 +25,7 @@ public interface IWorldEdit : INetworkSerializable {
     // Apply any generic world edit onto oncoming data
     internal static JobHandle ApplyGeneric<T>(VoxelChunk chunk, ref NativeArray<Voxel> voxels, JobHandle dep, T edit) where T : struct, IWorldEdit {
         WorldEditJob<T> job = new WorldEditJob<T> {
-            chunkOffset = math.float3(chunk.node.Position),
+            chunkOffset = math.float3(chunk.node.position),
             voxelScale = VoxelUtils.VoxelSizeFactor,
             size = VoxelUtils.Size,
             vertexScaling = VoxelUtils.VertexScaling,

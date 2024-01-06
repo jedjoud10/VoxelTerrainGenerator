@@ -8,7 +8,6 @@ using UnityEngine;
 
 // General static class we will use for serializing the edits and world seed
 public static class VoxelSerialization {
-
     // Serialize all edits, world region files, and seed and save it
     public static void Serialize(ref FastBufferWriter writer, VoxelTerrain terrain) {
         if (!terrain.Free) {
@@ -19,27 +18,21 @@ public static class VoxelSerialization {
         Debug.LogWarning("Serializing terrain using FastBufferWriter...");
         writer.WriteValueSafe(terrain.VoxelGenerator.seed);
         terrain.VoxelEdits.worldEditRegistry.Serialize(writer);
+        writer.WriteValueSafe(terrain.VoxelEdits.nodes.AsArray());
 
-        /*
-        int size;
-        unsafe {
-            size = sizeof(VoxelEditOctreeNode) + sizeof(int);
-        };
-        NativeHashMap<VoxelEditOctreeNode, int> lookup = terrain.VoxelEdits.lookup;
-        writer.TryBeginWrite(lookup.Count * size + sizeof(int));
-        NativeKeyValueArrays<VoxelEditOctreeNode, int> keyValueArray = lookup.GetKeyValueArrays(Allocator.Temp);
+        NativeHashMap<VoxelEditOctreeNode.RawNode, int> chunkLookup = terrain.VoxelEdits.chunkLookup;
+        writer.WriteValueSafe(chunkLookup.GetKeyArray(Allocator.Temp));
+        writer.WriteValueSafe(chunkLookup.GetValueArray(Allocator.Temp));
 
-        writer.WriteValue(lookup.Count);
-        for (int i = 0; i < lookup.Count; i++) {
-            VoxelEditOctreeNode key = keyValueArray.Keys[i];
-            int val = keyValueArray.Values[i];
-            writer.WriteValue(key);
-            writer.WriteValue(val);
-        }
-        */
+        NativeHashMap<int, int> lookup = terrain.VoxelEdits.lookup;
+        writer.WriteValueSafe(lookup.GetKeyArray(Allocator.Temp));
+        writer.WriteValueSafe(lookup.GetValueArray(Allocator.Temp));
+        Debug.LogWarning($"{writer.Length} bytes");
 
         NativeList<uint> compressedMaterials = new NativeList<uint>(Allocator.TempJob);
         NativeList<byte> compressedDensities = new NativeList<byte>(Allocator.TempJob);
+
+        int[] arr = new int[32];
 
         foreach (var data in terrain.VoxelEdits.sparseVoxelData) {
             CompressionJob encode = new CompressionJob {
@@ -55,6 +48,9 @@ public static class VoxelSerialization {
                 throw new OverflowException("Not enough space in the buffer");
             }
 
+            int compressedBytes = compressedDensities.Length + compressedMaterials.Length * 4;
+            arr[(int)Math.Log(data.scalingFactor, 2.0f)] = compressedBytes;
+
             writer.WriteValue(compressedDensities.Length);
             writer.WriteValue(compressedMaterials.Length);
             writer.WriteValueSafe(compressedDensities.AsArray());
@@ -66,12 +62,11 @@ public static class VoxelSerialization {
         compressedMaterials.Dispose();
         compressedDensities.Dispose();
 
+        for (int i = 0; i < arr.Length; i++) {
+            Debug.LogWarning($"LOD {i}, compressed size: {arr[i]} bytes");
+        }
+
         Debug.LogWarning($"Finished serializing the terrain! Final size: {writer.Length} bytes");
-        /*
-        Debug.Log("compressed size: " + compressedBytes);
-        Debug.Log("uncompressed size: " + uncompressedBytes);
-        Debug.Log("ratio: " + ((float)compressedBytes / (float)uncompressedBytes) * 100 + "%");
-        */
     }
 
     // Deserialize the edits and seed and set them in the voxel terrain

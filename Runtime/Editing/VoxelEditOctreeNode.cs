@@ -5,6 +5,28 @@ using UnityEngine;
 
 // Heavily simplified octree node for voxel edits
 internal struct VoxelEditOctreeNode : IEquatable<VoxelEditOctreeNode>, IEquatable<OctreeNode>, INetworkSerializeByMemcpy {
+    internal struct RawNode : IEquatable<RawNode>, INetworkSerializeByMemcpy {
+        public float3 position;
+        public int depth;
+        public float size;
+
+        public bool Equals(RawNode other) {
+            return math.all(this.position == other.position) &&
+                this.depth == other.depth &&
+                this.size == other.size;
+        }
+
+        public override int GetHashCode() {
+            unchecked {
+                int hash = 17;
+                hash = hash * 23 + position.GetHashCode();
+                hash = hash * 23 + depth.GetHashCode();
+                hash = hash * 23 + size.GetHashCode();
+                return hash;
+            }
+        }
+    }
+
     public float3 position;
     public int depth;
     public float size;
@@ -33,9 +55,9 @@ internal struct VoxelEditOctreeNode : IEquatable<VoxelEditOctreeNode>, IEquatabl
     }
 
     public bool Equals(OctreeNode other) {
-        return math.all(this.position == other.Position) &&
-            this.depth == other.Depth &&
-            this.size == other.Size &&
+        return math.all(this.position == other.position) &&
+            this.depth == other.depth &&
+            this.size == other.size &&
             (this.childBaseIndex == -1) == (other.ChildBaseIndex == -1);
     }
 
@@ -50,3 +72,4 @@ internal struct VoxelEditOctreeNode : IEquatable<VoxelEditOctreeNode>, IEquatabl
         }
     }
 }
+

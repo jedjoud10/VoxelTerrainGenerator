@@ -43,7 +43,7 @@ public struct NeighbourJob : IJobParallelFor {
 
         for (int i = 0; i < 6; i++) {
             float3 dir = directions[i];
-            float3 estimatedNeighbouringNodeCenter = math.float3(node.Position) + math.float3(node.Size) / 2.0F + math.float3(node.Size * dir);
+            float3 estimatedNeighbouringNodeCenter = math.float3(node.position) + math.float3(node.size) / 2.0F + math.float3(node.size * dir);
             int nextChildIndex = 0;
             bool breakOuter = false;
             int iter = 0;
@@ -60,7 +60,7 @@ public struct NeighbourJob : IJobParallelFor {
                         nextChildIndex = cur.ChildBaseIndex;
 
                         // We reached a node with the same depth as ours
-                        if (cur.Depth == node.Depth) {
+                        if (cur.depth == node.depth) {
                             breakOuter = true;
 
 
@@ -75,7 +75,7 @@ public struct NeighbourJob : IJobParallelFor {
                         }
 
                         // We reached the bottom of the tree (or too deep), break out
-                        if (nextChildIndex == -1 || cur.Depth > node.Depth) {
+                        if (nextChildIndex == -1 || cur.depth > node.depth) {
                             breakOuter = true;
                             break;
                         }

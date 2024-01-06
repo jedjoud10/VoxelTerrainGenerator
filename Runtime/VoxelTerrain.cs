@@ -198,7 +198,7 @@ public class VoxelTerrain : MonoBehaviour {
 
             float size = item.ScalingFactor;
             gameObject.GetComponent<MeshRenderer>().enabled = !backBufferedChunkVisibility;
-            gameObject.transform.position = item.Position;
+            gameObject.transform.position = item.position;
             gameObject.transform.localScale = new Vector3(size, size, size);
             VoxelChunk chunk = gameObject.GetComponent<VoxelChunk>();
             chunk.node = item;
@@ -290,8 +290,8 @@ public class VoxelTerrain : MonoBehaviour {
 
         // Set renderer bounds
         renderer.bounds = new Bounds {
-            min = chunk.node.Position,
-            max = chunk.node.Position + chunk.node.Size,
+            min = chunk.node.position,
+            max = chunk.node.position + chunk.node.size,
         };
 
         // Pool the chunk if it's empty
