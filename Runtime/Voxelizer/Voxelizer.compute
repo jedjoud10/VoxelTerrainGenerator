@@ -87,10 +87,10 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 
 	uint packedMaterial = 0;
 	if (sdBox(position, float3(10, 100, 10)) < 0 || snoise(position.xz * 0.001) < 0.0) {
-		packedMaterial = 1;
+		//packedMaterial = 1;
 	}
 
-	density = position.y - fbmCellular(position.xz * 0.01, 8, 0.32, 2.60).y * 20;
+	density = position.y - fbmCellular(position.xz * 0.004, 6, 0.32, 2.60).y * 90 + 6;
 	//density = round(density * 16.0) / 16.0;
 	//float secondaryDensity = position.y - fbmCellular(position.xz * 0.0002, 8, 0.32, 2.60).y * 3200;
 	//density = lerp(secondaryDensity, density, snoise(position.xz * 0.0001) * 0.5 + 0.5);

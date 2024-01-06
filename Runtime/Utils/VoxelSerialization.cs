@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Mathematics;
 using Unity.Netcode;
 using Unity.VisualScripting.YamlDotNet.Core.Tokens;
 using UnityEngine;
@@ -18,22 +19,21 @@ public static class VoxelSerialization {
         Debug.LogWarning("Serializing terrain using FastBufferWriter...");
         writer.WriteValueSafe(terrain.VoxelGenerator.seed);
         terrain.VoxelEdits.worldEditRegistry.Serialize(writer);
+        writer.WriteValueSafe(terrain.VoxelEdits.nodes.Length);
         writer.WriteValueSafe(terrain.VoxelEdits.nodes.AsArray());
-
         NativeHashMap<VoxelEditOctreeNode.RawNode, int> chunkLookup = terrain.VoxelEdits.chunkLookup;
         writer.WriteValueSafe(chunkLookup.GetKeyArray(Allocator.Temp));
         writer.WriteValueSafe(chunkLookup.GetValueArray(Allocator.Temp));
-
         NativeHashMap<int, int> lookup = terrain.VoxelEdits.lookup;
         writer.WriteValueSafe(lookup.GetKeyArray(Allocator.Temp));
         writer.WriteValueSafe(lookup.GetValueArray(Allocator.Temp));
-        Debug.LogWarning($"{writer.Length} bytes");
 
         NativeList<uint> compressedMaterials = new NativeList<uint>(Allocator.TempJob);
         NativeList<byte> compressedDensities = new NativeList<byte>(Allocator.TempJob);
 
         int[] arr = new int[32];
 
+        writer.WriteValueSafe(terrain.VoxelEdits.sparseVoxelData.Count);
         foreach (var data in terrain.VoxelEdits.sparseVoxelData) {
             CompressionJob encode = new CompressionJob {
                 materialsOut = compressedMaterials,
@@ -44,15 +44,11 @@ public static class VoxelSerialization {
 
             encode.Schedule().Complete();
 
-            if (!writer.TryBeginWrite(8)) {
-                throw new OverflowException("Not enough space in the buffer");
-            }
-
             int compressedBytes = compressedDensities.Length + compressedMaterials.Length * 4;
             arr[(int)Math.Log(data.scalingFactor, 2.0f)] = compressedBytes;
 
-            writer.WriteValue(compressedDensities.Length);
-            writer.WriteValue(compressedMaterials.Length);
+            writer.WriteValueSafe(data.position);
+            writer.WriteValueSafe(data.scalingFactor);
             writer.WriteValueSafe(compressedDensities.AsArray());
             writer.WriteValueSafe(compressedMaterials.AsArray());
             compressedDensities.Clear();
@@ -63,7 +59,7 @@ public static class VoxelSerialization {
         compressedDensities.Dispose();
 
         for (int i = 0; i < arr.Length; i++) {
-            Debug.LogWarning($"LOD {i}, compressed size: {arr[i]} bytes");
+            //Debug.LogWarning($"LOD {i}, compressed size: {arr[i]} bytes");
         }
 
         Debug.LogWarning($"Finished serializing the terrain! Final size: {writer.Length} bytes");
@@ -81,80 +77,86 @@ public static class VoxelSerialization {
         terrain.VoxelEdits.worldEditRegistry.Deserialize(reader);
         terrain.VoxelGenerator.SeedToPerms();
 
-        /*
-        terrain.VoxelEdits.lookup.Dispose();
-        reader.ReadValueSafe(out terrain.VoxelEdits.lookup, Allocator.Persistent);
+        reader.ReadValueSafe(out int nodesCount);
+        terrain.VoxelEdits.nodes.Resize(nodesCount, NativeArrayOptions.ClearMemory);
 
-        NativeList<uint> compressedMaterials = new NativeList<uint>(Allocator.TempJob);
-        NativeList<byte> compressedDensities = new NativeList<byte>(Allocator.TempJob);
+        reader.ReadValueSafeTemp(out NativeArray<VoxelEditOctreeNode> nodes);
+        terrain.VoxelEdits.nodes.Clear();
+        terrain.VoxelEdits.nodes.AddRange(nodes);
 
-        foreach (var segment in terrain.VoxelEdits.lookup) {
-            if (segment.startingIndex == -1)
-                continue;
+        NativeHashMap<VoxelEditOctreeNode.RawNode, int> chunkLookup = terrain.VoxelEdits.chunkLookup;
+        chunkLookup.Clear();
+        reader.ReadValueSafeTemp(out NativeArray<VoxelEditOctreeNode.RawNode> keys);
+        reader.ReadValueSafeTemp(out NativeArray<int> values);
 
-            var index = segment.startingIndex;
-
-            for (int i = 0; i < VoxelUtils.ChunksPerSegmentVolume; i++) {
-                if (segment.bitset.IsSet(i)) {
-                    if (terrain.VoxelEdits.)
-
-
-                    DecompressionJob decode = new DecompressionJob {
-                        densitiesIn = compressedDensities,
-                        materialsIn = compressedMaterials,
-                        densitiesOut = uncompressedDensities,
-                        materialsOut = uncompressedMaterials,
-                    };
-
-                }
-            }
+        for (int i = 0; i < keys.Length; i++) {
+            chunkLookup.Add(keys[i], values[i]);
         }
 
-        foreach (var data in terrain.VoxelEdits.sparseVoxelData) {
-            if (!data.)
-                continue;
+        NativeHashMap<int, int> lookup = terrain.VoxelEdits.lookup;
+        lookup.Clear();
+        reader.ReadValueSafeTemp(out NativeArray<int> keys2);
+        reader.ReadValueSafeTemp(out NativeArray<int> values2);
+
+        for (int i = 0; i < keys.Length; i++) {
+            lookup.Add(keys2[i], values2[i]);
+        }
+
+        reader.ReadValueSafe(out int sparseVoxelDataCount);
+
+        var sparse = terrain.VoxelEdits.sparseVoxelData;
+        int missing = sparseVoxelDataCount - terrain.VoxelEdits.sparseVoxelData.Count;
+        // add if missing
+        for (int i = 0; i < Mathf.Max(missing, 0); i++) {
+            sparse.Add(new SparseVoxelDeltaData {
+                densities = new NativeArray<half>(VoxelUtils.Volume, Allocator.Persistent),
+                materials = new NativeArray<ushort>(VoxelUtils.Volume, Allocator.Persistent),
+            });
+        }
+
+        // remove if extra (gonna get overwritten anyways)
+        for (int i = 0; i < -Mathf.Min(missing, 0); i++) {
+            sparse[0].densities.Dispose();
+            sparse[0].materials.Dispose();
+            sparse.RemoveAtSwapBack(0);
+        }
+
+        int count = sparse.Count;
+
+        NativeList<byte> compressedDensities = new NativeList<byte>(Allocator.TempJob);
+        NativeList<uint> compressedMaterials = new NativeList<uint>(Allocator.TempJob);
+
+        for (int i = 0; i < count; i++) {
+            SparseVoxelDeltaData data = sparse[i];
+
+            reader.ReadValueSafe(out float x);
+            reader.ReadValueSafe(out float y);
+            reader.ReadValueSafe(out float z);
+            data.position = new float3(x, y, z);
+
+            reader.ReadValueSafe(out data.scalingFactor);
+
+            compressedDensities.Clear();
+            compressedMaterials.Clear();
+            reader.ReadValueSafeTemp(out NativeArray<byte> compDensArr);
+            reader.ReadValueSafeTemp(out NativeArray<uint> compMatArr);
+            compressedDensities.AddRange(compDensArr);
+            compressedMaterials.AddRange(compMatArr);
 
             DecompressionJob decode = new DecompressionJob {
                 densitiesIn = compressedDensities,
                 materialsIn = compressedMaterials,
-                densitiesOut = uncompressedDensities,
-                materialsOut = uncompressedMaterials,
+                densitiesOut = data.densities,
+                materialsOut = data.materials,
             };
 
             decode.Schedule().Complete();
-
-            encode.Schedule().Complete();
-
-            compressedBytes += compressedDensities.Length + compressedMaterials.Length * 4;
-            uncompressedBytes += VoxelUtils.Volume * 4 * 2;
-
-            if (!writer.TryBeginWrite(8)) {
-                throw new OverflowException("Not enough space in the buffer");
-            }
-
-            writer.WriteValue(compressedDensities.Length);
-            writer.WriteValue(compressedMaterials.Length);
-            writer.WriteValueSafe(compressedDensities.AsArray());
-            writer.WriteValueSafe(compressedMaterials.AsArray());
-            compressedDensities.Clear();
-            compressedMaterials.Clear();
+            sparse[i] = data;
         }
-        */
 
-        //reader.ReadNetworkSerializable<IDynamicEdit>(out IDynamicEdit value);
+        compressedMaterials.Dispose();
+        compressedDensities.Dispose();
 
-        /*
-        List<IDynamicEdit> dynamicEdits = new List<IDynamicEdit>();
-        reader.ReadValueSafe(out int length);
-        for (int i = 0; i < length; i++) {
-        }
-        writer.WriteNetworkSerializable(dynamicEdit);
-        */
-
-        /*
-        
-
-         */
         terrain.RequestAll(true);
     }
 }

@@ -27,13 +27,13 @@ public class VoxelEdits : VoxelBehaviour {
     internal List<SparseVoxelDeltaData> sparseVoxelData;
 
     // Stores the containers of the different types of world edits
-    internal WorldEditTypeRegistry worldEditRegistry;
+    internal SerializableRegistry worldEditRegistry;
 
     // Temporary place for voxel edits that have not been applied yet
     internal Queue<IVoxelEdit> tempVoxelEdits;
 
     // Used to register custom dynamic edit types
-    public delegate void RegisterDynamicEditType(WorldEditTypeRegistry registry);
+    public delegate void RegisterDynamicEditType(SerializableRegistry registry);
     public event RegisterDynamicEditType registerDynamicEditTypes;
 
     // Initialize the voxel edits handler
@@ -44,11 +44,11 @@ public class VoxelEdits : VoxelBehaviour {
 
         lookup = new NativeHashMap<int, int>(0, Allocator.Persistent);
         sparseVoxelData = new List<SparseVoxelDeltaData>();
-        worldEditRegistry = new WorldEditTypeRegistry();
+        worldEditRegistry = new SerializableRegistry();
         tempVoxelEdits = new Queue<IVoxelEdit>();
 
         // Register common dynamic edit types
-        registerDynamicEditTypes += (WorldEditTypeRegistry registry) => {
+        registerDynamicEditTypes += (SerializableRegistry registry) => {
             registry.Register<SphereWorldEdit>();
             registry.Register<CuboidWorldEdit>();
         };
@@ -92,9 +92,12 @@ public class VoxelEdits : VoxelBehaviour {
         NativeList<int> chunksToUpdate = new NativeList<int>(Allocator.TempJob);
         NativeList<int> addedNodes = new NativeList<int>(Allocator.TempJob);
 
+        var bounds = edit.GetBounds();
+        bounds.Expand(4);
+
         VoxelEditSubdivisionJob subdivision = new VoxelEditSubdivisionJob {
             nodes = nodes,
-            voxelEditBounds = edit.GetBounds(),
+            voxelEditBounds = bounds,
             maxDepth = VoxelUtils.MaxDepth,
             sparseVoxelCountOffset = sparseVoxelData.Count,
             lookup = lookup,
@@ -129,9 +132,8 @@ public class VoxelEdits : VoxelBehaviour {
         }
 
         // Custom job to find all the octree nodes that touch the bounds
-        Bounds bound = edit.GetBounds();
         NativeList<OctreeNode>? temp;
-        terrain.VoxelOctree.TryCheckAABBIntersection(bound, out temp);
+        terrain.VoxelOctree.TryCheckAABBIntersection(bounds, out temp);
 
         // Re-mesh the chunks
         foreach (var node in temp) {
@@ -178,7 +180,7 @@ public class VoxelEdits : VoxelBehaviour {
     // Check if a chunk contains dynamic edits
     public bool IsChunkAffectedByDynamicEdits(VoxelChunk chunk) {
         Bounds chunkBounds = chunk.GetBounds();
-        return worldEditRegistry.AllBounds().Any(bound => bound.Intersects(chunkBounds));
+        return worldEditRegistry.TryGetAll<IWorldEdit>().Select(x => x.GetBounds()).Any(bound => bound.Intersects(chunkBounds));
     }
 
     // Create an apply job dependeny for a chunk that has voxel edits
