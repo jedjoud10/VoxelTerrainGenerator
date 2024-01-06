@@ -23,6 +23,6 @@ public struct DefaultOctreeSubdivider : IOctreeSubdivider {
             subdivide |= local;
         }
 
-        return subdivide;
+        return subdivide | node.Size > 256;
     }
 }

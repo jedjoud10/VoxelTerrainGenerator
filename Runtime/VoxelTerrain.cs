@@ -59,10 +59,6 @@ public class VoxelTerrain : MonoBehaviour {
     public delegate void ChunkGenerationDone();
     public event ChunkGenerationDone onChunkGenerationDone;
 
-    // Used to register custom dynamic edit types
-    public delegate void RegisterDynamicEditType(WorldEditTypeRegistry registry);
-    public event RegisterDynamicEditType registerDynamicEditTypes;
-
     public bool Free { get; private set; } = true;
     internal bool started = false;
     private System.Diagnostics.Stopwatch timer;
@@ -105,15 +101,6 @@ public class VoxelTerrain : MonoBehaviour {
         VoxelCollisions.InitWith(this);
         VoxelOctree.InitWith(this);
         VoxelEdits.InitWith(this);
-
-        // Register common dynamic edit types
-        registerDynamicEditTypes += (WorldEditTypeRegistry registry) => {
-            registry.Register<SphereWorldEdit>();
-            registry.Register<CuboidWorldEdit>();
-        };
-
-        // Register custom dynamic edit types
-        registerDynamicEditTypes?.Invoke(VoxelEdits.worldEditRegistry);
 
         // Register the events
         VoxelGenerator.onVoxelGenerationComplete += OnVoxelGenerationComplete;

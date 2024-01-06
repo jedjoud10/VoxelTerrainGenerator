@@ -30,6 +30,10 @@ public class VoxelEdits : VoxelBehaviour {
     // Temporary place for voxel edits that have not been applied yet
     internal Queue<IVoxelEdit> tempVoxelEdits;
 
+    // Used to register custom dynamic edit types
+    public delegate void RegisterDynamicEditType(WorldEditTypeRegistry registry);
+    public event RegisterDynamicEditType registerDynamicEditTypes;
+
     // Initialize the voxel edits handler
     internal override void Init() {
         lookup = new NativeArray<VoxelDeltaLookup>(VoxelUtils.MaxSegmentsVolume, Allocator.Persistent);
@@ -44,6 +48,15 @@ public class VoxelEdits : VoxelBehaviour {
         sparseVoxelData = new UnsafeList<SparseVoxelDeltaData>(0, Allocator.Persistent);
         worldEditRegistry = new WorldEditTypeRegistry();
         tempVoxelEdits = new Queue<IVoxelEdit>();
+
+        // Register common dynamic edit types
+        registerDynamicEditTypes += (WorldEditTypeRegistry registry) => {
+            registry.Register<SphereWorldEdit>();
+            registry.Register<CuboidWorldEdit>();
+        };
+
+        // Register custom dynamic edit types
+        registerDynamicEditTypes?.Invoke(worldEditRegistry);
     }
 
     // Dispose of any memory

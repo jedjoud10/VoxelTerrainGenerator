@@ -22,10 +22,7 @@ public static class VoxelSerialization {
         Debug.LogWarning("Serializing terrain using FastBufferWriter...");
         writer.WriteValueSafe(terrain.VoxelGenerator.seed);
         terrain.VoxelEdits.worldEditRegistry.Serialize(writer);
-        //writer.WriteValueSafe(terrain.VoxelEdits.lookup);
 
-        int compressedBytes = 0;
-        long uncompressedBytes = 0;
         NativeList<uint> compressedMaterials = new NativeList<uint>(Allocator.TempJob);
         NativeList<byte> compressedDensities = new NativeList<byte>(Allocator.TempJob);
 
@@ -63,9 +60,11 @@ public static class VoxelSerialization {
         compressedMaterials.Dispose();
         compressedDensities.Dispose();
 
+        /*
         Debug.Log("compressed size: " + compressedBytes);
         Debug.Log("uncompressed size: " + uncompressedBytes);
         Debug.Log("ratio: " + ((float)compressedBytes / (float)uncompressedBytes) * 100 + "%");
+        */
     }
 
     // Deserialize the edits and seed and set them in the voxel terrain
