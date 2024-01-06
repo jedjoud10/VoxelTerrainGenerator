@@ -20,7 +20,7 @@ public struct AddVoxelEdit : IVoxelEdit {
     public Bounds GetBounds() {
         return new Bounds {
             center = center,
-            extents = new Vector3(radius, radius, radius) * 2.0F
+            extents = new Vector3(radius, radius, radius)
         };
     }
 

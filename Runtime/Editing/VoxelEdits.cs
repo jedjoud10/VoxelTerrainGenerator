@@ -14,8 +14,14 @@ public class VoxelEdits : VoxelBehaviour {
     public bool Free { get; private set; } = true;
     public bool debugGizmos = false;
 
+    // Chunk nodes to sparse voxel data indices DIRECTLY
+    internal NativeHashMap<OctreeNode, int> chunkLookup;
+
+    // Voxel edit octree nodes
+    internal NativeList<VoxelEditOctreeNode> nodes;
+
     // Dictionary to map octree nodes to sparseVoxelData indices
-    internal NativeHashMap<VoxelEditOctreeNode, int> lookup;
+    internal NativeHashMap<int, int> lookup;
 
     // All the chunks the user has modified (different LODs as well)
     internal List<SparseVoxelDeltaData> sparseVoxelData;
@@ -32,7 +38,11 @@ public class VoxelEdits : VoxelBehaviour {
 
     // Initialize the voxel edits handler
     internal override void Init() {
-        lookup = new NativeHashMap<VoxelEditOctreeNode, int>(0, Allocator.Persistent);
+        chunkLookup = new NativeHashMap<OctreeNode, int>(0, Allocator.Persistent);
+        nodes = new NativeList<VoxelEditOctreeNode>(Allocator.Persistent);
+        nodes.Add(VoxelEditOctreeNode.RootNode(VoxelUtils.MaxDepth));
+
+        lookup = new NativeHashMap<int, int>(0, Allocator.Persistent);
         sparseVoxelData = new List<SparseVoxelDeltaData>();
         worldEditRegistry = new WorldEditTypeRegistry();
         tempVoxelEdits = new Queue<IVoxelEdit>();
@@ -53,7 +63,9 @@ public class VoxelEdits : VoxelBehaviour {
             data.densities.Dispose();
             data.materials.Dispose();
         }
-        
+
+        chunkLookup.Dispose();
+        nodes.Dispose();
         lookup.Dispose();
     }
 
@@ -76,22 +88,17 @@ public class VoxelEdits : VoxelBehaviour {
 
         // Update voxel edits octree (run subdivision job on new bounds)
         NativeQueue<VoxelEditOctreeNode> pending = new NativeQueue<VoxelEditOctreeNode>(Allocator.TempJob);
-
-        // Kinda stupid since we need the *updated* root node but wtv it works
-        VoxelEditOctreeNode root = VoxelEditOctreeNode.RootNode(VoxelUtils.MaxDepth);
-        if (lookup.Count > 1) {
-            root.Parent = true;
-        }
-
-        pending.Enqueue(root);
+        pending.Enqueue(nodes[0]);
         NativeList<int> chunksToUpdate = new NativeList<int>(Allocator.TempJob);
         NativeList<PosScale> addedNodes = new NativeList<PosScale>(Allocator.TempJob);
 
         VoxelEditSubdivisionJob subdivision = new VoxelEditSubdivisionJob {
+            nodes = nodes,
             voxelEditBounds = edit.GetBounds(),
             maxDepth = VoxelUtils.MaxDepth,
             sparseVoxelCountOffset = sparseVoxelData.Count,
             lookup = lookup,
+            chunkLookup = chunkLookup,
             addedNodes = addedNodes,
             pending = pending,
             chunksToUpdate = chunksToUpdate
@@ -105,6 +112,10 @@ public class VoxelEdits : VoxelBehaviour {
                 densities = new NativeArray<half>(VoxelUtils.Volume, Allocator.Persistent),
                 materials = new NativeArray<ushort>(VoxelUtils.Volume, Allocator.Persistent),
             };
+
+            for (int i = 0; i < VoxelUtils.Volume; i++) {
+                data.materials[i] = ushort.MaxValue;
+            }
 
             sparseVoxelData.Add(data);
         }
@@ -153,7 +164,8 @@ public class VoxelEdits : VoxelBehaviour {
 
     // Check if a chunk contains voxel edits
     public bool IsChunkAffectedByVoxelEdits(VoxelChunk chunk) {
-        return lookup.ContainsKey(chunk.node.ToVoxelEditOctreeNode());
+        return false;
+        //return chunkLookup.ContainsKey(chunk.node);
     }
     
     // Check if a chunk contains dynamic edits
@@ -168,7 +180,9 @@ public class VoxelEdits : VoxelBehaviour {
             return dependency;
         }
 
-        int index = lookup[chunk.node.ToVoxelEditOctreeNode()];
+        throw new NotImplementedException();
+        /*
+        int index = chunkLookup[chunk.node];
         SparseVoxelDeltaData data = sparseVoxelData[index];
 
         VoxelEditApplyJob job = new VoxelEditApplyJob {
@@ -176,6 +190,7 @@ public class VoxelEdits : VoxelBehaviour {
             voxels = voxels,
         };
         return job.Schedule(VoxelUtils.Volume, 2048, dependency);
+        */
     }
 
     // Create a list of dependencies to apply to chunks that have been affected by dynamic edits
@@ -201,8 +216,8 @@ public class VoxelEdits : VoxelBehaviour {
             return;
 
         Gizmos.color = new Color(1f, 1f, 1f, 0.3f);
-        foreach (var item in lookup) {
-            Gizmos.DrawWireCube(item.Key.Center, item.Key.Size * Vector3.one);
+        foreach (var item in nodes) {
+            Gizmos.DrawWireCube(item.Center, item.size * Vector3.one);
         }
 
         /*

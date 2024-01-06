@@ -6,7 +6,9 @@ using Unity.Burst;
 
 [BurstCompile(CompileSynchronously = true)]
 internal struct VoxelEditSubdivisionJob : IJob {
-    public NativeHashMap<VoxelEditOctreeNode, int> lookup;
+    public NativeHashMap<OctreeNode, int> chunkLookup;
+    public NativeList<VoxelEditOctreeNode> nodes;
+    public NativeHashMap<int, int> lookup;
     public int sparseVoxelCountOffset;
     public NativeList<PosScale> addedNodes;
     public NativeList<int> chunksToUpdate;
@@ -22,31 +24,42 @@ internal struct VoxelEditSubdivisionJob : IJob {
     }
 
     public void TrySubdivide(ref VoxelEditOctreeNode node) {
-        if (node.Bounds.Intersects(voxelEditBounds) && node.Depth <= maxDepth) {
-            int lookupIndex = sparseVoxelCountOffset + addedNodes.Length;
-
-            if (!lookup.ContainsKey(node)) {
-                addedNodes.Add(new PosScale { position = node.Position, scalingFactor = node.ScalingFactor });
-                lookup.Add(node, lookupIndex);
-                chunksToUpdate.Add(lookupIndex);
+        if (node.Bounds.Intersects(voxelEditBounds) && node.depth <= maxDepth) {
+            if (!lookup.ContainsKey(node.index)) {
+                int lookupIndex = sparseVoxelCountOffset + addedNodes.Length;
+                node.lookup = lookupIndex;
+                addedNodes.Add(new PosScale { position = node.position, scalingFactor = node.scalingFactor });
+                chunkLookup.Add(new OctreeNode {
+                    Position = node.position,
+                    Depth = node.depth,
+                    Size = node.size,
+                    ChildBaseIndex = -1
+                }, lookupIndex);
+                lookup.Add(node.index, lookupIndex);
             }
 
-            if (node.Depth < maxDepth) {
-                lookup.Remove(node);
-                node.Parent = true;
-                lookup.Add(node, lookupIndex);
+            if (node.lookup != -1) {
+                chunksToUpdate.Add(node.lookup);
+            }
+
+            if (node.depth < maxDepth) {
+                node.childBaseIndex = nodes.Length;
+                nodes[node.index] = node;
 
                 for (int i = 0; i < 8; i++) {
                     float3 offset = math.float3(VoxelUtils.OctreeChildOffset[i]);
                     VoxelEditOctreeNode child = new VoxelEditOctreeNode {
-                        Position = offset * (node.Size / 2.0F) + node.Position,
-                        Depth = node.Depth + 1,
-                        Size = node.Size / 2,
-                        Parent = false,
-                        ScalingFactor = node.ScalingFactor / 2.0F,
+                        position = offset * (node.size / 2.0F) + node.position,
+                        depth = node.depth + 1,
+                        lookup = -1,
+                        size = node.size / 2,
+                        index = node.childBaseIndex + i,
+                        childBaseIndex = -1,
+                        scalingFactor = node.scalingFactor / 2.0F,
                     };
 
                     pending.Enqueue(child);
+                    nodes.Add(child);
                 }
             }
         }

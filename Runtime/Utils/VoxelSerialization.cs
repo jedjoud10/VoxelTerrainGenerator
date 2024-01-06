@@ -1,5 +1,9 @@
+using System;
+using System.Text;
 using Unity.Collections;
+using Unity.Jobs;
 using Unity.Netcode;
+using Unity.VisualScripting.YamlDotNet.Core.Tokens;
 using UnityEngine;
 
 // General static class we will use for serializing the edits and world seed
@@ -16,14 +20,28 @@ public static class VoxelSerialization {
         writer.WriteValueSafe(terrain.VoxelGenerator.seed);
         terrain.VoxelEdits.worldEditRegistry.Serialize(writer);
 
+        /*
+        int size;
+        unsafe {
+            size = sizeof(VoxelEditOctreeNode) + sizeof(int);
+        };
+        NativeHashMap<VoxelEditOctreeNode, int> lookup = terrain.VoxelEdits.lookup;
+        writer.TryBeginWrite(lookup.Count * size + sizeof(int));
+        NativeKeyValueArrays<VoxelEditOctreeNode, int> keyValueArray = lookup.GetKeyValueArrays(Allocator.Temp);
+
+        writer.WriteValue(lookup.Count);
+        for (int i = 0; i < lookup.Count; i++) {
+            VoxelEditOctreeNode key = keyValueArray.Keys[i];
+            int val = keyValueArray.Values[i];
+            writer.WriteValue(key);
+            writer.WriteValue(val);
+        }
+        */
+
         NativeList<uint> compressedMaterials = new NativeList<uint>(Allocator.TempJob);
         NativeList<byte> compressedDensities = new NativeList<byte>(Allocator.TempJob);
 
-        /*
         foreach (var data in terrain.VoxelEdits.sparseVoxelData) {
-            if (!data.densities.IsCreated)
-                continue;
-
             CompressionJob encode = new CompressionJob {
                 materialsOut = compressedMaterials,
                 densitiesOut = compressedDensities,
@@ -33,14 +51,10 @@ public static class VoxelSerialization {
 
             encode.Schedule().Complete();
 
-            compressedBytes += compressedDensities.Length + compressedMaterials.Length * 4;
-            uncompressedBytes += VoxelUtils.Volume * 4 * 2;
-
             if (!writer.TryBeginWrite(8)) {
                 throw new OverflowException("Not enough space in the buffer");
             }
 
-            //writer.WriteValue(data.);
             writer.WriteValue(compressedDensities.Length);
             writer.WriteValue(compressedMaterials.Length);
             writer.WriteValueSafe(compressedDensities.AsArray());
@@ -48,11 +62,11 @@ public static class VoxelSerialization {
             compressedDensities.Clear();
             compressedMaterials.Clear();
         }
-        */
 
         compressedMaterials.Dispose();
         compressedDensities.Dispose();
 
+        Debug.LogWarning($"Finished serializing the terrain! Final size: {writer.Length} bytes");
         /*
         Debug.Log("compressed size: " + compressedBytes);
         Debug.Log("uncompressed size: " + uncompressedBytes);

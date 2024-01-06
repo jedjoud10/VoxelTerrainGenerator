@@ -93,15 +93,4 @@ public struct OctreeNode : IEquatable<OctreeNode> {
         float3 nodeMax = math.float3(Position) + math.float3(Size);
         return math.all(nodeMin <= point) && math.all(point <= nodeMax);
     }
-
-    // Convert to a voxel edit octree node
-    internal VoxelEditOctreeNode ToVoxelEditOctreeNode() {
-        return new VoxelEditOctreeNode {
-            Position = Position,
-            Depth = Depth,
-            Parent = ChildBaseIndex > 0,
-            Size = Size,
-            ScalingFactor = ScalingFactor,
-        };
-    }
 }

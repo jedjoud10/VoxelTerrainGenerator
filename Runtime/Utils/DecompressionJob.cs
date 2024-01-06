@@ -1,16 +1,16 @@
+using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
 // Decompression job that we will apply over each voxel chunk to decompress its data for loading
-//[BurstCompile(CompileSynchronously = true)]
-struct DecompressionJob : IJob {
+[BurstCompile(CompileSynchronously = true)]
+internal struct DecompressionJob : IJob {
     [WriteOnly]
-    public UnsafeList<half> densitiesOut;
+    public NativeArray<half> densitiesOut;
     [WriteOnly]
-    public UnsafeList<ushort> materialsOut;
+    public NativeArray<ushort> materialsOut;
 
     [ReadOnly]
     public NativeList<uint> materialsIn;

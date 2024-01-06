@@ -1,16 +1,15 @@
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 
 // Compression job that we will apply over each voxel chunk to compress its data for serialization
 [BurstCompile(CompileSynchronously = true)]
-struct CompressionJob : IJob {
+internal struct CompressionJob : IJob {
     [ReadOnly]
-    public UnsafeList<half> densitiesIn;
+    public NativeArray<half> densitiesIn;
     [ReadOnly]
-    public UnsafeList<ushort> materialsIn;
+    public NativeArray<ushort> materialsIn;
 
     [WriteOnly]
     public NativeList<uint> materialsOut;
