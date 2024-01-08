@@ -10,7 +10,7 @@ using UnityEngine;
 // General static class we will use for serializing the edits and world seed
 public static class VoxelSerialization {
     // Serialize all edits, world region files, and seed and save it
-    public static void Serialize(ref FastBufferWriter writer, VoxelTerrain terrain) {
+    public static void WriteValueSafe(this FastBufferWriter writer, VoxelTerrain terrain) {
         if (!terrain.Free) {
             Debug.LogWarning("Could not serialize terrain! (busy)");
             return;
@@ -19,6 +19,7 @@ public static class VoxelSerialization {
         Debug.LogWarning("Serializing terrain using FastBufferWriter...");
         writer.WriteValueSafe(terrain.VoxelGenerator.seed);
         terrain.VoxelEdits.worldEditRegistry.Serialize(writer);
+        Debug.LogWarning($"Size after world edits: {writer.Position}");
         writer.WriteValueSafe(terrain.VoxelEdits.nodes.Length);
         writer.WriteValueSafe(terrain.VoxelEdits.nodes.AsArray());
         NativeHashMap<VoxelEditOctreeNode.RawNode, int> chunkLookup = terrain.VoxelEdits.chunkLookup;
@@ -27,6 +28,8 @@ public static class VoxelSerialization {
         NativeHashMap<int, int> lookup = terrain.VoxelEdits.lookup;
         writer.WriteValueSafe(lookup.GetKeyArray(Allocator.Temp));
         writer.WriteValueSafe(lookup.GetValueArray(Allocator.Temp));
+        Debug.LogWarning($"Size after voxel edit meta-data: {writer.Position}");
+
 
         NativeList<uint> compressedMaterials = new NativeList<uint>(Allocator.TempJob);
         NativeList<byte> compressedDensities = new NativeList<byte>(Allocator.TempJob);
@@ -59,14 +62,16 @@ public static class VoxelSerialization {
         compressedDensities.Dispose();
 
         for (int i = 0; i < arr.Length; i++) {
-            //Debug.LogWarning($"LOD {i}, compressed size: {arr[i]} bytes");
+            if (arr[i] > 0) {
+                Debug.LogWarning($"LOD {i}, compressed size: {arr[i]} bytes");
+            }
         }
 
-        Debug.LogWarning($"Finished serializing the terrain! Final size: {writer.Length} bytes");
+        Debug.LogWarning($"Finished serializing the terrain! Final size: {writer.Position} bytes");
     }
 
     // Deserialize the edits and seed and set them in the voxel terrain
-    public static void Deserialize(ref FastBufferReader reader, VoxelTerrain terrain) {
+    public static void ReadValueSafe(this FastBufferReader reader, VoxelTerrain terrain) {
         if (!terrain.Free) {
             Debug.LogWarning("Could not deserialize terrain! (busy)");
             return;

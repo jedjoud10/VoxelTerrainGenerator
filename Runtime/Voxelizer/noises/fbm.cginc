@@ -5,6 +5,7 @@ float fbm(float2 pos, uint octaves, float persistence, float lacunarity) {
     float scale = 1.0;
     float amplitude = 1.0;
 
+    [unroll]
     for(uint i = 0; i < octaves; i++) {
         final += snoise(pos * scale + random2(float(i))) * amplitude;
         scale *= lacunarity;
@@ -20,6 +21,7 @@ float fbm(float3 pos, uint octaves, float persistence, float lacunarity) {
     float scale = 1.0;
     float amplitude = 1.0;
 
+    [unroll]
     for(uint i = 0; i < octaves; i++) {
         final += snoise(pos * scale + random3(float(i))) * amplitude;
         scale *= lacunarity;
@@ -35,6 +37,7 @@ float2 fbmCellular(float2 pos, uint octaves, float persistence, float lacunarity
     float scale = 1.0;
     float amplitude = 1.0;
 
+    [unroll]
     for(uint i = 0; i < octaves; i++) {
         final += (cellular(pos * scale + random2(float(i)))-float2(0.5, 0.5)) * amplitude;
         scale *= lacunarity;
@@ -50,6 +53,7 @@ float2 fbmCellular(float3 pos, uint octaves, float persistence, float lacunarity
     float scale = 1.0;
     float amplitude = 1.0;
 
+    [unroll]
     for(uint i = 0; i < octaves; i++) {
         final += (cellular(pos * scale + random3(float(i)))-float2(0.5, 0.5)) * amplitude;
         scale *= lacunarity;

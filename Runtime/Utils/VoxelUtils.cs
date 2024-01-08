@@ -226,17 +226,20 @@ public static class VoxelUtils {
         return (ushort)(encoded & 0x7F);
     }
 
+    // Normalize a density value to it's compressed, lossy form
+    public static half NormalizeHalf(half val) {
+        return val;
+    }
+
     // Convert a half to a ushort
-    // Could use fixed point if we want
     public static ushort AsUshort(half val) {
         return val.value;
     }
 
     // Convert a ushort to a half
-    // Could use fixed point if we want
     public static half AsHalf(ushort val) {
         return new half {
-            value = val
+            value = (ushort)(val)
         };
     }
 

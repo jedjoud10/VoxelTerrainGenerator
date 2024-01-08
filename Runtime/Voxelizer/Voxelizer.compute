@@ -70,9 +70,9 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 	density2 = -fbmCellular(position.xz * 0.001, 8, 0.32, 2.60).y * 600;
 
 	// Density value for biome 3
-	float density3 = position.y - fbmCellular(position.xz * 0.001, 3, 0.22, 2.01).y * 320;
+	float density3 = position.y - fbmCellular(position.xz * 0.001, 3, 0.22, 2.01).y * 920;
 	density3 -= fbmCellular(position * float3(0.3, 2, 0.3) * 0.004, 3, 0.42, 2.01).y * 220 - 100;
-	density3 += fbm(position.xz * 0.002, 7, 0.5, 2.2) * 30;
+	density3 += fbm(position.xz * 0.002, 7, 0.5, 2.2) * 30.0 + 80.0;
 
 	// Mixer between biome 1 and biome 2
 	float mixer = snoise(position.xz * 0.0006) * 0.5 + 0.5;
@@ -83,14 +83,15 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 	mixer2 = smoothstep(0, 1, mixer2);
 
 	// Calculate density
-	float density = lerp(lerp(density1, density2, mixer), density3, mixer2) + position.y;
+	//float density = lerp(lerp(density1, density2, mixer), density3, mixer2) + position.y;
+	float density = density3 + position.y;
 
 	uint packedMaterial = 0;
 	if (sdBox(position, float3(10, 100, 10)) < 0 || snoise(position.xz * 0.001) < 0.0) {
 		//packedMaterial = 1;
 	}
 
-	density = position.y - fbmCellular(position.xz * 0.004, 6, 0.32, 2.60).y * 90 + 6;
+	//density = position.y - fbmCellular(position.xz * 0.004, 6, 0.32, 2.60).y * 90 + 6;
 	//density = round(density * 16.0) / 16.0;
 	//float secondaryDensity = position.y - fbmCellular(position.xz * 0.0002, 8, 0.32, 2.60).y * 3200;
 	//density = lerp(secondaryDensity, density, snoise(position.xz * 0.0001) * 0.5 + 0.5);

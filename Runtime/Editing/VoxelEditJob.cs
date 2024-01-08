@@ -35,9 +35,9 @@ struct VoxelEditJob<T> : IJobParallelFor
 
         // Read, modify, write
         ushort material = materials[index];
-        half density = densities[index];
+        half density = VoxelUtils.NormalizeHalf(densities[index]);
         Voxel output = edit.Modify(position, new Voxel { material = material, density = density });
         materials[index] = output.material;
-        densities[index] = output.density;
+        densities[index] = VoxelUtils.NormalizeHalf(output.density);
     }
 }

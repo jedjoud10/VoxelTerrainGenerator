@@ -17,7 +17,7 @@ public struct VoxelEditApplyJob : IJobParallelFor {
             cur.material = deltaMaterial;
         }
 
-        cur.density += deltaDensity;
+        cur.density += VoxelUtils.NormalizeHalf(deltaDensity);
         voxels[index] = cur;
     }
 }

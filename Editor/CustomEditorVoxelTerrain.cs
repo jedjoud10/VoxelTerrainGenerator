@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEditor;
+using Palmmedia.ReportGenerator.Core;
 
 [CustomEditor(typeof(VoxelTerrain))]
 public class CustomEditorVoxelTerrain : Editor {
@@ -15,13 +16,9 @@ public class CustomEditorVoxelTerrain : Editor {
         EditorGUILayout.LabelField("Voxel Size: " + voxelSize + "m");
 
         VoxelTerrain terrain = ((VoxelTerrain)target);
-
-        //EditorGUILayout.LabelField("Mesh Tasks Remaining: " + mesher.MeshGenerationTasksRemaining);
-        //EditorGUILayout.LabelField("Collision Tasks Remaining: " + mesher.CollisionBakingTasksRemaining);
-        //EditorGUILayout.LabelField("Generator Tasks Remaining: " + generator.VoxelGenerationTasksRemaining);
-
-        GUI.enabled = terrain.Free;
+        GUI.enabled = terrain.Free && terrain.Initial;
         if (GUILayout.Button("Regenerate")) {
+            terrain.VoxelGenerator.UpdateStaticComputeFields();
             terrain.RequestAll(true);
         }
         if (GUILayout.Button("Remesh")) {

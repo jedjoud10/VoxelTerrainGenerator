@@ -21,15 +21,19 @@ public class OctreeLoader : MonoBehaviour {
     }
 
     void Update() {
-        if (octree == null && VoxelTerrain.Instance != null) {
-            octree = VoxelTerrain.Instance.VoxelOctree;
-            octree.TryUpdateOctreeLoader(this);
-        }
+        if (VoxelTerrain.Instance != null) {
+            if (octree == null) {
+                octree = VoxelTerrain.Instance.VoxelOctree;
+                octree.TryUpdateOctreeLoader(this);
+            }
 
-        if (Vector3.Distance(transform.position, last) > maxDistanceThreshold) {
-            if (octree.TryUpdateOctreeLoader(this)) {
-                last = transform.position;
+            if (Vector3.Distance(transform.position, last) > maxDistanceThreshold) {
+                if (octree.TryUpdateOctreeLoader(this)) {
+                    last = transform.position;
+                }
             }
         }
+
+
     }
 }

@@ -11,7 +11,6 @@ public class VoxelEdits : VoxelBehaviour {
     // Max number of voxel jobs we will execute per frame
     [Range(1, 8)]
     public int voxelEditsJobsPerFrame = 1;
-    public bool Free { get; private set; } = true;
     public bool debugGizmos = false;
 
     // Voxel edit octree nodes
@@ -30,7 +29,8 @@ public class VoxelEdits : VoxelBehaviour {
     internal SerializableRegistry worldEditRegistry;
 
     // Temporary place for voxel edits that have not been applied yet
-    internal Queue<IVoxelEdit> tempVoxelEdits;
+    internal Queue<IVoxelEdit> tempVoxelEdits = new Queue<IVoxelEdit>();
+    public bool Free => tempVoxelEdits.Count == 0 && terrain.VoxelMesher.Free;
 
     // Used to register custom dynamic edit types
     public delegate void RegisterDynamicEditType(SerializableRegistry registry);
@@ -45,7 +45,6 @@ public class VoxelEdits : VoxelBehaviour {
         lookup = new NativeHashMap<int, int>(0, Allocator.Persistent);
         sparseVoxelData = new List<SparseVoxelDeltaData>();
         worldEditRegistry = new SerializableRegistry();
-        tempVoxelEdits = new Queue<IVoxelEdit>();
 
         // Register common dynamic edit types
         registerDynamicEditTypes += (SerializableRegistry registry) => {
@@ -74,8 +73,6 @@ public class VoxelEdits : VoxelBehaviour {
         if (tempVoxelEdits.TryDequeue(out edit)) {
             ApplyVoxelEdit(edit, true);
         }
-
-        Free = tempVoxelEdits.Count == 0 && terrain.VoxelMesher.Free;
     }
 
     // Apply a voxel edit to the terrain world

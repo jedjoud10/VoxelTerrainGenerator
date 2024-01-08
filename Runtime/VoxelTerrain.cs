@@ -71,15 +71,13 @@ public class VoxelTerrain : MonoBehaviour {
         }
     }
 
-    private void Awake() {
+    void Start() {
         if (Instance != null && Instance != this) {
             Destroy(this);
         } else {
             Instance = this;
         }
-    }
 
-    void Start() {
         // Initialize the generator and mesher
         started = true;
         VoxelGenerator = GetComponent<VoxelGenerator>();
