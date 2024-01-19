@@ -4,14 +4,15 @@ using Unity.Mathematics;
 using UnityEngine;
 
 public class TestGraph : Graph {
-    public override Node<uint> PropGraph(Node<float3> position) {
-        return Node<uint>.Identity;
+    public override Var<uint> PropGraph(Var<float3> position) {
+        return Var<uint>.Identity;
     }
 
-    public override (Node<half>, Node<uint>) VoxelGraph(Node<float3> position) {
-        Node<float> y = position.y();
+    public override (Var<half>, Var<uint>) VoxelGraph(Var<float3> position) {
+        Var<float> y = position.y() + position.z();
+        Var<float> result = snoise(position);
 
 
-        return (position.y(), Node<uint>.Identity);
+        return (position.y(), Var<uint>.Identity);
     }
 }
