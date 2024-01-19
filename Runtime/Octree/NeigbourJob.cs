@@ -35,7 +35,7 @@ public struct NeighbourJob : IJobParallelFor {
         OctreeNode node = outputNodes[index];
 
         // Skip if it's not a leaf
-        if (node.ChildBaseIndex != -1)
+        if (node.childBaseIndex != -1)
             return;
 
         // Skirts that we must apply to the nodes
@@ -57,7 +57,7 @@ public struct NeighbourJob : IJobParallelFor {
                     OctreeNode cur = inputNodes[nextChildIndex + k];
 
                     if (cur.ContainsPoint(estimatedNeighbouringNodeCenter)) {
-                        nextChildIndex = cur.ChildBaseIndex;
+                        nextChildIndex = cur.childBaseIndex;
 
                         // We reached a node with the same depth as ours
                         if (cur.depth == node.depth) {
@@ -65,7 +65,7 @@ public struct NeighbourJob : IJobParallelFor {
 
 
                             // Enable skirts if said node goes deeper
-                            if (cur.ChildBaseIndex != -1)
+                            if (cur.childBaseIndex != -1)
                                 skirts |= 1 << i;
                             else
                                 skirts &= ~(1 << i);
@@ -88,7 +88,7 @@ public struct NeighbourJob : IJobParallelFor {
             }
         }
 
-        node.Skirts = skirts;
+        node.skirts = skirts;
         outputNodes[index] = node;
     }
 }

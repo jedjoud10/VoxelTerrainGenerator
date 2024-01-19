@@ -18,9 +18,9 @@ int size;
 float vertexScaling;
 float voxelSize;
 
-#include "./noises.cginc"
-#include "./sdf.cginc"
-#include "./morton.cginc"
+#include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/noises.cginc"
+#include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/sdf.cginc"
+#include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/morton.cginc"
 
 // Used for async readback
 RWTexture3D<uint> voxels;
@@ -58,47 +58,15 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 	// World offset and scale
 	position = ((position * worldScale) / voxelSize) + worldOffset;
 
-
-	// Density value for biome 1
-	float density1 = -fbmCellular(position * 0.002 * float3(1, 1.9, 1), 6, 0.49, 2.1).x * 100;
-	density1 = opSmoothUnion(density1, position.y, 200);
-
-	// Density value for biome 2
-	float density2 = fbm(position.xz * 0.001, 8, 0.32, 2.61) * 320;
-	density2 = opSmoothUnion(density2, position.y, 1600);
-	density2 = -fbmCellular(position.xz * 0.001, 8, 0.32, 2.60).y * 600;
-
-	// Density value for biome 3
-	float density3 = position.y - fbmCellular(position.xz * 0.001, 3, 0.22, 2.01).y * 920;
-	density3 -= fbmCellular(position * float3(0.3, 2, 0.3) * 0.004, 3, 0.42, 2.01).y * 220 - 100;
-	density3 += fbm(position.xz * 0.002, 7, 0.5, 2.2) * 30.0 + 80.0;
-
-	// Mixer between biome 1 and biome 2
-	float mixer = snoise(position.xz * 0.0006) * 0.5 + 0.5;
-	mixer = smoothstep(0, 1, mixer);
-
-	// Mixer between result and biome 3
-	float mixer2 = snoise(position.xz * 0.0003 - 21.64) * 0.5 + 0.5;
-	mixer2 = smoothstep(0, 1, mixer2);
-
-	// Calculate density
-	//float density = lerp(lerp(density1, density2, mixer), density3, mixer2) + position.y;
-	float density = density3 + position.y;
-
+	// Density and material
+	float biome = fbmCellular(position.xz * 0.003, 6, 0.32, 2.60).y * 150 - 20;
+	float mask = saturate(sdSphere(position, 100) * 0.01);
+	float density = position.y - lerp(biome, 0, 1-mask);
 	uint packedMaterial = 0;
-	if (sdBox(position, float3(10, 100, 10)) < 0 || snoise(position.xz * 0.001) < 0.0) {
-		packedMaterial = 1;
-	}
-
-	//density = position.y - fbmCellular(position.xz * 0.004, 6, 0.32, 2.60).y * 90 + 6;
-	//density = round(density * 16.0) / 16.0;
-	//float secondaryDensity = position.y - fbmCellular(position.xz * 0.0002, 8, 0.32, 2.60).y * 3200;
-	//density = lerp(secondaryDensity, density, snoise(position.xz * 0.0001) * 0.5 + 0.5);
-	//density = min(density, sdSphere(position, 5));
-	uint packedDensity = f32tof16(position.y);
-	uint packedData = packedDensity | (packedMaterial << 16);
 
 	// Morton encode the texture data
+	uint packedDensity = f32tof16(density);
+	uint packedData = packedDensity | (packedMaterial << 16);
 	uint mortonIndex = encodeMorton32(id.xzy);
 	uint3 mortonPos = indexToPos(mortonIndex);
 	voxels[mortonPos.xzy] = packedData;

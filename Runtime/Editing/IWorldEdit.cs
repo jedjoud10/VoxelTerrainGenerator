@@ -29,7 +29,7 @@ public interface IWorldEdit : INetworkSerializable {
             voxelScale = VoxelUtils.VoxelSizeFactor,
             size = VoxelUtils.Size,
             vertexScaling = VoxelUtils.VertexScaling,
-            scalingFactor = chunk.node.ScalingFactor,
+            scalingFactor = chunk.node.scalingFactor,
             dynamicEdit = edit,
             voxels = voxels,
         };

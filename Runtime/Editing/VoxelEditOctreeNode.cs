@@ -58,7 +58,7 @@ internal struct VoxelEditOctreeNode : IEquatable<VoxelEditOctreeNode>, IEquatabl
         return math.all(this.position == other.position) &&
             this.depth == other.depth &&
             this.size == other.size &&
-            (this.childBaseIndex == -1) == (other.ChildBaseIndex == -1);
+            (this.childBaseIndex == -1) == (other.childBaseIndex == -1);
     }
 
     // https://forum.unity.com/threads/burst-error-bc1091-external-and-internal-calls-are-not-allowed-inside-static-constructors.1347293/

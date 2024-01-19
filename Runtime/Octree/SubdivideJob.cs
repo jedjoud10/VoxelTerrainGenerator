@@ -28,7 +28,7 @@ public struct SubdivideJob<T> : IJob where T: struct, IOctreeSubdivider {
     // Try to subdivide the current node into 8 octants
     public void TrySubdivide(ref OctreeNode node) {
         if (subdivider.ShouldSubdivide(ref node, ref targets) && node.depth < maxDepth) {
-            node.ChildBaseIndex = nodes.Length;
+            node.childBaseIndex = nodes.Length;
 
             for (int i = 0; i < 8; i++) {
                 float3 offset = math.float3(VoxelUtils.OctreeChildOffset[i]);
@@ -37,10 +37,10 @@ public struct SubdivideJob<T> : IJob where T: struct, IOctreeSubdivider {
                     depth = node.depth + 1,
                     size = node.size / 2,
                     parentIndex = node.index,
-                    index = node.ChildBaseIndex + i,
-                    ChildBaseIndex = -1,
-                    Skirts = 0,
-                    ScalingFactor = node.ScalingFactor / 2.0F,
+                    index = node.childBaseIndex + i,
+                    childBaseIndex = -1,
+                    skirts = 0,
+                    scalingFactor = node.scalingFactor / 2.0F,
                 };
 
                 pending.Enqueue(child);

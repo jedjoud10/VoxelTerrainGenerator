@@ -26,9 +26,9 @@ public struct IntersectJob : IJob {
         while (pending.TryDequeue(out int index)) {
             var node = nodes[index];
             if (node.IntersectsAABB(min, max)) {
-                if (node.ChildBaseIndex != -1) {
+                if (node.childBaseIndex != -1) {
                     for (int i = 0; i < 8; i++) {
-                        pending.Enqueue(node.ChildBaseIndex + i);
+                        pending.Enqueue(node.childBaseIndex + i);
                     }
                 } else {
                     intersectLeafs.Add(node);

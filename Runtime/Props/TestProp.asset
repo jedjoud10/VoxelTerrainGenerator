@@ -9,13 +9,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6c467512dcfe28c46adb7854de6f7d74, type: 3}
-  m_Name: TreeVoxelDetail
+  m_Script: {fileID: 11500000, guid: ca249502b12e6574a82400f18da30c2f, type: 3}
+  m_Name: TestProp
   m_EditorClassIdentifier: 
-  prefab: {fileID: 0}
+  prefab: {fileID: 900193227329173065, guid: 7b5625836e801c04fbb54c9225ac4663, type: 3}
   basePosition: {x: 0, y: 0, z: 0}
   maxRandomPosition: {x: 0, y: 0, z: 0}
-  baseRotation: {x: 0, y: 0, z: 0}
-  maxRandomRotation: {x: 0, y: 0, z: 0}
-  baseScale: 0
+  baseScale: 1
   maxRandomScale: 0

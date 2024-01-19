@@ -9,7 +9,7 @@ public class CustomEditorVoxelOctree : Editor
         base.OnInspectorGUI();
 
         VoxelOctree octree = (VoxelOctree)target;
-        float maxSize = Mathf.Pow(2F, (float)octree.maxDepth-1) * VoxelUtils.VoxelSizeFactor * VoxelUtils.Size;
+        float maxSize = Mathf.Pow(2F, (float)octree.maxDepth) * VoxelUtils.VoxelSizeFactor * VoxelUtils.Size;
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Global World Size: " + maxSize + "m");
         EditorGUILayout.LabelField("Global World Volume: " + maxSize * maxSize * maxSize + "m³");

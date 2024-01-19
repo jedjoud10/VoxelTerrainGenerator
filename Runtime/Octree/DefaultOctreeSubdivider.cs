@@ -16,7 +16,7 @@ public struct DefaultOctreeSubdivider : IOctreeSubdivider {
             float3 minBounds = math.float3(node.position);
             float3 maxBounds = math.float3(node.position) + math.float3(node.size);
             float3 clamped = math.clamp(target.center, minBounds, maxBounds);
-            bool local = math.distance(clamped, target.center) < target.radius * node.ScalingFactor;
+            bool local = math.distance(clamped, target.center) < target.radius * node.scalingFactor;
             subdivide |= local;
         }
 

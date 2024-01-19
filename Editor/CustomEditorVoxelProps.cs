@@ -10,6 +10,7 @@ public class CustomEditorVoxelProps : Editor
 
         VoxelProps props = (VoxelProps)target;
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Global Prop Chunk Count (one axis): " + VoxelUtils.PropChunkCount);
+        EditorGUILayout.LabelField("Global Prop Segment Count: " + VoxelUtils.PropSegmentsCount);
+        EditorGUILayout.LabelField("Prop Segment Size: " + VoxelUtils.PropSegmentSize);
     }
 }

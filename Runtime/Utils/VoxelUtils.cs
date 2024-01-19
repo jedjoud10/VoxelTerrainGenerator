@@ -17,24 +17,23 @@ public static class VoxelUtils {
     // Doesn't actually represent the actual size of the voxel (since we do some scaling anyways)
     public static float VoxelSizeFactor => 1F / Mathf.Pow(2F, VoxelSizeReduction);
 
-    // Stride for the voxel prop size 
-    // 3 floats for pos, 1 float for scale
-    public static int GPUPropStride = sizeof(float) * 4;
-
     // Max depth of the octree world
     public static int MaxDepth { get; internal set; }
 
     // Current chunk resolution
     public static int Size { get; internal set; }
 
-    // How much bigger a prop chunk is compared to normal chunk
-    public static int PropChunkScale { get; internal set; }
+    // How many chunks fit in a single prop segment
+    public static int ChunksPerPropSegment { get; internal set; }
+
+    // Total size of a prop segment
+    public static int PropSegmentSize => (int)(ChunksPerPropSegment * Size * VoxelSizeFactor);
 
     // Chunk resolution for prop chunks (remember that prop chunks are 8 times as big as normal chunks)
     public static int PropChunkResolution { get; internal set; }
 
-    // Number of prop chunks per world
-    public static int PropChunkCount => Mathf.CeilToInt(Mathf.Pow(2F, (float)MaxDepth - 1) * VoxelSizeFactor * Size / PropChunkScale);
+    // Number of prop segments per world
+    public static int PropSegmentsCount => Mathf.CeilToInt(Mathf.Pow(2F, (float)MaxDepth) * VoxelSizeFactor / ChunksPerPropSegment);
 
     // Should we use skirts when meshing?
     public static bool Skirts { get; internal set; }

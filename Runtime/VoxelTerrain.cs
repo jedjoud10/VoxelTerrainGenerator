@@ -34,8 +34,6 @@ public class VoxelTerrain : MonoBehaviour {
     [Min(0)]
     public int voxelSizeReduction = 0;
 
-    public bool backBufferedChunkVisibility;
-
 
     // Object pooling stuff
     public GameObject chunkPrefab;
@@ -57,6 +55,19 @@ public class VoxelTerrain : MonoBehaviour {
     // Called when the terrain finishes generating newly chunks
     public delegate void ChunkGenerationDone();
     public event ChunkGenerationDone onChunkGenerationDone;
+
+    // When we make a chunk visible
+    public delegate void ChunkMadeVisible(VoxelChunk chunk);
+    public event ChunkMadeVisible onChunkVisible;
+
+    // When we make a chunk invisible
+    public delegate void ChunkMadeInvisible(VoxelChunk chunk);
+    public event ChunkMadeInvisible onChunkInvisible;
+
+    // When we add a chunk to the octree
+    public delegate void ChunkAdded(VoxelChunk chunk);
+    public event ChunkAdded onChunkAdded;
+
 
     public bool Free { get; private set; } = true;
     internal bool started = false;
@@ -158,6 +169,7 @@ public class VoxelTerrain : MonoBehaviour {
             if (Chunks.TryGetValue(item, out VoxelChunk voxelChunk)) {
                 Chunks.Remove(item);
                 PoolChunkBack(voxelChunk);
+                onChunkInvisible?.Invoke(voxelChunk);
             }
         }
 
@@ -165,6 +177,7 @@ public class VoxelTerrain : MonoBehaviour {
 
         // Make the chunks visible
         foreach (var item in toMakeVisible) {
+            onChunkVisible?.Invoke(item);
             item.GetComponent<MeshRenderer>().enabled = true;
         }
 
@@ -193,13 +206,13 @@ public class VoxelTerrain : MonoBehaviour {
         // Fetch new chunks from the pool
         bool generated = false;
         foreach (var item in added) {
-            if (item.ChildBaseIndex != -1)
+            if (item.childBaseIndex != -1)
                 continue;
             generated = true;
             GameObject gameObject = FetchPooledChunk();
 
-            float size = item.ScalingFactor;
-            gameObject.GetComponent<MeshRenderer>().enabled = !backBufferedChunkVisibility;
+            float size = item.scalingFactor;
+            gameObject.GetComponent<MeshRenderer>().enabled = false;
             gameObject.transform.position = item.position;
             gameObject.transform.localScale = new Vector3(size, size, size);
             VoxelChunk chunk = gameObject.GetComponent<VoxelChunk>();
@@ -207,8 +220,8 @@ public class VoxelTerrain : MonoBehaviour {
 
             // Only generate chunk voxel data for chunks at lowest depth
             chunk.container = null;
-            chunk.uniqueVoxelContainer = true;
-            //voxelChunk.uniqueVoxelContainer = item.Depth == VoxelUtils.MaxDepth;
+            //chunk.uniqueVoxelContainer = true;
+            chunk.uniqueVoxelContainer = item.depth == VoxelUtils.MaxDepth;
             if (chunk.uniqueVoxelContainer) {
                 chunk.container = FetchVoxelChunkContainer();
                 chunk.container.chunk = chunk;
@@ -218,6 +231,7 @@ public class VoxelTerrain : MonoBehaviour {
             VoxelGenerator.GenerateVoxels(chunk);
             Chunks.TryAdd(item, chunk);
             toMakeVisible.Add(chunk);
+            onChunkAdded?.Invoke(chunk);
         }
 
         Free = !generated;

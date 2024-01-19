@@ -60,8 +60,8 @@ internal class MeshJobHandler {
         materialHashMap.Clear();
         Free = false;
 
-        bool3 skirtsBase = math.bool3((node.Skirts & 1) == 1, ((node.Skirts >> 1) & 1) == 1, ((node.Skirts >> 2) & 1) == 1) & VoxelUtils.Skirts;
-        bool3 skirtsEnd = math.bool3(((node.Skirts >> 3) & 1) == 1, ((node.Skirts >> 4) & 1) == 1, ((node.Skirts >> 5) & 1) == 1) & VoxelUtils.Skirts;
+        bool3 skirtsBase = math.bool3((node.skirts & 1) == 1, ((node.skirts >> 1) & 1) == 1, ((node.skirts >> 2) & 1) == 1) & VoxelUtils.Skirts;
+        bool3 skirtsEnd = math.bool3(((node.skirts >> 3) & 1) == 1, ((node.skirts >> 4) & 1) == 1, ((node.skirts >> 5) & 1) == 1) & VoxelUtils.Skirts;
 
         // Handles fetching MC corners for the SN edges
         CornerJob cornerJob = new CornerJob {
