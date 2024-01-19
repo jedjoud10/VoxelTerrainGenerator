@@ -3,7 +3,7 @@
 // Cellular noise ("Worley noise") in 3D in GLSL.
 // Copyright (c) Stefan Gustavson 2011-04-19. All rights reserved.
 // This code is released under the conditions of the MIT license.
-// See LICENSE file for details.
+// See LICENSE file for props.
 // https://github.com/stegu/webgl-noise
 
 

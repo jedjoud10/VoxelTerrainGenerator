@@ -4,13 +4,14 @@ using System.Linq;
 using Unity.Collections;
 using UnityEngine;
 
-// Voxel terrain that handles generating the chunks and handling detail generation
+// Voxel terrain that handles generating the chunks and handling prop generation
 // generate chunks -> generate voxels -> generate mesh -> generate mesh collider
 [RequireComponent(typeof(VoxelGenerator))]
 [RequireComponent(typeof(VoxelMesher))]
 [RequireComponent(typeof(VoxelCollisions))]
 [RequireComponent(typeof(VoxelOctree))]
 [RequireComponent(typeof(VoxelEdits))]
+[RequireComponent(typeof(VoxelProps))]
 public class VoxelTerrain : MonoBehaviour {
     // Singleton pattern heheheha
     public static VoxelTerrain Instance { get; private set; }
@@ -21,6 +22,7 @@ public class VoxelTerrain : MonoBehaviour {
     public VoxelCollisions VoxelCollisions { get; private set; }
     public VoxelOctree VoxelOctree { get; private set; }
     public VoxelEdits VoxelEdits { get; private set; }
+    public VoxelProps Voxelprops { get; private set; }
 
 
     [Header("Main Settings")]
@@ -85,6 +87,7 @@ public class VoxelTerrain : MonoBehaviour {
         VoxelCollisions = GetComponent<VoxelCollisions>();
         VoxelOctree = GetComponent<VoxelOctree>();
         VoxelEdits = GetComponent<VoxelEdits>();
+        Voxelprops = GetComponent<VoxelProps>();
 
         // Set the voxel utils static class
         VoxelUtils.Size = resolution;
@@ -96,6 +99,7 @@ public class VoxelTerrain : MonoBehaviour {
         VoxelCollisions.InitWith(this);
         VoxelOctree.InitWith(this);
         VoxelEdits.InitWith(this);
+        Voxelprops.InitWith(this);
 
         // Register the events
         VoxelGenerator.onVoxelGenerationComplete += OnVoxelGenerationComplete;

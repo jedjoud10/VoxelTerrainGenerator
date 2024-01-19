@@ -32,7 +32,7 @@ float3 mod(float3 x, float3 y)
 
 float de(float3 p) {
 	float s = 3.0f, e;
-	for (int i = 0; i++ < 8; ) {
+	for (int i = 0; i++ < 3; ) {
 		p = mod((p - 1.0f), 2.0f) - 1.0f;
 		s *= e = 1.4f / dot(p, p);
 		p *= e;
@@ -47,8 +47,6 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 	// Calculate the main world position
 	float3 position = float3(id.xzy);
 	position -= 1.0;
-
-	// Needed for voxel size reduction
 	position *= voxelSize;
 
 	// Chunk offsets + vertex scaling
@@ -58,7 +56,8 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 	position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5);
 	
 	// World offset and scale
-	position = position * worldScale + worldOffset;
+	position = ((position * worldScale) / voxelSize) + worldOffset;
+
 
 	// Density value for biome 1
 	float density1 = -fbmCellular(position * 0.002 * float3(1, 1.9, 1), 6, 0.49, 2.1).x * 100;
@@ -88,7 +87,7 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 
 	uint packedMaterial = 0;
 	if (sdBox(position, float3(10, 100, 10)) < 0 || snoise(position.xz * 0.001) < 0.0) {
-		//packedMaterial = 1;
+		packedMaterial = 1;
 	}
 
 	//density = position.y - fbmCellular(position.xz * 0.004, 6, 0.32, 2.60).y * 90 + 6;
@@ -96,7 +95,7 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 	//float secondaryDensity = position.y - fbmCellular(position.xz * 0.0002, 8, 0.32, 2.60).y * 3200;
 	//density = lerp(secondaryDensity, density, snoise(position.xz * 0.0001) * 0.5 + 0.5);
 	//density = min(density, sdSphere(position, 5));
-	uint packedDensity = f32tof16(density);
+	uint packedDensity = f32tof16(position.y);
 	uint packedData = packedDensity | (packedMaterial << 16);
 
 	// Morton encode the texture data

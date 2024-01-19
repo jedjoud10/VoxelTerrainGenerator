@@ -1,0 +1,34 @@
+#pragma kernel CSPropenator
+
+float3 chunkOffset;
+float3 worldOffset;
+float3 worldScale;
+
+// Seeding parameters
+int3 permuationSeed;
+int3 moduloSeed;
+
+// Prop chunk resolution
+int size;
+
+// Prop settings
+float4 basePosition;
+float4 maxRandomPosition;
+
+float4 baseRotation;
+float4 maxRandomRotation;
+
+float baseScale;
+float maxRandomScale;
+
+#include "./noises.cginc"
+#include "./sdf.cginc"
+
+// Used for async readback AND GPU indirect rendering
+AppendStructuredBuffer<uint> props;
+
+// Generates the prop data on the GPU (executed for EACH prop type available)
+[numthreads(4, 4, 4)]
+void CSPropenator(uint3 id : SV_DispatchThreadID)
+{
+}
