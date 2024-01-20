@@ -9,4 +9,7 @@ using UnityEngine;
 public class Prop : ScriptableObject {
     public GameObject prefab;
     public Mesh instancedMesh;
+    public Mesh instancedBillboardMesh;
+    public Texture2D instancedBillboardAlbedo;
+    public Texture2D instancedBillboardNormals;
 }

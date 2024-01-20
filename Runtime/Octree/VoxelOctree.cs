@@ -13,8 +13,9 @@ public class VoxelOctree : VoxelBehaviour {
     // Custom octree subdivider script
     public IOctreeSubdivider subdivider;
 
-    private NativeList<OctreeTarget> targets;
-    private Dictionary<OctreeLoader, int> targetsLookup;
+    // Internal since they are handled by the octree loader
+    internal NativeList<OctreeTarget> targets;
+    internal Dictionary<TerrainLoader, int> targetsLookup;
 
     // Native hashmap for keeping track of the current nodes in the tree
     private NativeHashSet<OctreeNode>[] octreeNodesHashSet;
@@ -36,18 +37,18 @@ public class VoxelOctree : VoxelBehaviour {
     // Final job handle that we must wait for
     JobHandle finalJobHandle;
 
-    private bool mustUpdate = false;
+    public bool mustUpdate = false;
 
     // Is the octree free to calculate a diff nodes?
     public bool Free { get; private set; } = true;
 
     // Intialize octree memory
     internal override void Init() {
-        subdivider = new DefaultOctreeSubdivider();
+        subdivider = new DefaultOctreeSubdivider { propSegmentWorldSize = VoxelUtils.PropSegmentSize };
         VoxelUtils.MaxDepth = maxDepth;
         Free = true;
         targets = new NativeList<OctreeTarget>(Allocator.Persistent);
-        targetsLookup = new Dictionary<OctreeLoader, int>();
+        targetsLookup = new Dictionary<TerrainLoader, int>();
 
         octreeNodesHashSet = new NativeHashSet<OctreeNode>[2];
         octreeNodesList = new NativeList<OctreeNode>[2];
@@ -68,32 +69,6 @@ public class VoxelOctree : VoxelBehaviour {
         if (terrain == null) {
             VoxelUtils.MaxDepth = maxDepth;
         }
-    }
-
-    // Force the octree to update due to an octree loader moving
-    // Returns true if the octree successfully updated the location of the loader
-    public bool TryUpdateOctreeLoader(OctreeLoader loader) {
-        if (!Free)
-            return false;
-
-        if (!targetsLookup.ContainsKey(loader)) {
-            targetsLookup.Add(loader, targets.Length);
-            targets.Add(new OctreeTarget {
-                generateCollisions = false,
-                center = default,
-                radius = 0.0f,
-            });
-        }
-
-        int index = targetsLookup[loader];
-        targets[index] = new OctreeTarget {
-            generateCollisions = loader.generateCollisions,
-            center = loader.transform.position,
-            radius = loader.radius,
-        };
-
-        mustUpdate = true;
-        return true;
     }
 
     // Loop over all the octree loaders and generate the octree for them

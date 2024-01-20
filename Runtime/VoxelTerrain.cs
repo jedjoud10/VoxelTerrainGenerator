@@ -22,7 +22,7 @@ public class VoxelTerrain : MonoBehaviour {
     public VoxelCollisions VoxelCollisions { get; private set; }
     public VoxelOctree VoxelOctree { get; private set; }
     public VoxelEdits VoxelEdits { get; private set; }
-    public VoxelProps Voxelprops { get; private set; }
+    public VoxelProps VoxelProps { get; private set; }
 
 
     [Header("Main Settings")]
@@ -90,7 +90,7 @@ public class VoxelTerrain : MonoBehaviour {
         VoxelCollisions = GetComponent<VoxelCollisions>();
         VoxelOctree = GetComponent<VoxelOctree>();
         VoxelEdits = GetComponent<VoxelEdits>();
-        Voxelprops = GetComponent<VoxelProps>();
+        VoxelProps = GetComponent<VoxelProps>();
 
         // Set the voxel utils static class
         VoxelUtils.Size = resolution;
@@ -100,9 +100,9 @@ public class VoxelTerrain : MonoBehaviour {
         VoxelGenerator.InitWith(this);
         VoxelMesher.InitWith(this);
         VoxelCollisions.InitWith(this);
+        VoxelProps.InitWith(this);
         VoxelOctree.InitWith(this);
         VoxelEdits.InitWith(this);
-        Voxelprops.InitWith(this);
 
         // Register the events
         VoxelGenerator.onVoxelGenerationComplete += OnVoxelGenerationComplete;
@@ -349,7 +349,7 @@ public class VoxelTerrain : MonoBehaviour {
             Label($"Pending mesh jobs: {VoxelMesher.pendingMeshJobs.Count}");
             Label($"Pending mesh baking jobs: {VoxelCollisions.ongoingBakeJobs.Count}");
             Label($"# of pooled chunk game objects: {pooledChunkGameObjects.Count}");
-            Label($"# of pooled prop segment game objects: {Voxelprops.pooledPropSegments.Count}");
+            Label($"# of pooled prop segment game objects: {VoxelProps.pooledPropSegments.Count}");
             Label($"# of pooled native voxel arrays: {pooledVoxelChunkContainers.Count}");
 
             int usedVoxelArrays = Chunks.Where(x => x.Value.uniqueVoxelContainer).Count();

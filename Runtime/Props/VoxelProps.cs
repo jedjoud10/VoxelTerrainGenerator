@@ -34,18 +34,22 @@ public class VoxelProps : VoxelBehaviour {
     private List<(ComputeBuffer, ComputeBuffer)> computeBuffers;
 
     // Dictionary for all the prop segments that are in use by LOds
-    private Dictionary<int3, GameObject> propSegments;
+    private Dictionary<int3, PropSegment> propSegments;
 
     // When we load in a prop segment
-    public delegate void PropSegmentLoaded(int3 position, GameObject segment);
+    public delegate void PropSegmentLoaded(int3 position, PropSegment segment);
     public event PropSegmentLoaded onPropSegmentLoaded;
 
     // When we unload a prop segment
-    public delegate void PropSegmentUnloaded(int3 position, GameObject segment);
+    public delegate void PropSegmentUnloaded(int3 position, PropSegment segment);
     public event PropSegmentUnloaded onPropSegmentUnloaded;
 
     // Pooled prop segments that we can reuse
+    public GameObject propSegmentPrefab;
     internal List<GameObject> pooledPropSegments;
+
+    // Edited externally
+    internal HashSet<TerrainLoader> targets;
 
     private void OnValidate() {
         if (terrain == null) {
@@ -74,7 +78,8 @@ public class VoxelProps : VoxelBehaviour {
         UpdateStaticComputeFields();
         onPropSegmentLoaded += OnPropSegmentLoad;
         onPropSegmentUnloaded += OnPropSegmentUnload;
-        propSegments = new Dictionary<int3, GameObject>();
+        targets = new HashSet<TerrainLoader>();
+        propSegments = new Dictionary<int3, PropSegment>();
         pooledPropSegments = new List<GameObject>();
         terrain.VoxelOctree.onOctreeChanged += UpdatePropSegments;
         computeBuffers = new List<(ComputeBuffer, ComputeBuffer)>();
@@ -92,7 +97,7 @@ public class VoxelProps : VoxelBehaviour {
         GameObject go;
 
         if (pooledPropSegments.Count == 0) {
-            GameObject obj = new GameObject("Prop Segment");
+            GameObject obj = Instantiate(propSegmentPrefab);
             obj.transform.SetParent(transform, false);
             go = obj;
         } else {
@@ -106,7 +111,7 @@ public class VoxelProps : VoxelBehaviour {
 
     // Called when the octree changes to update the currently active prop segments
     private void UpdatePropSegments(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed) {
-        Dictionary<int3, GameObject> copy = new Dictionary<int3, GameObject>(propSegments);
+        Dictionary<int3, PropSegment> copy = new Dictionary<int3, PropSegment>(propSegments);
 
         foreach (var item in removed) {
             if (item.size == VoxelUtils.PropSegmentSize) {
@@ -118,35 +123,37 @@ public class VoxelProps : VoxelBehaviour {
             if (item.size == VoxelUtils.PropSegmentSize) {
                 GameObject propSegment = FetchPooledPropSegment();
                 propSegment.transform.position = item.position;
-                propSegments.Add((int3)item.position / VoxelUtils.PropSegmentSize, propSegment);
+                propSegments.Add((int3)item.position / VoxelUtils.PropSegmentSize, propSegment.GetComponent<PropSegment>());
             }
         }
 
         // Extremely stupid and naive but eh will fix later
         // check removed
         foreach (var item in copy) {
-            if (!propSegments.Contains(item)) {
+            if (!propSegments.ContainsKey(item.Key)) {
                 onPropSegmentUnloaded?.Invoke(item.Key, item.Value);
             }
         }
 
         // check added
         foreach (var item in propSegments) {
-            if (!copy.Contains(item)) {
+            if (!copy.ContainsKey(item.Key)) {
                 onPropSegmentLoaded?.Invoke(item.Key, item.Value);
             }
         }
     }
 
     // Called when a new prop segment is loaded
-    private void OnPropSegmentLoad(int3 position, GameObject segment) {
+    // If the segment is LOD0, spawn the props directly as gameobjects
+    // If the segment is LOD1, render the props as instanced indirect
+    // If the segment is LOD2, render the props as billboarded instanced indirect
+    private void OnPropSegmentLoad(int3 position, PropSegment segment) {
         foreach (var propType in props) {
             (ComputeBuffer propsBuffer, ComputeBuffer countBuffer) = computeBuffers[0];
             propsBuffer.SetCounterValue(0);
             countBuffer.SetData(new int[] { 0 });
             propShader.SetBuffer(0, "props", propsBuffer);
             propShader.SetVector("propChunkOffset", segment.transform.position);
-
 
             int _count = VoxelUtils.PropSegmentResolution / 4;
             propShader.Dispatch(0, _count, _count, _count);
@@ -157,11 +164,6 @@ public class VoxelProps : VoxelBehaviour {
 
             BlittableProp[] generatedProps = new BlittableProp[count[0]];
             propsBuffer.GetData(generatedProps);
-
-            /*
-            RenderParams r = new RenderParams();
-            Graphics.RenderMeshInstanced(r, test, 0, generatedProps);
-            */
 
             foreach (var prop in generatedProps) {
                 GameObject propGameObject = Instantiate(propType.prefab);
@@ -177,26 +179,64 @@ public class VoxelProps : VoxelBehaviour {
     }
 
     // Called when an old prop segment is unloaded
-    private void OnPropSegmentUnload(int3 position, GameObject segment) {
-        segment.SetActive(false);
+    private void OnPropSegmentUnload(int3 position, PropSegment segment) {
+        segment.gameObject.SetActive(false);
 
         for (int i = 0; i < segment.transform.childCount; i++) {
             Destroy(segment.transform.GetChild(i).gameObject);
         }
 
-        pooledPropSegments.Add(segment);
+        pooledPropSegments.Add(segment.gameObject);
     }
 
     private void OnDrawGizmosSelected() {
         if (terrain != null && debugGizmos) {
             int size = VoxelUtils.PropSegmentSize;
-            Gizmos.color = Color.green;
             foreach (var item in propSegments) {
                 var key = item.Key;
                 Vector3 center = new Vector3(key.x, key.y, key.z) * size + Vector3.one * size / 2.0f;
+
+                switch (item.Value.lod) {
+                    case 0:
+                        Gizmos.color = Color.green;
+                        break;
+                    case 1:
+                        Gizmos.color = Color.yellow;
+                        break;
+                    case 2:
+                        Gizmos.color = Color.red;
+                        break;
+                    default:
+                        break;
+                }
+
                 Gizmos.DrawWireCube(center, Vector3.one * size);
             }
         }
+    }
+
+    // Will be responsible for rendering the instanced meshes and billboarded mesh
+    // Also will update the LOD of prop segments based on terrain loaders around in the world
+    void Update() {
+        // mmm yeas I love frying my poor 3750h
+        foreach (var segment in propSegments) {
+            int minLod = 2;
+            Vector3 center = segment.Value.transform.position + Vector3.one * VoxelUtils.PropSegmentSize / 2.0f;
+
+            foreach (var target in targets) {
+                float distance = Vector3.Distance(target.transform.position, center);
+                int lod = 2;
+
+                if (distance < target.propSegmentPrefabSpawnerMaxDistance) {
+                    lod = 0;
+                } else if (distance < target.propSegmentInstancedRendererLodMaxDistance) {
+                    lod = 1;
+                }
+
+                minLod = Mathf.Min(lod, minLod);
+            }
+            segment.Value.lod = minLod;
+        }    
     }
 
     internal override void Dispose() {
