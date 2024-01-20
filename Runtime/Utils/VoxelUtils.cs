@@ -30,7 +30,7 @@ public static class VoxelUtils {
     public static int PropSegmentSize => (int)(ChunksPerPropSegment * Size * VoxelSizeFactor);
 
     // Chunk resolution for prop chunks (remember that prop chunks are 8 times as big as normal chunks)
-    public static int PropChunkResolution { get; internal set; }
+    public static int PropSegmentResolution { get; internal set; }
 
     // Number of prop segments per world
     public static int PropSegmentsCount => Mathf.CeilToInt(Mathf.Pow(2F, (float)MaxDepth) * VoxelSizeFactor / ChunksPerPropSegment);

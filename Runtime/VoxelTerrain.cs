@@ -56,14 +56,6 @@ public class VoxelTerrain : MonoBehaviour {
     public delegate void ChunkGenerationDone();
     public event ChunkGenerationDone onChunkGenerationDone;
 
-    // When we make a chunk visible
-    public delegate void ChunkMadeVisible(VoxelChunk chunk);
-    public event ChunkMadeVisible onChunkVisible;
-
-    // When we make a chunk invisible
-    public delegate void ChunkMadeInvisible(VoxelChunk chunk);
-    public event ChunkMadeInvisible onChunkInvisible;
-
     // When we add a chunk to the octree
     public delegate void ChunkAdded(VoxelChunk chunk);
     public event ChunkAdded onChunkAdded;
@@ -169,7 +161,6 @@ public class VoxelTerrain : MonoBehaviour {
             if (Chunks.TryGetValue(item, out VoxelChunk voxelChunk)) {
                 Chunks.Remove(item);
                 PoolChunkBack(voxelChunk);
-                onChunkInvisible?.Invoke(voxelChunk);
             }
         }
 
@@ -177,7 +168,6 @@ public class VoxelTerrain : MonoBehaviour {
 
         // Make the chunks visible
         foreach (var item in toMakeVisible) {
-            onChunkVisible?.Invoke(item);
             item.GetComponent<MeshRenderer>().enabled = true;
         }
 
@@ -354,11 +344,12 @@ public class VoxelTerrain : MonoBehaviour {
         }
 
         if (debugGUI) {
-            GUI.Box(new Rect(0, 0, 300, 215), "");
+            GUI.Box(new Rect(0, 0, 300, 230), "");
             Label($"Pending GPU async readback jobs: {VoxelGenerator.pendingVoxelGenerationChunks.Count}");
             Label($"Pending mesh jobs: {VoxelMesher.pendingMeshJobs.Count}");
             Label($"Pending mesh baking jobs: {VoxelCollisions.ongoingBakeJobs.Count}");
             Label($"# of pooled chunk game objects: {pooledChunkGameObjects.Count}");
+            Label($"# of pooled prop segment game objects: {Voxelprops.pooledPropSegments.Count}");
             Label($"# of pooled native voxel arrays: {pooledVoxelChunkContainers.Count}");
 
             int usedVoxelArrays = Chunks.Select(x => x.Value.uniqueVoxelContainer).Count();
@@ -366,7 +357,7 @@ public class VoxelTerrain : MonoBehaviour {
             Label($"# of chunks to make visible: {toMakeVisible.Count}");
             Label($"# of enabled chunks: {Chunks.Select(x => x.Value.gameObject.activeSelf).Count()}");
             Label($"# of chunks to remove: {toRemoveChunk.Count}");
-            //Label($"# of dynamic edits: {VoxelEdits.dynamicEdits.Count}");
+            Label($"# of world edits: {VoxelEdits.worldEditRegistry.TryGetAll<IWorldEdit>().Count}");
             Label($"# of pending voxel edits: {VoxelEdits.tempVoxelEdits.Count}");
             int mul = System.Runtime.InteropServices.Marshal.SizeOf(Voxel.Empty) * VoxelUtils.Volume;
             int bytes = pooledVoxelChunkContainers.Count * mul;

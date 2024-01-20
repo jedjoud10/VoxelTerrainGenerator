@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -10,6 +11,9 @@ using UnityEngine;
 // custom code when the voxel edit must generate on world / voxel edits
 public class VoxelProps : VoxelBehaviour {
     public bool debugGizmos = false;
+
+    [Min(0)]
+    public int maxComputeBufferSize = 1;
 
     // Prop resolution per segment
     [Range(4, 64)]
@@ -31,13 +35,24 @@ public class VoxelProps : VoxelBehaviour {
     private List<(ComputeBuffer, ComputeBuffer)> computeBuffers;
 
     // Dictionary for all the prop segments that are in use by LOds
-    private HashSet<int3> propSegments;
+    private Dictionary<int3, GameObject> propSegments;
+
+    // When we load in a prop segment
+    public delegate void PropSegmentLoaded(int3 position, GameObject segment);
+    public event PropSegmentLoaded onPropSegmentLoaded;
+
+    // When we unload a prop segment
+    public delegate void PropSegmentUnloaded(int3 position, GameObject segment);
+    public event PropSegmentUnloaded onPropSegmentUnloaded;
+
+    // Pooled prop segments that we can reuse
+    internal List<GameObject> pooledPropSegments;
 
     private void OnValidate() {
         if (terrain == null) {
             propSegmentResolution = Mathf.ClosestPowerOfTwo(propSegmentResolution);
             voxelChunksInPropSegment = Mathf.ClosestPowerOfTwo(voxelChunksInPropSegment);
-            VoxelUtils.PropChunkResolution = propSegmentResolution;
+            VoxelUtils.PropSegmentResolution = propSegmentResolution;
             VoxelUtils.ChunksPerPropSegment = voxelChunksInPropSegment;
         }
     }
@@ -50,33 +65,48 @@ public class VoxelProps : VoxelBehaviour {
         var moduloSeed = terrain.VoxelGenerator.moduloSeed;
         propShader.SetInts("permuationSeed", new int[] { permutationSeed.x, permutationSeed.y, permutationSeed.z });
         propShader.SetInts("moduloSeed", new int[] { moduloSeed.x, moduloSeed.y, moduloSeed.z });
+        propShader.SetFloat("propSegmentWorldSize", VoxelUtils.PropSegmentSize);
+        propShader.SetFloat("propSegmentResolution", VoxelUtils.PropSegmentResolution);
     }
-
-    // How to generate props:
-    // 3 different lods, based on camera distance
-    // lod 0: prefabs generated on highest res chunk. needed for player interaction
-    //     needed per high lod chunk
-    // lod 1: indirectly drawn, no prefabs, still uses full mesh
-    //     second lod of the prop chunk stuff
-    // lod 2: billboards!!!! fully indirectly drawn
-    //     everything else? maybe with dist limit   
 
     internal override void Init() {
         UpdateStaticComputeFields();
-        propSegments = new HashSet<int3>();
+        onPropSegmentLoaded += OnPropSegmentLoad;
+        onPropSegmentUnloaded += OnPropSegmentUnload;
+        propSegments = new Dictionary<int3, GameObject>();
+        pooledPropSegments = new List<GameObject>();
         terrain.VoxelOctree.onOctreeChanged += UpdatePropSegments;
         computeBuffers = new List<(ComputeBuffer, ComputeBuffer)>();
 
         for (int i = 0; i < props.Count; i++) {
-            var appendBuffer = new ComputeBuffer(50, Marshal.SizeOf(new BlittableProp()), ComputeBufferType.Append);
+            var appendBuffer = new ComputeBuffer(maxComputeBufferSize, Marshal.SizeOf(new BlittableProp()), ComputeBufferType.Append);
             var countBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
             appendBuffer.SetCounterValue(0);
             computeBuffers.Add((appendBuffer, countBuffer));
         }
     }
 
+    // Fetches a pooled prop segment, or creates a new one from scratch
+    private GameObject FetchPooledPropSegment() {
+        GameObject go;
+
+        if (pooledPropSegments.Count == 0) {
+            GameObject obj = new GameObject("Prop Segment");
+            obj.transform.SetParent(transform, false);
+            go = obj;
+        } else {
+            go = pooledPropSegments[0];
+            pooledPropSegments.RemoveAt(0);
+        }
+
+        go.SetActive(true);
+        return go;
+    }
+
     // Called when the octree changes to update the currently active prop segments
     private void UpdatePropSegments(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed) {
+        Dictionary<int3, GameObject> copy = new Dictionary<int3, GameObject>(propSegments);
+
         foreach (var item in removed) {
             if (item.size == VoxelUtils.PropSegmentSize) {
                 propSegments.Remove((int3)item.position / VoxelUtils.PropSegmentSize);
@@ -85,9 +115,69 @@ public class VoxelProps : VoxelBehaviour {
 
         foreach (var item in added) {
             if (item.size == VoxelUtils.PropSegmentSize) {
-                propSegments.Add((int3)item.position / VoxelUtils.PropSegmentSize);
+                GameObject propSegment = FetchPooledPropSegment();
+                propSegment.transform.position = item.position;
+                propSegments.Add((int3)item.position / VoxelUtils.PropSegmentSize, propSegment);
             }
         }
+
+        // Extremely stupid and naive but eh will fix later
+        // check removed
+        foreach (var item in copy) {
+            if (!propSegments.Contains(item)) {
+                onPropSegmentUnloaded?.Invoke(item.Key, item.Value);
+            }
+        }
+
+        // check added
+        foreach (var item in propSegments) {
+            if (!copy.Contains(item)) {
+                onPropSegmentLoaded?.Invoke(item.Key, item.Value);
+            }
+        }
+    }
+
+    // Called when a new prop segment is loaded
+    private void OnPropSegmentLoad(int3 position, GameObject segment) {
+        Prop propType = props[0];
+        
+        
+        (ComputeBuffer propsBuffer, ComputeBuffer countBuffer) = computeBuffers[0];
+        propsBuffer.SetCounterValue(0);
+        countBuffer.SetData(new int[] { 0 });
+        propShader.SetBuffer(0, "props", propsBuffer);
+        propShader.SetVector("propChunkOffset", segment.transform.position);
+
+
+        int _count = VoxelUtils.PropSegmentResolution / 4;
+        propShader.Dispatch(0, _count, _count, _count);
+
+        ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
+        int[] count = new int[1] { 0 };
+        countBuffer.GetData(count);
+
+        BlittableProp[] generatedProps = new BlittableProp[count[0]];
+        propsBuffer.GetData(generatedProps);
+
+        foreach (var prop in generatedProps) {
+            GameObject propGameObject = Instantiate(propType.prefab);
+            propGameObject.transform.SetParent(segment.transform);
+            float3 test = prop.position_and_scale.xyz;
+            float scale = prop.position_and_scale.w;
+            propGameObject.transform.position = test;
+            propGameObject.transform.localScale = Vector3.one * scale;
+        }
+    }
+
+    // Called when an old prop segment is unloaded
+    private void OnPropSegmentUnload(int3 position, GameObject segment) {
+        segment.SetActive(false);
+
+        for (int i = 0; i < segment.transform.childCount; i++) {
+            Destroy(segment.transform.GetChild(i).gameObject);
+        }
+
+        pooledPropSegments.Add(segment);
     }
 
     private void OnDrawGizmosSelected() {
@@ -95,7 +185,8 @@ public class VoxelProps : VoxelBehaviour {
             int size = VoxelUtils.PropSegmentSize;
             Gizmos.color = Color.green;
             foreach (var item in propSegments) {
-                Vector3 center = new Vector3(item.x, item.y, item.z) * size + Vector3.one * size / 2.0f;
+                var key = item.Key;
+                Vector3 center = new Vector3(key.x, key.y, key.z) * size + Vector3.one * size / 2.0f;
                 Gizmos.DrawWireCube(center, Vector3.one * size);
             }
         }

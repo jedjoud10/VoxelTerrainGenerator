@@ -1,6 +1,8 @@
 #pragma kernel CSPropenator
 
-float3 chunkOffset;
+float propSegmentWorldSize;
+float propSegmentResolution;
+float3 propChunkOffset;
 float3 worldOffset;
 float3 worldScale;
 
@@ -34,5 +36,22 @@ AppendStructuredBuffer<BlittableProp> props;
 [numthreads(4, 4, 4)]
 void CSPropenator(uint3 id : SV_DispatchThreadID)
 {
-	//props.Append(0);
+	// Calculate the main world position
+	float3 position = float3(id.xzy);
+	//position -= 1.0;
+	//position *= voxelSize;
+
+	// Chunk offsets + vertex scaling
+	//position *= vertexScaling;
+	position *= propSegmentWorldSize / propSegmentResolution;
+	position += propChunkOffset;
+	
+	// World offset and scale
+	position = (position * worldScale) + worldOffset;
+
+	if (position.y > -10.0 && position.y < 10) {
+		BlittableProp prop;
+		prop.position_and_scale = float4(position, 10.0);
+		props.Append(prop);
+	}
 }
