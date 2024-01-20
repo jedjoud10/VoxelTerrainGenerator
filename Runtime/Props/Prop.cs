@@ -8,9 +8,5 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "VoxelTerrain/New Voxel prop")]
 public class Prop : ScriptableObject {
     public GameObject prefab;
-    public Vector3 basePosition;
-    public Vector3 maxRandomPosition;
-
-    public float baseScale = 1.0f;
-    public float maxRandomScale;
+    public Mesh instancedMesh;
 }

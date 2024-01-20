@@ -1,0 +1,13 @@
+#pragma kernel CSVoxelizer
+
+#include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Voxelizer/VoxelGeneratorStart.cginc"
+
+Voxel GetVoxelAt(float3 position) {
+	Voxel voxel;
+	float mask = saturate(sdSphere(position, 300) * 0.01);
+	voxel.density = position.y - lerp(0, 0, 1 - mask);
+	voxel.material = 0;
+	return voxel;
+}
+
+#include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Voxelizer/VoxelGeneratorEnd.cginc"

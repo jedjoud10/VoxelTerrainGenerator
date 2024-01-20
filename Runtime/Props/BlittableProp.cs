@@ -7,4 +7,5 @@ using UnityEngine;
 // World pos, worl rot, world scale
 public struct BlittableProp {
     public float4 position_and_scale;
+    public float4 euler_angles_padding;
 }

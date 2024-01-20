@@ -344,7 +344,7 @@ public class VoxelTerrain : MonoBehaviour {
         }
 
         if (debugGUI) {
-            GUI.Box(new Rect(0, 0, 300, 230), "");
+            GUI.Box(new Rect(0, 0, 300, 245), "");
             Label($"Pending GPU async readback jobs: {VoxelGenerator.pendingVoxelGenerationChunks.Count}");
             Label($"Pending mesh jobs: {VoxelMesher.pendingMeshJobs.Count}");
             Label($"Pending mesh baking jobs: {VoxelCollisions.ongoingBakeJobs.Count}");
@@ -352,10 +352,11 @@ public class VoxelTerrain : MonoBehaviour {
             Label($"# of pooled prop segment game objects: {Voxelprops.pooledPropSegments.Count}");
             Label($"# of pooled native voxel arrays: {pooledVoxelChunkContainers.Count}");
 
-            int usedVoxelArrays = Chunks.Select(x => x.Value.uniqueVoxelContainer).Count();
+            int usedVoxelArrays = Chunks.Where(x => x.Value.uniqueVoxelContainer).Count();
             Label($"# of used native voxel arrays: {usedVoxelArrays}");
             Label($"# of chunks to make visible: {toMakeVisible.Count}");
-            Label($"# of enabled chunks: {Chunks.Select(x => x.Value.gameObject.activeSelf).Count()}");
+            Label($"# of enabled chunks: {Chunks.Where(x => x.Value.gameObject.activeSelf).Count()}");
+            Label($"# of enabled and meshed chunks: {Chunks.Where(x => (x.Value.gameObject.activeSelf && x.Value.sharedMesh.subMeshCount > 0)).Count()}");
             Label($"# of chunks to remove: {toRemoveChunk.Count}");
             Label($"# of world edits: {VoxelEdits.worldEditRegistry.TryGetAll<IWorldEdit>().Count}");
             Label($"# of pending voxel edits: {VoxelEdits.tempVoxelEdits.Count}");

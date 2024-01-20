@@ -17,11 +17,11 @@ public class VoxelProps : VoxelBehaviour {
     // Prop resolution per segment
     [Range(4, 64)]
     public int propSegmentResolution = 32;
-    
+
     // How many voxel chunks fit in a prop segment
     [Range(8, 64)]
     public int voxelChunksInPropSegment = 8;
-    
+
     // List of props that we will generated based on their index
     [SerializeField]
     public List<Prop> props;
@@ -141,12 +141,6 @@ public class VoxelProps : VoxelBehaviour {
     // Called when a new prop segment is loaded
     private void OnPropSegmentLoad(int3 position, GameObject segment) {
         foreach (var propType in props) {
-            propShader.SetVector("basePosition", propType.basePosition);
-            propShader.SetVector("maxRandomPosition", propType.maxRandomPosition);
-            propShader.SetFloat("baseScale", propType.baseScale);
-            propShader.SetFloat("maxRandomScale", propType.maxRandomScale);
-
-
             (ComputeBuffer propsBuffer, ComputeBuffer countBuffer) = computeBuffers[0];
             propsBuffer.SetCounterValue(0);
             countBuffer.SetData(new int[] { 0 });
@@ -164,15 +158,22 @@ public class VoxelProps : VoxelBehaviour {
             BlittableProp[] generatedProps = new BlittableProp[count[0]];
             propsBuffer.GetData(generatedProps);
 
+            /*
+            RenderParams r = new RenderParams();
+            Graphics.RenderMeshInstanced(r, test, 0, generatedProps);
+            */
+
             foreach (var prop in generatedProps) {
                 GameObject propGameObject = Instantiate(propType.prefab);
                 propGameObject.transform.SetParent(segment.transform);
-                float3 test = prop.position_and_scale.xyz;
-                float scale = prop.position_and_scale.w;
-                propGameObject.transform.position = test;
-                propGameObject.transform.localScale = Vector3.one * scale;
+                float3 propPosition = prop.position_and_scale.xyz;
+                float3 propRotation = prop.euler_angles_padding.xyz;
+                float propScale = prop.position_and_scale.w;
+                propGameObject.transform.position = propPosition;
+                propGameObject.transform.localScale = Vector3.one * propScale;
+                propGameObject.transform.eulerAngles = propRotation;
             }
-        }        
+        }
     }
 
     // Called when an old prop segment is unloaded
