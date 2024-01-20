@@ -50,7 +50,7 @@ float voronoise( in float2 p, float u, float v )
     for( int x=-2; x<=2; x++ )
     {
         float2  g = float2( x, y );
-		float3  o = hash3( i + g )*float3(u,u,1.0);
+		float3  o = hash32( i + g )*float3(u,u,1.0);
 		float2  d = g - f + o.xy;
 		float w = pow( 1.0-smoothstep(0.0,1.414,length(d)), k );
 		a += float2(o.z*w,w);

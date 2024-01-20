@@ -28,107 +28,141 @@ float3 mod7(float3 x) {
     return x - floor(x * (1.0 / 7.0)) * 7.0;
 }
 
-float2 hash(in float2 x)
-{
+float2 hash(in float2 x) {
     const float2 k = float2(0.3183099, 0.3678794);
     x = x * k + k.yx;
     return -1.0 + 2.0 * frac(16.0 * k * frac(x.x * x.y * (x.x + x.y)));
 }
 
-float3 hash3( float2 p )
-{
-    float3 q = float3( dot(p,float2(127.1,311.7)), 
-				   dot(p,float2(269.5,183.3)), 
-				   dot(p,float2(419.2,371.9)) );
-	return frac(sin(q)*43758.5453);
-}
-
-/*
-original_author: Patricio Gonzalez Vivo
-description: pass a value and get some random normalize value between 0 and 1
-use: float random[2|3](<float|float2|float3> value)
-examples:
-    - /shaders/generative_random.frag
-*/
-
-float random(float x) {
-  return frac(sin(x) * 43758.5453);
-}
-
-float random(float2 st) {
-  return frac(sin(dot(st.xy, float2(12.9898, 78.233))) * 43758.5453);
-}
-
-float random(float3 pos) {
-  return frac(sin(dot(pos.xyz, float3(70.9898, 78.233, 32.4355))) * 43758.5453123);
-}
-
-float random(float4 pos) {
-    float dot_product = dot(pos, float4(12.9898,78.233,45.164,94.673));
-    return frac(sin(dot_product) * 43758.5453);
-}
-
 // Hash function from https://www.shadertoy.com/view/4djSRW
-float3 RANDOM_SCALE3 = float3(0.1031, 0.1030, 0.0973);
-
-float4 RANDOM_SCALE4 = float4(1031, 0.1030, 0.0973, 0.1099);
-
-float2 random2(float p) {
-    float3 p3 = frac(float3(p, p, p) * RANDOM_SCALE3);
-    p3 += dot(p3, p3.yzx + 19.19);
-    return frac((p3.xx+p3.yz)*p3.zy);
+//----------------------------------------------------------------------------------------
+//  1 out, 1 in...
+float hash11(float p)
+{
+    p = frac(p * .1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return frac(p);
 }
 
-float2 random2(float2 p) {
-    float3 p3 = frac(p.xyx * RANDOM_SCALE3);
-    p3 += dot(p3, p3.yzx + 19.19);
-    return frac((p3.xx+p3.yz)*p3.zy);
+//----------------------------------------------------------------------------------------
+//  1 out, 2 in...
+float hash12(float2 p)
+{
+    float3 p3 = frac(float3(p.xyx) * .1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return frac((p3.x + p3.y) * p3.z);
 }
 
-float2 random2(float3 p3) {
-    p3 = frac(p3 * RANDOM_SCALE3);
-    p3 += dot(p3, p3.yzx+19.19);
-    return frac((p3.xx+p3.yz)*p3.zy);
+//----------------------------------------------------------------------------------------
+//  1 out, 3 in...
+float hash13(float3 p3)
+{
+    p3 = frac(p3 * .1031);
+    p3 += dot(p3, p3.zyx + 31.32);
+    return frac((p3.x + p3.y) * p3.z);
+}
+//----------------------------------------------------------------------------------------
+// 1 out 4 in...
+float hash14(float4 p4)
+{
+    p4 = frac(p4 * float4(.1031, .1030, .0973, .1099));
+    p4 += dot(p4, p4.wzxy + 33.33);
+    return frac((p4.x + p4.y) * (p4.z + p4.w));
 }
 
-float3 random3(float p) {
-    float3 p3 = frac(float3(p, p, p) * RANDOM_SCALE3);
-    p3 += dot(p3, p3.yzx+19.19);
-    return frac((p3.xxy+p3.yzz)*p3.zyx); 
+//----------------------------------------------------------------------------------------
+//  2 out, 1 in...
+float2 hash21(float p)
+{
+    float3 p3 = frac(float3(p, p, p) * float3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yzx + float3(33.33, 33.33, 33.33));
+    return frac((p3.xx + p3.yz) * p3.zy);
+
 }
 
-float3 random3(float2 p) {
-    float3 p3 = frac(float3(p.xyx) * RANDOM_SCALE3);
-    p3 += dot(p3, p3.yxz+19.19);
-    return frac((p3.xxy+p3.yzz)*p3.zyx);
+//----------------------------------------------------------------------------------------
+///  2 out, 2 in...
+float2 hash22(float2 p)
+{
+    float3 p3 = frac(float3(p.xyx) * float3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return frac((p3.xx + p3.yz) * p3.zy);
+
 }
 
-float3 random3(float3 p) {
-    p = frac(p * RANDOM_SCALE3);
-    p += dot(p, p.yxz+19.19);
-    return frac((p.xxy + p.yzz)*p.zyx);
+//----------------------------------------------------------------------------------------
+///  2 out, 3 in...
+float2 hash23(float3 p3)
+{
+    p3 = frac(p3 * float3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return frac((p3.xx + p3.yz) * p3.zy);
 }
 
-float4 random4(float p) {
-    float4 p4 = frac(float4(p, p, p, p) * RANDOM_SCALE4);
-    p4 += dot(p4, p4.wzxy+19.19);
-    return frac((p4.xxyz+p4.yzzw)*p4.zywx);   
+//----------------------------------------------------------------------------------------
+//  3 out, 1 in...
+float3 hash31(float p)
+{
+    float3 p3 = frac(float3(p, p, p) * float3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return frac((p3.xxy + p3.yzz) * p3.zyx);
 }
 
-float4 random4(float2 p) {
-    float4 p4 = frac(float4(p.xyxy) * RANDOM_SCALE4);
-    p4 += dot(p4, p4.wzxy+19.19);
-    return frac((p4.xxyz+p4.yzzw)*p4.zywx);
+
+//----------------------------------------------------------------------------------------
+///  3 out, 2 in...
+float3 hash32(float2 p)
+{
+    float3 p3 = frac(float3(p.xyx) * float3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz + 33.33);
+    return frac((p3.xxy + p3.yzz) * p3.zyx);
 }
 
-float4 random4(float3 p) {
-    float4 p4 = frac(float4(p.xyzx)  * RANDOM_SCALE4);
-    p4 += dot(p4, p4.wzxy+19.19);
-    return frac((p4.xxyz+p4.yzzw)*p4.zywx);
+//----------------------------------------------------------------------------------------
+///  3 out, 3 in...
+float3 hash33(float3 p3)
+{
+    p3 = frac(p3 * float3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz + 33.33);
+    return frac((p3.xxy + p3.yxx) * p3.zyx);
+
 }
 
-float4 random4(float4 p4) {
-    p4 = frac(p4  * RANDOM_SCALE4);
-    p4 += dot(p4, p4.wzxy+19.19);
-    return frac((p4.xxyz+p4.yzzw)*p4.zywx);
+//----------------------------------------------------------------------------------------
+// 4 out, 1 in...
+float4 hash41(float p)
+{
+    float4 p4 = frac(float4(p, p, p, p) * float4(.1031, .1030, .0973, .1099));
+    p4 += dot(p4, p4.wzxy + 33.33);
+    return frac((p4.xxyz + p4.yzzw) * p4.zywx);
+
+}
+
+//----------------------------------------------------------------------------------------
+// 4 out, 2 in...
+float4 hash42(float2 p)
+{
+    float4 p4 = frac(float4(p.xyxy) * float4(.1031, .1030, .0973, .1099));
+    p4 += dot(p4, p4.wzxy + 33.33);
+    return frac((p4.xxyz + p4.yzzw) * p4.zywx);
+
+}
+
+//----------------------------------------------------------------------------------------
+// 4 out, 3 in...
+float4 hash43(float3 p)
+{
+    float4 p4 = frac(float4(p.xyzx) * float4(.1031, .1030, .0973, .1099));
+    p4 += dot(p4, p4.wzxy + 33.33);
+    return frac((p4.xxyz + p4.yzzw) * p4.zywx);
+}
+
+//----------------------------------------------------------------------------------------
+// 4 out, 4 in...
+float4 hash44(float4 p4)
+{
+    p4 = frac(p4 * float4(.1031, .1030, .0973, .1099));
+    p4 += dot(p4, p4.wzxy + 33.33);
+    return frac((p4.xxyz + p4.yzzw) * p4.zywx);
 }

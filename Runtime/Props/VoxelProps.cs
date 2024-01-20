@@ -3,7 +3,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Mathematics;
-using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEngine;
 
 // Responsible for generating the voxel props on the terrain
@@ -70,6 +69,8 @@ public class VoxelProps : VoxelBehaviour {
     }
 
     internal override void Init() {
+        VoxelUtils.PropSegmentResolution = propSegmentResolution;
+        VoxelUtils.ChunksPerPropSegment = voxelChunksInPropSegment;
         UpdateStaticComputeFields();
         onPropSegmentLoaded += OnPropSegmentLoad;
         onPropSegmentUnloaded += OnPropSegmentUnload;
@@ -139,34 +140,39 @@ public class VoxelProps : VoxelBehaviour {
 
     // Called when a new prop segment is loaded
     private void OnPropSegmentLoad(int3 position, GameObject segment) {
-        Prop propType = props[0];
-        
-        
-        (ComputeBuffer propsBuffer, ComputeBuffer countBuffer) = computeBuffers[0];
-        propsBuffer.SetCounterValue(0);
-        countBuffer.SetData(new int[] { 0 });
-        propShader.SetBuffer(0, "props", propsBuffer);
-        propShader.SetVector("propChunkOffset", segment.transform.position);
+        foreach (var propType in props) {
+            propShader.SetVector("basePosition", propType.basePosition);
+            propShader.SetVector("maxRandomPosition", propType.maxRandomPosition);
+            propShader.SetFloat("baseScale", propType.baseScale);
+            propShader.SetFloat("maxRandomScale", propType.maxRandomScale);
 
 
-        int _count = VoxelUtils.PropSegmentResolution / 4;
-        propShader.Dispatch(0, _count, _count, _count);
+            (ComputeBuffer propsBuffer, ComputeBuffer countBuffer) = computeBuffers[0];
+            propsBuffer.SetCounterValue(0);
+            countBuffer.SetData(new int[] { 0 });
+            propShader.SetBuffer(0, "props", propsBuffer);
+            propShader.SetVector("propChunkOffset", segment.transform.position);
 
-        ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
-        int[] count = new int[1] { 0 };
-        countBuffer.GetData(count);
 
-        BlittableProp[] generatedProps = new BlittableProp[count[0]];
-        propsBuffer.GetData(generatedProps);
+            int _count = VoxelUtils.PropSegmentResolution / 4;
+            propShader.Dispatch(0, _count, _count, _count);
 
-        foreach (var prop in generatedProps) {
-            GameObject propGameObject = Instantiate(propType.prefab);
-            propGameObject.transform.SetParent(segment.transform);
-            float3 test = prop.position_and_scale.xyz;
-            float scale = prop.position_and_scale.w;
-            propGameObject.transform.position = test;
-            propGameObject.transform.localScale = Vector3.one * scale;
-        }
+            ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
+            int[] count = new int[1] { 0 };
+            countBuffer.GetData(count);
+
+            BlittableProp[] generatedProps = new BlittableProp[count[0]];
+            propsBuffer.GetData(generatedProps);
+
+            foreach (var prop in generatedProps) {
+                GameObject propGameObject = Instantiate(propType.prefab);
+                propGameObject.transform.SetParent(segment.transform);
+                float3 test = prop.position_and_scale.xyz;
+                float scale = prop.position_and_scale.w;
+                propGameObject.transform.position = test;
+                propGameObject.transform.localScale = Vector3.one * scale;
+            }
+        }        
     }
 
     // Called when an old prop segment is unloaded

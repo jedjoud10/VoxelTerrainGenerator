@@ -60,7 +60,7 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 
 	// Density and material
 	float biome = fbmCellular(position.xz * 0.003, 6, 0.32, 2.60).y * 150 - 20;
-	float mask = saturate(sdSphere(position, 100) * 0.01);
+	float mask = saturate(sdSphere(position, 300) * 0.01);
 	float density = position.y - lerp(biome, 0, 1-mask);
 	uint packedMaterial = 0;
 
