@@ -23,7 +23,8 @@ Material:
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs: []
-    m_Ints: []
+    m_Ints:
+    - _RenderAlbedo: 0
     m_Floats: []
     m_Colors: []
   m_BuildTextureStacks: []

@@ -8,12 +8,12 @@ ModelImporter:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: LogMat
-    second: {fileID: 2100000, guid: 237ae455d6f32524e8336ea42c40d2c9, type: 2}
+    second: {fileID: 2100000, guid: 466c25623343bb04eb8c6e97d1f198bd, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: PineMat
-    second: {fileID: 2100000, guid: 237ae455d6f32524e8336ea42c40d2c9, type: 2}
+    second: {fileID: 2100000, guid: f3c32e94e039f554e93780039b92c785, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

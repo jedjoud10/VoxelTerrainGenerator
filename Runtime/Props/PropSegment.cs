@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering.HighDefinition;
 
 // A prop segment that either contains gameobject props or indirectly drawn props
 public class PropSegment : MonoBehaviour {
@@ -52,7 +53,7 @@ public class PropSegment : MonoBehaviour {
                     renderParams.matProps.SetVector("_BoundsOffset", renderParams.worldBounds.center);
                     renderParams.matProps.SetTexture("_Albedo", prop.Item3.albedoTexture);
                     renderParams.matProps.SetTexture("_Normal_Map", prop.Item3.normalTexture);
-
+                    
                     Mesh mesh = VoxelTerrain.Instance.VoxelProps.quadBillboard;
                     Graphics.RenderMeshPrimitives(renderParams, mesh, 0, prop.Item1);
                 }

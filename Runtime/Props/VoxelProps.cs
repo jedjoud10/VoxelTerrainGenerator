@@ -33,8 +33,10 @@ public class VoxelProps : VoxelBehaviour {
     public List<Prop> props;
 
     public GameObject propCaptureCameraPrefab;
+    public Material propCaptureFullscreenMaterial;
     public Mesh quadBillboard;
     public Shader billboardMaterialShaderBase;
+    public Material test;
 
     // Generated billboard props
     private List<BillboardProp> billboardedProps;
@@ -129,13 +131,19 @@ public class VoxelProps : VoxelBehaviour {
         faker.transform.position = prop.billboardCapturePosition;
         faker.transform.eulerAngles = prop.billboardCaptureRotation;
 
-        // Render the camera and render to the albedo and normal textures
+        // Render the albedo map only of the prefab
+        propCaptureFullscreenMaterial.SetInteger("_RenderAlbedo", 1);
         camera.Render();
         Graphics.CopyTexture(temp, albedoTextureOut);
+
+        // Render the normal map only of the prefab
+        propCaptureFullscreenMaterial.SetInteger("_RenderAlbedo", 0);
+        camera.Render();
         Graphics.CopyTexture(temp, normalTextureOut);
 
         // Create a material that uses these values by default
-        Material mat = new Material(billboardMaterialShaderBase);
+        Material mat = new Material(test);
+
         mat.SetTexture("_Albedo", temp);
         mat.SetTexture("_Normal_Map", normalTextureOut);
         mat.SetFloat("_Alpha_Clip_Threshold", prop.billboardAlphaClipThreshold);
@@ -143,10 +151,6 @@ public class VoxelProps : VoxelBehaviour {
         mat.SetVector("_BillboardOffset", prop.billboardOffset);
         mat.SetInt("_RECEIVE_SHADOWS_OFF", prop.billboardCastShadows ? 0 : 1);
         mat.SetInt("_Lock_Rotation_Y", prop.billboardRestrictRotationY ? 1 : 0);
-
-        HDMaterial.SetAlphaClipping(mat, true);
-        HDMaterial.SetAlphaCutoff(mat, prop.billboardAlphaClipThreshold);
-        HDMaterial.ValidateMaterial(mat);
         Destroy(faker);
 
         return new BillboardProp {

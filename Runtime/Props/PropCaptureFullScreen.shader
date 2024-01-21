@@ -1,5 +1,11 @@
 Shader "FullScreen/NewFullScreenCustomPass"
 {
+    Properties
+    {
+        _RenderAlbedo("Render Albedo", Integer) = 0
+    }
+
+
     HLSLINCLUDE
 
     #pragma vertex Vert
@@ -35,21 +41,30 @@ Shader "FullScreen/NewFullScreenCustomPass"
     // There are also a lot of utility function you can use inside Common.hlsl and Color.hlsl,
     // you can check them out in the source code of the core SRP package.
 
+    int _RenderAlbedo;
+
     float4 FullScreenPass(Varyings varyings) : SV_Target
     {
         UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(varyings);
         float depth = LoadCameraDepth(varyings.positionCS.xy);
         PositionInputs posInput = GetPositionInput(varyings.positionCS.xy, _ScreenSize.zw, depth, UNITY_MATRIX_I_VP, UNITY_MATRIX_V);
         
-        NormalData normalData;
-        DecodeFromNormalBuffer(posInput.positionSS.xy, normalData);
-        float4 color = float4(0, 0, 0, 0);
-        //color = ;
-        color = float4(normalData.normalWS.xyz, 0.0);
-        float t = LOAD_TEXTURE2D_X(_GBufferTexture0, posInput.positionSS).a;
+        float3 color = float3(0, 0, 0);
+
+        if (_RenderAlbedo == 1) {
+            color = LOAD_TEXTURE2D_X(_GBufferTexture0, posInput.positionSS).rgb;
+        }
+        else {
+            NormalData normalData;
+            DecodeFromNormalBuffer(posInput.positionSS.xy, normalData);
+            color = normalData.normalWS.xyz;
+            color = (color + 1) / 2.0;
+        }
+        
+        float alpha = LOAD_TEXTURE2D_X(_GBufferTexture0, posInput.positionSS).a;
         //color += LOAD_TEXTURE2D_X(_GBufferTexture2, posInput.positionSS) - 0.5;
 
-        return float4((color.xyz + 1) / 2.0, t);
+        return float4(color, alpha);
     }
 
     ENDHLSL
