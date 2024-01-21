@@ -4,16 +4,16 @@
 // Called for each voxel inside the prop segment to check if we should spawn a prop
 // This will select the appropriate density prop and it will spawn it / render it
 void CheckSpawnProps(float3 position) {
-	float mask = saturate(sdSphere(position, 300) * 0.01);
-	if (position.y > -2.0 && position.y < 2 && mask < 0.2) {
+	float mask = saturate(sdSphere(position, 60) * 0.01);
+	if (position.y > -2.0 && position.y < 2 && mask > 0.2 && snoise(position * 0.002) < hash13(position) * 0.2) {
 		BlittableProp prop;
 
 		float3 randomOffset = (2 * hash33(position) - 1) * float3(10, 0, 10);
-		float randomScaleOffset = (2 * hash33(position) - 1) * 2;
+		float randomScaleOffset = (2 * hash33(position) - 1) * 1;
 		float3 randomRotation = (2 * hash33(position) - 1) * 180;
 
-		prop.position_and_scale = float4(position + randomOffset, 4.0 + randomScaleOffset);
-		prop.euler_angles_padding = float4(randomRotation, 0);
+		prop.position_and_scale = float4(position + randomOffset, 3.0 + randomScaleOffset);
+		prop.euler_angles_padding = float4(0, 0, 0, 0);
 		props.Append(prop);
 	}
 }

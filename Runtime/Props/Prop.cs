@@ -7,9 +7,10 @@ using UnityEngine;
 // At further away distances the voxel prop will be swapped out either for a billboard or an indirectly drawn mesh
 [CreateAssetMenu(menuName = "VoxelTerrain/New Voxel prop")]
 public class Prop : ScriptableObject {
+    // Used for LOD0 prop segments; prefabs spawned in the world
     public GameObject prefab;
+
+    // Used for LOD1 prop segments; instanced indirect mesh rendering
     public Mesh instancedMesh;
-    public Mesh instancedBillboardMesh;
-    public Texture2D instancedBillboardAlbedo;
-    public Texture2D instancedBillboardNormals;
+    public Material instancedMeshMaterial;
 }

@@ -83,13 +83,6 @@ public class VoxelProps : VoxelBehaviour {
         pooledPropSegments = new List<GameObject>();
         terrain.VoxelOctree.onOctreeChanged += UpdatePropSegments;
         computeBuffers = new List<(ComputeBuffer, ComputeBuffer)>();
-
-        for (int i = 0; i < props.Count; i++) {
-            var appendBuffer = new ComputeBuffer(maxComputeBufferSize, Marshal.SizeOf(new BlittableProp()), ComputeBufferType.Append);
-            var countBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
-            appendBuffer.SetCounterValue(0);
-            computeBuffers.Add((appendBuffer, countBuffer));
-        }
     }
 
     // Fetches a pooled prop segment, or creates a new one from scratch
@@ -148,32 +141,45 @@ public class VoxelProps : VoxelBehaviour {
     // If the segment is LOD1, render the props as instanced indirect
     // If the segment is LOD2, render the props as billboarded instanced indirect
     private void OnPropSegmentLoad(int3 position, PropSegment segment) {
+        segment.gameObject.SetActive(true);
+        
+        int minLod = 2;
+        Vector3 center = segment.transform.position + Vector3.one * VoxelUtils.PropSegmentSize / 2.0f;
+
+        foreach (var target in targets) {
+            float distance = Vector3.Distance(target.transform.position, center);
+            int lod = 2;
+
+            if (distance < target.propSegmentPrefabSpawnerMaxDistance) {
+                lod = 0;
+            } else if (distance < target.propSegmentInstancedRendererLodMaxDistance) {
+                lod = 1;
+            }
+
+            minLod = Mathf.Min(lod, minLod);
+        }
+        segment.lod = minLod;
+
+        if (segment.lod == 1) {
+            segment.instancedIndirectProps = new List<(int, ComputeBuffer, Prop)>();
+        }
+
         foreach (var propType in props) {
-            (ComputeBuffer propsBuffer, ComputeBuffer countBuffer) = computeBuffers[0];
+            var propsBuffer = new ComputeBuffer(maxComputeBufferSize, Marshal.SizeOf(new BlittableProp()), ComputeBufferType.Append);
+            var countBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
+            propsBuffer.SetCounterValue(0);
+
             propsBuffer.SetCounterValue(0);
             countBuffer.SetData(new int[] { 0 });
             propShader.SetBuffer(0, "props", propsBuffer);
             propShader.SetVector("propChunkOffset", segment.transform.position);
-
             int _count = VoxelUtils.PropSegmentResolution / 4;
             propShader.Dispatch(0, _count, _count, _count);
 
-            ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
-            int[] count = new int[1] { 0 };
-            countBuffer.GetData(count);
-
-            BlittableProp[] generatedProps = new BlittableProp[count[0]];
-            propsBuffer.GetData(generatedProps);
-
-            foreach (var prop in generatedProps) {
-                GameObject propGameObject = Instantiate(propType.prefab);
-                propGameObject.transform.SetParent(segment.transform);
-                float3 propPosition = prop.position_and_scale.xyz;
-                float3 propRotation = prop.euler_angles_padding.xyz;
-                float propScale = prop.position_and_scale.w;
-                propGameObject.transform.position = propPosition;
-                propGameObject.transform.localScale = Vector3.one * propScale;
-                propGameObject.transform.eulerAngles = propRotation;
+            if (segment.lod == 0) {
+                SpawnPropPrefabs(segment, propType, propsBuffer, countBuffer);
+            } else if (segment.lod == 1) {
+                SetPropInstancedIndirect(segment, propType, propsBuffer, countBuffer);
             }
         }
     }
@@ -181,12 +187,73 @@ public class VoxelProps : VoxelBehaviour {
     // Called when an old prop segment is unloaded
     private void OnPropSegmentUnload(int3 position, PropSegment segment) {
         segment.gameObject.SetActive(false);
+        segment.instancedIndirectProps = null;
 
         for (int i = 0; i < segment.transform.childCount; i++) {
             Destroy(segment.transform.GetChild(i).gameObject);
         }
 
         pooledPropSegments.Add(segment.gameObject);
+    }
+
+
+    private void SpawnPropPrefabs(PropSegment segment, Prop propType, ComputeBuffer propsBuffer, ComputeBuffer countBuffer) {
+        ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
+        int[] count = new int[1] { 0 };
+        countBuffer.GetData(count);
+
+        BlittableProp[] generatedProps = new BlittableProp[count[0]];
+        propsBuffer.GetData(generatedProps);
+        foreach (var prop in generatedProps) {
+            GameObject propGameObject = Instantiate(propType.prefab);
+            propGameObject.transform.SetParent(segment.transform);
+            float3 propPosition = prop.position_and_scale.xyz;
+            float3 propRotation = prop.euler_angles_padding.xyz;
+            float propScale = prop.position_and_scale.w;
+            propGameObject.transform.position = propPosition;
+            propGameObject.transform.localScale = Vector3.one * propScale;
+            propGameObject.transform.eulerAngles = propRotation;
+        }
+
+        if (count[0] == 0) {
+            segment.gameObject.SetActive(false);
+        }
+    }
+
+    private void SetPropInstancedIndirect(PropSegment segment, Prop propType, ComputeBuffer propsBuffer, ComputeBuffer countBuffer) {
+        ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
+        int[] count = new int[1] { 0 };
+        countBuffer.GetData(count);
+        segment.instancedIndirectProps.Add((count[0], propsBuffer, propType));
+
+        if (count[0] == 0) {
+            segment.gameObject.SetActive(false);
+        }
+    }
+
+
+    // Will be responsible for rendering the instanced meshes and billboarded mesh
+    // Also will update the LOD of prop segments based on terrain loaders around in the world
+    void Update() {
+        // mmm yeas I love frying my poor 3750h
+        foreach (var segment in propSegments) {
+            int minLod = 2;
+            Vector3 center = segment.Value.transform.position + Vector3.one * VoxelUtils.PropSegmentSize / 2.0f;
+
+            foreach (var target in targets) {
+                float distance = Vector3.Distance(target.transform.position, center);
+                int lod = 2;
+
+                if (distance < target.propSegmentPrefabSpawnerMaxDistance) {
+                    lod = 0;
+                } else if (distance < target.propSegmentInstancedRendererLodMaxDistance) {
+                    lod = 1;
+                }
+
+                minLod = Mathf.Min(lod, minLod);
+            }
+            segment.Value.lod = minLod;
+        }    
     }
 
     private void OnDrawGizmosSelected() {
@@ -213,30 +280,6 @@ public class VoxelProps : VoxelBehaviour {
                 Gizmos.DrawWireCube(center, Vector3.one * size);
             }
         }
-    }
-
-    // Will be responsible for rendering the instanced meshes and billboarded mesh
-    // Also will update the LOD of prop segments based on terrain loaders around in the world
-    void Update() {
-        // mmm yeas I love frying my poor 3750h
-        foreach (var segment in propSegments) {
-            int minLod = 2;
-            Vector3 center = segment.Value.transform.position + Vector3.one * VoxelUtils.PropSegmentSize / 2.0f;
-
-            foreach (var target in targets) {
-                float distance = Vector3.Distance(target.transform.position, center);
-                int lod = 2;
-
-                if (distance < target.propSegmentPrefabSpawnerMaxDistance) {
-                    lod = 0;
-                } else if (distance < target.propSegmentInstancedRendererLodMaxDistance) {
-                    lod = 1;
-                }
-
-                minLod = Mathf.Min(lod, minLod);
-            }
-            segment.Value.lod = minLod;
-        }    
     }
 
     internal override void Dispose() {
