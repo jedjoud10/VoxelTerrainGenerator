@@ -4,8 +4,8 @@
 
 Voxel GetVoxelAt(float3 position) {
 	Voxel voxel;
-	float mask = saturate(sdSphere(position, 50) * 0.01);
-	voxel.density = position.y - lerp(0, 0, 1 - mask);
+	float mask = saturate(sdSphere(position, 50) * 0.1);
+	voxel.density = position.y + lerp(snoise(position.xz * 0.004) * 30, 0, 1 - mask);
 	voxel.material = 0;
 	return voxel;
 }

@@ -13,4 +13,15 @@ public class Prop : ScriptableObject {
     // Used for LOD1 prop segments; instanced indirect mesh rendering
     public Mesh instancedMesh;
     public Material instancedMeshMaterial;
+
+    // Settings related to how we will generate the billboards
+    public int billboardtextureWidth = 1024;
+    public int billboardTextureHeight = 1024;
+    public Vector3 billboardCaptureRotation = Vector3.zero;
+    public Vector3 billboardCapturePosition = new Vector3(10, 0, 0);
+
+    // Settings related to how we will render the billboards
+    public Vector2 billboardSize = Vector2.one * 10;
+    public bool billboardRestrictRotationY = false;
+    public bool billboardCastShadows = false;
 }

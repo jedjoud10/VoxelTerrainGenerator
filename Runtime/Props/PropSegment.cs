@@ -15,7 +15,7 @@ public class PropSegment : MonoBehaviour {
 
     // Render the indirect props or billboards if necessary
     public void Update() {
-        if (instancedIndirectProps != null) {
+        if (instancedIndirectProps != null && VoxelTerrain.Instance.VoxelProps.renderInstancedMeshes) {
             foreach (var prop in instancedIndirectProps) {
                 RenderParams renderParams = new RenderParams(prop.Item3.instancedMeshMaterial);
                 renderParams.worldBounds = new Bounds {

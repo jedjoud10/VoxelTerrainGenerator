@@ -10,6 +10,7 @@ using UnityEngine;
 // custom code when the voxel edit must generate on world / voxel edits
 public class VoxelProps : VoxelBehaviour {
     public bool debugGizmos = false;
+    public bool renderInstancedMeshes = true;
 
     [Min(0)]
     public int maxComputeBufferSize = 1;

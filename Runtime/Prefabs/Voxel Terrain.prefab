@@ -51,8 +51,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   resolution: 64
-  debugGUI: 0
-  voxelSizeReduction: 1
+  debugGUI: 1
+  voxelSizeReduction: 0
   chunkPrefab: {fileID: 6177338312385691531, guid: 4d388002189c96345901f85821f1a600,
     type: 3}
 --- !u!114 &7193759343885691420
@@ -67,8 +67,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e787133040bb3d45acfc35df2b68f88, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxDepth: 7
+  maxDepth: 5
   debugGizmos: 0
+  mustUpdate: 0
 --- !u!114 &7158265105977027013
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -84,12 +85,12 @@ MonoBehaviour:
   worldOffset: {x: 0, y: 0, z: 0}
   worldScale: {x: 1, y: 1, z: 1}
   seed: 0
-  permutationSeed: {x: 0, y: 0, z: 0}
-  moduloSeed: {x: 0, y: 0, z: 0}
+  permutationSeed: {x: 4, y: 4, z: -2}
+  moduloSeed: {x: 5, y: 3, z: -4}
   isosurfaceOffset: 0
   voxelShader: {fileID: 7200000, guid: e462ac5da1eeb174ca7f61e9b72917b9, type: 3}
   readbackTexture: {fileID: 0}
-  asyncReadbacks: 2
+  asyncReadbacks: 1
 --- !u!114 &305494748139102449
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -102,13 +103,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 998d14371a252d844953b5096474c997, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  meshJobsPerFrame: 2
-  minSkirtDensityThreshold: -40
+  meshJobsPerFrame: 4
+  minSkirtDensityThreshold: -5
   smoothing: 1
   skirts: 1
   voxelMaterials:
   - {fileID: 2100000, guid: 05d1c9c5df2aebb4a8358c2343a838d5, type: 2}
-  - {fileID: 2100000, guid: 40d4a243869c25a48ab2f2de89d94dcd, type: 2}
+  - {fileID: 2100000, guid: 62cb0288a0a6372468fe6da7d4a84aa1, type: 2}
   - {fileID: 2100000, guid: 62cb0288a0a6372468fe6da7d4a84aa1, type: 2}
 --- !u!114 &7541423554628836651
 MonoBehaviour:
@@ -149,11 +150,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: efb0edf5fd1e01a4283d253eaa649b4e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  debugGizmos: 0
-  maxComputeBufferSize: 1
+  debugGizmos: 1
+  renderInstancedMeshes: 1
+  maxComputeBufferSize: 2048
   propSegmentResolution: 32
   voxelChunksInPropSegment: 8
-  props: []
+  props:
+  - {fileID: 11400000, guid: 3ab5956d7784dc341b5dcb3cb8b0c70c, type: 2}
   propShader: {fileID: 7200000, guid: a564b702928195d4a8a3350466841cf5, type: 3}
   propSegmentPrefab: {fileID: 5184119919701613160, guid: 055d0eaddae3b474287dc2ff7e2c4305,
     type: 3}
