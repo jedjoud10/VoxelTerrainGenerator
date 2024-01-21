@@ -23,6 +23,8 @@ public class Prop : ScriptableObject {
 
     // Settings related to how we will render the billboards
     public Vector2 billboardSize = Vector2.one * 10;
+    public Vector3 billboardOffset;
     public bool billboardRestrictRotationY = false;
     public bool billboardCastShadows = false;
+    public float billboardAlphaClipThreshold = 0.5f;
 }

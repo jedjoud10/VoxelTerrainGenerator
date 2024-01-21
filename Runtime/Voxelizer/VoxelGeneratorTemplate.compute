@@ -4,8 +4,11 @@
 
 Voxel GetVoxelAt(float3 position) {
 	Voxel voxel;
-	float mask = saturate(sdSphere(position, 50) * 0.1);
-	voxel.density = position.y + lerp(snoise(position.xz * 0.004) * 30, 0, 1 - mask);
+
+	// Density value for biome 1
+	float density = -fbmCellular(position.xz * 0.001, 6, 0.49, 2.1).x * 60;
+	voxel.density = density + position.y;
+
 	voxel.material = 0;
 	return voxel;
 }

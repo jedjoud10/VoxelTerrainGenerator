@@ -25,7 +25,7 @@ public class VoxelProps : VoxelBehaviour {
     public int propSegmentResolution = 32;
 
     // How many voxel chunks fit in a prop segment
-    [Range(8, 64)]
+    [Range(1, 64)]
     public int voxelChunksInPropSegment = 8;
 
     // List of props that we will generated based on their index
@@ -96,48 +96,27 @@ public class VoxelProps : VoxelBehaviour {
 
         GameObject captureGo = Instantiate(propCaptureCameraPrefab);
         Camera cam = captureGo.GetComponent<Camera>();
-        HDAdditionalCameraData extra = captureGo.GetComponent<HDAdditionalCameraData>();
         captureGo.layer = 31;
         cam.cullingMask = 1 << 31;
         
         foreach (var prop in props) {
-            billboardedProps.Add(CaptureBillboard(cam, extra, prop));
+            billboardedProps.Add(CaptureBillboard(cam, prop));
         }
 
-        //Destroy(captureGo);
+        Destroy(captureGo);
     }
 
-    public BillboardProp CaptureBillboard(Camera camera, HDAdditionalCameraData extra, Prop prop) {
+    // Capture the albedo, normal, and mask maps from billboarding a prop by spawning it temporarily
+    public BillboardProp CaptureBillboard(Camera camera, Prop prop) {
         int width = prop.billboardTextureWidth;
         int height = prop.billboardTextureHeight;
+        var temp = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBFloat);
         camera.orthographicSize = prop.billboardCaptureCameraScale;
+        camera.targetTexture = temp;
 
         // Create the output texture 2Ds
-        Texture2D albedoTextureOut = new Texture2D(width, height, TextureFormat.RGBA32, false);
-        Texture2D normalTextureOut = new Texture2D(width, height, TextureFormat.RGBA32, false);
-
-        //albedoTextureOut.SetPixels32(Enumerable.Repeat(new Color32 { r = 255, g = 0, b = 0, a = 255 }, width * height).ToArray(), 0);
-        //albedoTextureOut.Apply();
-
-        var aovRequest = AOVRequest.NewDefault();
-        AOVBuffers[] aovBuffers = new[] { AOVBuffers.Color };
-        CustomPassAOVBuffers[] customPassAovBuffers = null;
-        aovRequest.SetFullscreenOutput(LightingProperty.DiffuseOnly);
-        var m_TmpRT = RTHandles.Alloc(width, height);
-        var aovRequestBuilder = new AOVRequestBuilder();
-        aovRequestBuilder.Add(aovRequest, bufferId => m_TmpRT, new List<GameObject>(), aovBuffers, (cmd, textures, properties) => {
-            if (textures.Count > 0) {
-                RenderTexture.active = textures[0].rt;
-                albedoTextureOut.ReadPixels(new Rect(0, 0, width, height), 0, 0, false);
-                albedoTextureOut.Apply();
-                Debug.Log("copy texture");
-                testu = albedoTextureOut;
-            }
-        });
-
-        var aovRequestDataCollection = aovRequestBuilder.Build();
-        extra.SetAOVRequests(aovRequestDataCollection);
-        camera.Render();
+        Texture2D albedoTextureOut = new Texture2D(width, height, TextureFormat.RGBAFloat, false);
+        Texture2D normalTextureOut = new Texture2D(width, height, TextureFormat.RGBAFloat, false);
 
         // Create a prop fake game object and render the camera
         GameObject faker = Instantiate(prop.prefab);
@@ -150,14 +129,25 @@ public class VoxelProps : VoxelBehaviour {
         faker.transform.position = prop.billboardCapturePosition;
         faker.transform.eulerAngles = prop.billboardCaptureRotation;
 
+        // Render the camera and render to the albedo and normal textures
+        camera.Render();
+        Graphics.CopyTexture(temp, albedoTextureOut);
+        Graphics.CopyTexture(temp, normalTextureOut);
+
         // Create a material that uses these values by default
         Material mat = new Material(billboardMaterialShaderBase);
-        mat.SetTexture("_Albedo", albedoTextureOut);
+        mat.SetTexture("_Albedo", temp);
         mat.SetTexture("_Normal_Map", normalTextureOut);
-        mat.SetFloat("_Alpha_Clip_Threshold", 0.0f);
+        mat.SetFloat("_Alpha_Clip_Threshold", prop.billboardAlphaClipThreshold);
         mat.SetVector("_BillboardSize", prop.billboardSize);
+        mat.SetVector("_BillboardOffset", prop.billboardOffset);
         mat.SetInt("_RECEIVE_SHADOWS_OFF", prop.billboardCastShadows ? 0 : 1);
         mat.SetInt("_Lock_Rotation_Y", prop.billboardRestrictRotationY ? 1 : 0);
+
+        HDMaterial.SetAlphaClipping(mat, true);
+        HDMaterial.SetAlphaCutoff(mat, prop.billboardAlphaClipThreshold);
+        HDMaterial.ValidateMaterial(mat);
+        Destroy(faker);
 
         return new BillboardProp {
             albedoTexture = albedoTextureOut,
@@ -281,7 +271,7 @@ public class VoxelProps : VoxelBehaviour {
         pooledPropSegments.Add(segment.gameObject);
     }
 
-
+    // Spawn the necessary prop gameobjects for a prop segment at lod 0
     private void SpawnPropPrefabs(PropSegment segment, Prop propType, ComputeBuffer propsBuffer, ComputeBuffer countBuffer) {
         ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
         int[] count = new int[1] { 0 };
@@ -305,6 +295,7 @@ public class VoxelProps : VoxelBehaviour {
         }
     }
 
+    // Set some props to be rendered by instancing
     private void SetPropInstancedIndirect(PropSegment segment, Prop propType, ComputeBuffer propsBuffer, ComputeBuffer countBuffer) {
         ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
         int[] count = new int[1] { 0 };
@@ -316,6 +307,7 @@ public class VoxelProps : VoxelBehaviour {
         }
     }
 
+    // Set some props to be rendered by billboarding
     private void SetProBillboarded(PropSegment segment, Prop propType, ComputeBuffer propsBuffer, ComputeBuffer countBuffer) {
         ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
         int[] count = new int[1] { 0 };

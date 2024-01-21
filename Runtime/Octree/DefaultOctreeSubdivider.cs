@@ -14,6 +14,10 @@ public struct DefaultOctreeSubdivider : IOctreeSubdivider {
     public bool ShouldSubdivide(ref OctreeNode node, ref NativeArray<OctreeTarget> targets) {
         bool subdivide = false;
 
+        if (!node.IntersectsAABB(new float3(-10000, -30, -10000), new float3(10000, 30, 10000))) {
+            return false;
+        }
+
         foreach (var target in targets) {
             float3 minBounds = math.float3(node.position);
             float3 maxBounds = math.float3(node.position) + math.float3(node.size);
