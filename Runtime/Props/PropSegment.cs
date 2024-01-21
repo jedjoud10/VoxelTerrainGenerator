@@ -50,6 +50,8 @@ public class PropSegment : MonoBehaviour {
                     renderParams.matProps = new MaterialPropertyBlock();
                     renderParams.matProps.SetBuffer("_BlittablePropBuffer", prop.Item2);
                     renderParams.matProps.SetVector("_BoundsOffset", renderParams.worldBounds.center);
+                    renderParams.matProps.SetTexture("_Albedo", prop.Item3.albedoTexture);
+                    renderParams.matProps.SetTexture("_Normal_Map", prop.Item3.normalTexture);
 
                     Mesh mesh = VoxelTerrain.Instance.VoxelProps.quadBillboard;
                     Graphics.RenderMeshPrimitives(renderParams, mesh, 0, prop.Item1);

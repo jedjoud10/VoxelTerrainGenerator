@@ -59,6 +59,7 @@ public class VoxelProps : VoxelBehaviour {
 
     // Edited externally
     internal HashSet<TerrainLoader> targets;
+    public Texture2D testu;
 
     private void OnValidate() {
         if (terrain == null) {
@@ -98,11 +99,12 @@ public class VoxelProps : VoxelBehaviour {
         HDAdditionalCameraData extra = captureGo.GetComponent<HDAdditionalCameraData>();
         captureGo.layer = 31;
         cam.cullingMask = 1 << 31;
-        cam.forceIntoRenderTexture = true;
-
+        
         foreach (var prop in props) {
             billboardedProps.Add(CaptureBillboard(cam, extra, prop));
         }
+
+        //Destroy(captureGo);
     }
 
     public BillboardProp CaptureBillboard(Camera camera, HDAdditionalCameraData extra, Prop prop) {
@@ -111,30 +113,26 @@ public class VoxelProps : VoxelBehaviour {
         camera.orthographicSize = prop.billboardCaptureCameraScale;
 
         // Create the output texture 2Ds
-        camera.targetTexture = new RenderTexture(width, height, 0);
-        Texture2D albedoTextureOut = new Texture2D(width, height, TextureFormat.ARGB32, false);
-        Texture2D normalTextureOut = new Texture2D(width, height, TextureFormat.RGB565, false);
+        Texture2D albedoTextureOut = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        Texture2D normalTextureOut = new Texture2D(width, height, TextureFormat.RGBA32, false);
 
-        /*
+        //albedoTextureOut.SetPixels32(Enumerable.Repeat(new Color32 { r = 255, g = 0, b = 0, a = 255 }, width * height).ToArray(), 0);
+        //albedoTextureOut.Apply();
+
         var aovRequest = AOVRequest.NewDefault();
-        AOVBuffers[] aovBuffers = new[] { AOVBuffers.Color, AOVBuffers.Normals };
+        AOVBuffers[] aovBuffers = new[] { AOVBuffers.Color };
         CustomPassAOVBuffers[] customPassAovBuffers = null;
         aovRequest.SetFullscreenOutput(LightingProperty.DiffuseOnly);
-        var m_TmpRT = RTHandles.Alloc(camera.pixelWidth, camera.pixelHeight);
+        var m_TmpRT = RTHandles.Alloc(width, height);
         var aovRequestBuilder = new AOVRequestBuilder();
         aovRequestBuilder.Add(aovRequest, bufferId => m_TmpRT, new List<GameObject>(), aovBuffers, (cmd, textures, properties) => {
             if (textures.Count > 0) {
-                Debug.Log("Count: " + textures.Count);
-                /*
-                m_ReadBackTexture = m_ReadBackTexture ?? new Texture2D(camera.pixelWidth, camera.pixelHeight, TextureFormat.RGBAFloat, false);
                 RenderTexture.active = textures[0].rt;
-                m_ReadBackTexture.ReadPixels(new Rect(0, 0, camera.pixelWidth, camera.pixelHeight), 0, 0, false);
-                m_ReadBackTexture.Apply();
-                RenderTexture.active = null;
-                byte[] bytes = m_ReadBackTexture.EncodeToPNG();
-                System.IO.File.WriteAllBytes($"output_{m_Frames++}.png", bytes);
+                albedoTextureOut.ReadPixels(new Rect(0, 0, width, height), 0, 0, false);
+                albedoTextureOut.Apply();
+                Debug.Log("copy texture");
+                testu = albedoTextureOut;
             }
-
         });
 
         var aovRequestDataCollection = aovRequestBuilder.Build();
@@ -151,7 +149,6 @@ public class VoxelProps : VoxelBehaviour {
         // Move the prop to the appropriate position
         faker.transform.position = prop.billboardCapturePosition;
         faker.transform.eulerAngles = prop.billboardCaptureRotation;
-        */
 
         // Create a material that uses these values by default
         Material mat = new Material(billboardMaterialShaderBase);
