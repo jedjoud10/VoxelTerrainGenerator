@@ -15,7 +15,8 @@ public class Prop : ScriptableObject {
     public Material instancedMeshMaterial;
 
     // Settings related to how we will generate the billboards
-    public int billboardtextureWidth = 1024;
+    public float billboardCaptureCameraScale = 10.0f;
+    public int billboardTextureWidth = 1024;
     public int billboardTextureHeight = 1024;
     public Vector3 billboardCaptureRotation = Vector3.zero;
     public Vector3 billboardCapturePosition = new Vector3(10, 0, 0);

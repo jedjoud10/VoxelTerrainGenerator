@@ -9,28 +9,50 @@ public class PropSegment : MonoBehaviour {
     // 2 => billboard
     public int lod;
 
-    // List of compute buffers (containg the blittable prop type) and the corresponding prop type
-    // Used solely for indirectly rendered props
+    // Used for indirect instanced rendering of props
     public List<(int, ComputeBuffer, Prop)> instancedIndirectProps;
+
+    // Used for indirect instanced rendering of billboard of props
+    public List<(int, ComputeBuffer, BillboardProp)> billboardProps;
+
 
     // Render the indirect props or billboards if necessary
     public void Update() {
-        if (instancedIndirectProps != null && VoxelTerrain.Instance.VoxelProps.renderInstancedMeshes) {
-            foreach (var prop in instancedIndirectProps) {
-                RenderParams renderParams = new RenderParams(prop.Item3.instancedMeshMaterial);
-                renderParams.worldBounds = new Bounds {
-                    min = transform.position,
-                    max = transform.position + Vector3.one * VoxelUtils.PropSegmentSize,
-                };
+        if (VoxelTerrain.Instance.VoxelProps.renderInstancedMeshes) {
+            if (instancedIndirectProps != null) {
+                foreach (var prop in instancedIndirectProps) {
+                    RenderParams renderParams = new RenderParams(prop.Item3.instancedMeshMaterial);
+                    renderParams.worldBounds = new Bounds {
+                        min = transform.position,
+                        max = transform.position + Vector3.one * VoxelUtils.PropSegmentSize,
+                    };
 
-                renderParams.matProps = new MaterialPropertyBlock();
-                renderParams.matProps.SetBuffer("_BlittablePropBuffer", prop.Item2);
-                renderParams.matProps.SetVector("_BoundsOffset", renderParams.worldBounds.center);
+                    renderParams.matProps = new MaterialPropertyBlock();
+                    renderParams.matProps.SetBuffer("_BlittablePropBuffer", prop.Item2);
+                    renderParams.matProps.SetVector("_BoundsOffset", renderParams.worldBounds.center);
 
-                Mesh mesh = prop.Item3.instancedMesh;
+                    Mesh mesh = prop.Item3.instancedMesh;
 
-                for (int i = 0; i < mesh.subMeshCount; i++) {
-                    Graphics.RenderMeshPrimitives(renderParams, mesh, i, prop.Item1);
+                    for (int i = 0; i < mesh.subMeshCount; i++) {
+                        Graphics.RenderMeshPrimitives(renderParams, mesh, i, prop.Item1);
+                    }
+                }
+            }
+
+            if (billboardProps != null) {
+                foreach (var prop in billboardProps) {
+                    RenderParams renderParams = new RenderParams(prop.Item3.material);
+                    renderParams.worldBounds = new Bounds {
+                        min = transform.position,
+                        max = transform.position + Vector3.one * VoxelUtils.PropSegmentSize,
+                    };
+
+                    renderParams.matProps = new MaterialPropertyBlock();
+                    renderParams.matProps.SetBuffer("_BlittablePropBuffer", prop.Item2);
+                    renderParams.matProps.SetVector("_BoundsOffset", renderParams.worldBounds.center);
+
+                    Mesh mesh = VoxelTerrain.Instance.VoxelProps.quadBillboard;
+                    Graphics.RenderMeshPrimitives(renderParams, mesh, 0, prop.Item1);
                 }
             }
         }

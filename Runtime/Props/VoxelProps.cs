@@ -1,9 +1,14 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Rendering.HighDefinition.Attributes;
+using static Unity.Burst.Intrinsics.X86.Avx;
 
 // Responsible for generating the voxel props on the terrain
 // For this, we must force voxel generation to happen on the CPU so we can execute
@@ -27,12 +32,15 @@ public class VoxelProps : VoxelBehaviour {
     [SerializeField]
     public List<Prop> props;
 
+    public GameObject propCaptureCameraPrefab;
+    public Mesh quadBillboard;
+    public Shader billboardMaterialShaderBase;
+
+    // Generated billboard props
+    private List<BillboardProp> billboardedProps;
+
     // Compute shader that will be responsble for prop  generation
     public ComputeShader propShader;
-
-    // List of compute buffers used to contain generated prop data
-    // Contains the append buffer and the count buffer
-    private List<(ComputeBuffer, ComputeBuffer)> computeBuffers;
 
     // Dictionary for all the prop segments that are in use by LOds
     private Dictionary<int3, PropSegment> propSegments;
@@ -80,10 +88,85 @@ public class VoxelProps : VoxelBehaviour {
         onPropSegmentLoaded += OnPropSegmentLoad;
         onPropSegmentUnloaded += OnPropSegmentUnload;
         targets = new HashSet<TerrainLoader>();
+        billboardedProps = new List<BillboardProp>();
         propSegments = new Dictionary<int3, PropSegment>();
         pooledPropSegments = new List<GameObject>();
         terrain.VoxelOctree.onOctreeChanged += UpdatePropSegments;
-        computeBuffers = new List<(ComputeBuffer, ComputeBuffer)>();
+
+        GameObject captureGo = Instantiate(propCaptureCameraPrefab);
+        Camera cam = captureGo.GetComponent<Camera>();
+        HDAdditionalCameraData extra = captureGo.GetComponent<HDAdditionalCameraData>();
+        captureGo.layer = 31;
+        cam.cullingMask = 1 << 31;
+        cam.forceIntoRenderTexture = true;
+
+        foreach (var prop in props) {
+            billboardedProps.Add(CaptureBillboard(cam, extra, prop));
+        }
+    }
+
+    public BillboardProp CaptureBillboard(Camera camera, HDAdditionalCameraData extra, Prop prop) {
+        int width = prop.billboardTextureWidth;
+        int height = prop.billboardTextureHeight;
+        camera.orthographicSize = prop.billboardCaptureCameraScale;
+
+        // Create the output texture 2Ds
+        camera.targetTexture = new RenderTexture(width, height, 0);
+        Texture2D albedoTextureOut = new Texture2D(width, height, TextureFormat.ARGB32, false);
+        Texture2D normalTextureOut = new Texture2D(width, height, TextureFormat.RGB565, false);
+
+        /*
+        var aovRequest = AOVRequest.NewDefault();
+        AOVBuffers[] aovBuffers = new[] { AOVBuffers.Color, AOVBuffers.Normals };
+        CustomPassAOVBuffers[] customPassAovBuffers = null;
+        aovRequest.SetFullscreenOutput(LightingProperty.DiffuseOnly);
+        var m_TmpRT = RTHandles.Alloc(camera.pixelWidth, camera.pixelHeight);
+        var aovRequestBuilder = new AOVRequestBuilder();
+        aovRequestBuilder.Add(aovRequest, bufferId => m_TmpRT, new List<GameObject>(), aovBuffers, (cmd, textures, properties) => {
+            if (textures.Count > 0) {
+                Debug.Log("Count: " + textures.Count);
+                /*
+                m_ReadBackTexture = m_ReadBackTexture ?? new Texture2D(camera.pixelWidth, camera.pixelHeight, TextureFormat.RGBAFloat, false);
+                RenderTexture.active = textures[0].rt;
+                m_ReadBackTexture.ReadPixels(new Rect(0, 0, camera.pixelWidth, camera.pixelHeight), 0, 0, false);
+                m_ReadBackTexture.Apply();
+                RenderTexture.active = null;
+                byte[] bytes = m_ReadBackTexture.EncodeToPNG();
+                System.IO.File.WriteAllBytes($"output_{m_Frames++}.png", bytes);
+            }
+
+        });
+
+        var aovRequestDataCollection = aovRequestBuilder.Build();
+        extra.SetAOVRequests(aovRequestDataCollection);
+        camera.Render();
+
+        // Create a prop fake game object and render the camera
+        GameObject faker = Instantiate(prop.prefab);
+        faker.layer = 31;
+        foreach (Transform item in faker.transform) {
+            item.gameObject.layer = 31;
+        }
+
+        // Move the prop to the appropriate position
+        faker.transform.position = prop.billboardCapturePosition;
+        faker.transform.eulerAngles = prop.billboardCaptureRotation;
+        */
+
+        // Create a material that uses these values by default
+        Material mat = new Material(billboardMaterialShaderBase);
+        mat.SetTexture("_Albedo", albedoTextureOut);
+        mat.SetTexture("_Normal_Map", normalTextureOut);
+        mat.SetFloat("_Alpha_Clip_Threshold", 0.0f);
+        mat.SetVector("_BillboardSize", prop.billboardSize);
+        mat.SetInt("_RECEIVE_SHADOWS_OFF", prop.billboardCastShadows ? 0 : 1);
+        mat.SetInt("_Lock_Rotation_Y", prop.billboardRestrictRotationY ? 1 : 0);
+
+        return new BillboardProp {
+            albedoTexture = albedoTextureOut,
+            normalTexture = normalTextureOut,
+            material = mat,
+        };
     }
 
     // Fetches a pooled prop segment, or creates a new one from scratch
@@ -163,6 +246,8 @@ public class VoxelProps : VoxelBehaviour {
 
         if (segment.lod == 1) {
             segment.instancedIndirectProps = new List<(int, ComputeBuffer, Prop)>();
+        } else if (segment.lod == 2) {
+            segment.billboardProps = new List<(int, ComputeBuffer, BillboardProp)>();
         }
 
         foreach (var propType in props) {
@@ -181,6 +266,8 @@ public class VoxelProps : VoxelBehaviour {
                 SpawnPropPrefabs(segment, propType, propsBuffer, countBuffer);
             } else if (segment.lod == 1) {
                 SetPropInstancedIndirect(segment, propType, propsBuffer, countBuffer);
+            } else {
+                SetProBillboarded(segment, propType, propsBuffer, countBuffer);
             }
         }
     }
@@ -232,29 +319,16 @@ public class VoxelProps : VoxelBehaviour {
         }
     }
 
+    private void SetProBillboarded(PropSegment segment, Prop propType, ComputeBuffer propsBuffer, ComputeBuffer countBuffer) {
+        ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
+        int[] count = new int[1] { 0 };
+        countBuffer.GetData(count);
+        int index = props.IndexOf(propType);
+        segment.billboardProps.Add((count[0], propsBuffer, billboardedProps[index]));
 
-    // Will be responsible for rendering the instanced meshes and billboarded mesh
-    // Also will update the LOD of prop segments based on terrain loaders around in the world
-    void Update() {
-        // mmm yeas I love frying my poor 3750h
-        foreach (var segment in propSegments) {
-            int minLod = 2;
-            Vector3 center = segment.Value.transform.position + Vector3.one * VoxelUtils.PropSegmentSize / 2.0f;
-
-            foreach (var target in targets) {
-                float distance = Vector3.Distance(target.transform.position, center);
-                int lod = 2;
-
-                if (distance < target.propSegmentPrefabSpawnerMaxDistance) {
-                    lod = 0;
-                } else if (distance < target.propSegmentInstancedRendererLodMaxDistance) {
-                    lod = 1;
-                }
-
-                minLod = Mathf.Min(lod, minLod);
-            }
-            segment.Value.lod = minLod;
-        }    
+        if (count[0] == 0) {
+            segment.gameObject.SetActive(false);
+        }
     }
 
     private void OnDrawGizmosSelected() {

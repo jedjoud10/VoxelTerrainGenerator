@@ -125,6 +125,9 @@ public class VoxelEdits : VoxelBehaviour {
         foreach (var item in chunksToUpdate) {
             SparseVoxelDeltaData data = sparseVoxelData[item];
             JobHandle handle = edit.Apply(data);
+
+            // todo: make it instant for the chunks that are currently visible, but async for those that aren't at the moment
+            // no need to instantly update voxel data for ALL shits yk
             handle.Complete();
         }
 

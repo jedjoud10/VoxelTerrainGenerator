@@ -17,3 +17,11 @@ MonoBehaviour:
     type: 3}
   instancedMeshMaterial: {fileID: 2100000, guid: 4ab853c70982c494e81e66eb1607bf5d,
     type: 2}
+  billboardCaptureCameraScale: 6.5
+  billboardTextureWidth: 1024
+  billboardTextureHeight: 1024
+  billboardCaptureRotation: {x: 0, y: 0, z: 0}
+  billboardCapturePosition: {x: 0, y: -6, z: 5}
+  billboardSize: {x: 2, y: 10}
+  billboardRestrictRotationY: 1
+  billboardCastShadows: 0
