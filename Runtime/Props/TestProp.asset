@@ -25,5 +25,5 @@ MonoBehaviour:
   billboardSize: {x: 5, y: 19.5}
   billboardOffset: {x: 0, y: 9, z: 0}
   billboardRestrictRotationY: 1
-  billboardCastShadows: 0
+  billboardCastShadows: 1
   billboardAlphaClipThreshold: 0.8

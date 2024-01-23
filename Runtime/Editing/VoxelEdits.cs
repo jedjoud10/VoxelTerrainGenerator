@@ -8,9 +8,6 @@ using UnityEngine;
 
 // Handles keeping track of voxel edits and dynamic edits in the world
 public class VoxelEdits : VoxelBehaviour {
-    // Max number of voxel jobs we will execute per frame
-    [Range(1, 8)]
-    public int voxelEditsJobsPerFrame = 1;
     public bool debugGizmos = false;
 
     // Voxel edit octree nodes
@@ -122,13 +119,11 @@ public class VoxelEdits : VoxelBehaviour {
             sparseVoxelData.Add(data);
         }
 
-        foreach (var item in chunksToUpdate) {
-            SparseVoxelDeltaData data = sparseVoxelData[item];
+        for (int i = 0; i < chunksToUpdate.Length; i++) {
+            SparseVoxelDeltaData data = sparseVoxelData[chunksToUpdate[i]];
             JobHandle handle = edit.Apply(data);
-
-            // todo: make it instant for the chunks that are currently visible, but async for those that aren't at the moment
-            // no need to instantly update voxel data for ALL shits yk
-            handle.Complete();
+            data.applyJobHandle = handle;
+            sparseVoxelData[chunksToUpdate[i]] = data;
         }
 
         // Custom job to find all the octree nodes that touch the bounds
@@ -198,11 +193,13 @@ public class VoxelEdits : VoxelBehaviour {
         int index = chunkLookup[raw];
         SparseVoxelDeltaData data = sparseVoxelData[index];
 
+        JobHandle newDep = JobHandle.CombineDependencies(dependency, data.applyJobHandle);
+
         VoxelEditApplyJob job = new VoxelEditApplyJob {
             data = data,
             voxels = voxels,
         };
-        return job.Schedule(VoxelUtils.Volume, 2048, dependency);
+        return job.Schedule(VoxelUtils.Volume, 2048, newDep);
     }
 
     // Create a list of dependencies to apply to chunks that have been affected by dynamic edits

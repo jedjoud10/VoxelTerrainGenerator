@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 // CPU representation of what a voxel is
@@ -39,10 +40,16 @@ public struct SparseVoxelDeltaData {
     // ushort.max represents a value that the user has not modified yet
     public NativeArray<ushort> materials;
 
+    // Job handle for the "apply" task for this sparse voxel data
+    public JobHandle applyJobHandle;
+
     // Create sparse voxel data for an unnaffected delta chunk
     public static SparseVoxelDeltaData Empty = new SparseVoxelDeltaData {
         densities = default,
-        materials = default
+        materials = default,
+        applyJobHandle = new JobHandle(),
+        position = new float3(0, 0, 0),
+        scalingFactor = -1,
     };
 }
 

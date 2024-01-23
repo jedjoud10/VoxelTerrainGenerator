@@ -16,6 +16,8 @@ using static Unity.Burst.Intrinsics.X86.Avx;
 public class VoxelProps : VoxelBehaviour {
     public bool debugGizmos = false;
     public bool renderInstancedMeshes = true;
+    public bool renderBillboards = true;
+
 
     [Min(0)]
     public int maxComputeBufferSize = 1;
