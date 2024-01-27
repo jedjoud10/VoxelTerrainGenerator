@@ -57,7 +57,7 @@ public class VoxelMesher : VoxelBehaviour {
             return;
         }
 
-        dedupe.Add(chunk);
+        //dedupe.Add(chunk);
         pendingMeshJobs.Enqueue(new PendingMeshJob {
             chunk = chunk,
             computeCollisions = computeCollisions,

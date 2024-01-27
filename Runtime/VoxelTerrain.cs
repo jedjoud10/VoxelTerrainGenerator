@@ -1,3 +1,4 @@
+using Codice.Client.Common.TreeGrouper;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,7 +39,7 @@ public class VoxelTerrain : MonoBehaviour {
     // Object pooling stuff
     public GameObject chunkPrefab;
     private List<GameObject> pooledChunkGameObjects;
-    private List<VoxelChunkContainer> pooledVoxelChunkContainers;
+    private List<UniqueVoxelChunkContainer> pooledVoxelChunkContainers;
 
     public Dictionary<OctreeNode, VoxelChunk> Chunks { get; private set; }
 
@@ -114,7 +115,7 @@ public class VoxelTerrain : MonoBehaviour {
         // Init local vars
         Chunks = new Dictionary<OctreeNode, VoxelChunk>();
         pooledChunkGameObjects = new List<GameObject>();
-        pooledVoxelChunkContainers = new List<VoxelChunkContainer>();
+        pooledVoxelChunkContainers = new List<UniqueVoxelChunkContainer>();
         timer = new System.Diagnostics.Stopwatch();
         timer.Start();
     }
@@ -140,6 +141,8 @@ public class VoxelTerrain : MonoBehaviour {
     }
 
     private void Update() {
+
+
         if (!Free && VoxelGenerator.Free && VoxelMesher.Free && VoxelOctree.Free && VoxelEdits.Free && toMakeVisible.Count > 0) {
             Free = true;
 
@@ -179,16 +182,19 @@ public class VoxelTerrain : MonoBehaviour {
         voxelChunk.gameObject.SetActive(false);
         pooledChunkGameObjects.Add(voxelChunk.gameObject);
 
-        if (voxelChunk.uniqueVoxelContainer) {
-            if (voxelChunk.container != null) {
-                pooledVoxelChunkContainers.Add((VoxelChunkContainer)voxelChunk.container);
-            }
-            voxelChunk.container = null;
+        if (voxelChunk.container != null && voxelChunk.container is UniqueVoxelChunkContainer) {
+            pooledVoxelChunkContainers.Add((UniqueVoxelChunkContainer)voxelChunk.container);
         }
+
+        if (voxelChunk.container is VoxelReadbackRequest) {
+            voxelChunk.container.TempDispose();
+        }
+
+        voxelChunk.container = null;
     }
 
     // Generate the new chunks and delete the old ones
-    private void OnOctreeChanged(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed) {
+    private void OnOctreeChanged(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed, ref NativeList<OctreeNode> all) {
         foreach (var item in removed) {
             toRemoveChunk.Add(item);
         }
@@ -210,9 +216,7 @@ public class VoxelTerrain : MonoBehaviour {
 
             // Only generate chunk voxel data for chunks at lowest depth
             chunk.container = null;
-            //chunk.uniqueVoxelContainer = true;
-            chunk.uniqueVoxelContainer = item.depth == VoxelUtils.MaxDepth;
-            if (chunk.uniqueVoxelContainer) {
+            if (item.depth == VoxelUtils.MaxDepth) {
                 chunk.container = FetchVoxelChunkContainer();
                 chunk.container.chunk = chunk;
             }
@@ -249,11 +253,11 @@ public class VoxelTerrain : MonoBehaviour {
     }
 
     // Fetches a voxel native array, or allocates one from scratch
-    private VoxelChunkContainer FetchVoxelChunkContainer() {
-        VoxelChunkContainer nativeArray;
+    private UniqueVoxelChunkContainer FetchVoxelChunkContainer() {
+        UniqueVoxelChunkContainer nativeArray;
 
         if (pooledVoxelChunkContainers.Count == 0) {
-            nativeArray = new VoxelChunkContainer {
+            nativeArray = new UniqueVoxelChunkContainer {
                 voxels = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory),
                 chunk = null,
             };
@@ -270,14 +274,14 @@ public class VoxelTerrain : MonoBehaviour {
         VoxelMesher voxelMesher = GetComponent<VoxelMesher>();
 
         // Copy the voxel data from the request into the chunk's voxel data
-        if (chunk.uniqueVoxelContainer) {
+        if (chunk.container is UniqueVoxelChunkContainer) {
             chunk.container.voxels.CopyFrom(request.voxels);
             request.TempDispose();
         } else {
             chunk.container = request;
         }
 
-        voxelMesher.GenerateMesh(chunk, chunk.uniqueVoxelContainer);
+        voxelMesher.GenerateMesh(chunk, chunk.node.depth == VoxelUtils.MaxDepth);
     }
 
     // Update the mesh of the given chunk when we generate it
@@ -286,7 +290,7 @@ public class VoxelTerrain : MonoBehaviour {
         chunk.GetComponent<MeshFilter>().sharedMesh = chunk.sharedMesh;
 
         // Using VoxelReadbackRequest as request, dispose to give back to voxgen
-        if (!chunk.uniqueVoxelContainer) {
+        if (chunk.container is VoxelReadbackRequest) {
             chunk.container.TempDispose();
             chunk.container = null;
         }
@@ -327,9 +331,9 @@ public class VoxelTerrain : MonoBehaviour {
                 }
 
                 if (voxel) {
-                    VoxelGenerator.GenerateVoxels(item.Value);
+                    item.Value.Regenerate(this);
                 } else {
-                    VoxelMesher.GenerateMesh(item.Value, item.Value.uniqueVoxelContainer);
+                    item.Value.Remesh(this);
                 }
             }
         }
@@ -344,15 +348,15 @@ public class VoxelTerrain : MonoBehaviour {
         }
 
         if (debugGUI) {
-            GUI.Box(new Rect(0, 0, 300, 245), "");
+            GUI.Box(new Rect(0, 0, 300, 315), "");
             Label($"Pending GPU async readback jobs: {VoxelGenerator.pendingVoxelGenerationChunks.Count}");
             Label($"Pending mesh jobs: {VoxelMesher.pendingMeshJobs.Count}");
             Label($"Pending mesh baking jobs: {VoxelCollisions.ongoingBakeJobs.Count}");
             Label($"# of pooled chunk game objects: {pooledChunkGameObjects.Count}");
-            Label($"# of pooled prop segment game objects: {VoxelProps.pooledPropSegments.Count}");
             Label($"# of pooled native voxel arrays: {pooledVoxelChunkContainers.Count}");
 
-            int usedVoxelArrays = Chunks.Where(x => x.Value.uniqueVoxelContainer).Count();
+            int usedVoxelArrays = Chunks.Where(x => x.Value.container is UniqueVoxelChunkContainer).Count();
+            Label($"# of free native voxel arrays (voxel generator): {VoxelGenerator.freeVoxelNativeArrays.Cast<bool>().Where(x => x).Count()}");
             Label($"# of used native voxel arrays: {usedVoxelArrays}");
             Label($"# of chunks to make visible: {toMakeVisible.Count}");
             Label($"# of enabled chunks: {Chunks.Where(x => x.Value.gameObject.activeSelf).Count()}");
@@ -368,6 +372,10 @@ public class VoxelTerrain : MonoBehaviour {
             int kbs2 = bytes / 1024;
             Label($"KBs of used native voxel arrays: {kbs2}");
             Label($"KBs of total native voxel arrays: {kbs+kbs2}");
+            Label("Generator free: " + VoxelGenerator.Free);
+            Label("Mesher free: " + VoxelMesher.Free);
+            Label("Octree free: " + VoxelOctree.Free);
+            Label("Edits free: " + VoxelEdits.Free);
         }
     }
 }

@@ -7,30 +7,18 @@ using Unity.Mathematics;
 public struct DefaultOctreeSubdivider : IOctreeSubdivider {
     public float propSegmentWorldSize;
 
-    public JobHandle Apply(NativeArray<OctreeTarget> targets, NativeList<OctreeNode> nodes, NativeQueue<OctreeNode> pending) {
+    public JobHandle Apply(NativeArray<TerrainLoaderTarget> targets, NativeList<OctreeNode> nodes, NativeQueue<OctreeNode> pending) {
         return IOctreeSubdivider.ApplyGeneric(targets, nodes, pending, this);
     }
 
-    public bool ShouldSubdivide(ref OctreeNode node, ref NativeArray<OctreeTarget> targets) {
+    public bool ShouldSubdivide(ref OctreeNode node, ref NativeArray<TerrainLoaderTarget> targets) {
         bool subdivide = false;
-
-        /*
-        if (!node.IntersectsAABB(new float3(-100000, -30, -100000), new float3(100000, 30, 100000))) {
-            return false;
-        }
-        */
 
         foreach (var target in targets) {
             float3 minBounds = math.float3(node.position);
             float3 maxBounds = math.float3(node.position) + math.float3(node.size);
             float3 clamped = math.clamp(target.center, minBounds, maxBounds);
-            float customFactor = 1.0f;
-
-            if (node.size == (propSegmentWorldSize * 2)) {
-                customFactor *= target.octreePropSegmentNodeMultiplier;
-            }
-
-            bool local = math.distance(clamped, target.center) < target.radius * node.scalingFactor * customFactor;
+            bool local = math.distance(clamped, target.center) < target.radius * node.scalingFactor;
             subdivide |= local;
         }
 

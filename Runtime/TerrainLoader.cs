@@ -1,18 +1,16 @@
+using Unity.Mathematics;
 using UnityEngine;
 
 // Will be used by the prop system to load prop segments and spawn props
 public class TerrainLoader : MonoBehaviour {
-    // Multiplier that is applied to octree nodes with the same size as prop segments
-    // to force them to be generated and spawned in the world as chunks.
-    // Result of this is a lot more prop segments throughout the world
-    [Min(1.0f)]
-    public float octreePropSegmentNodeMultiplier = 2;
+    // How many prop segments we should spawn around the terrain loader
+    public uint3 propSegmentExtent = new uint3(1, 1, 1);
 
-    // Maximum distance in which prop segments will become LOD0 (prefab spawner)
-    public float propSegmentPrefabSpawnerMaxDistance = 800f;
+    // Multiplier for the prop segment lod system
+    public float propSegmentLodMultiplier = 1f;
 
-    // Maximum distance in which prop segments will become LOD1 (indirect renderer)
-    public float propSegmentInstancedRendererLodMaxDistance = 1400f;
+    // Should the terrain loader force the voxel props to generated prop segments
+    public bool affectsVoxelProps = true;
 
     // Should we generate collisions for chunks generated around this loader?
     public bool generateCollisions = false;
@@ -44,14 +42,12 @@ public class TerrainLoader : MonoBehaviour {
             bool bruhtonium = false;
             if (octree == null && props == null) {
                 octree = VoxelTerrain.Instance.VoxelOctree;
-                props = VoxelTerrain.Instance.VoxelProps;
                 octree.targetsLookup.Add(this, octree.targets.Length);
-                octree.targets.Add(new OctreeTarget {
+                octree.targets.Add(new TerrainLoaderTarget {
                     generateCollisions = generateCollisions,
                     center = transform.position,
                     radius = radius,
                 });
-                props.targets.Add(this);
                 bruhtonium = true;
             }
 
@@ -59,11 +55,12 @@ public class TerrainLoader : MonoBehaviour {
             if (Vector3.Distance(transform.position, last) > maxDistanceThreshold || bruhtonium) {
                 if (octree.Free) {
                     int index = octree.targetsLookup[this];
-                    octree.targets[index] = new OctreeTarget {
-                        octreePropSegmentNodeMultiplier = octreePropSegmentNodeMultiplier,
+                    octree.targets[index] = new TerrainLoaderTarget {
                         generateCollisions = generateCollisions,
                         center = transform.position,
                         radius = radius,
+                        propSegmentExtent = propSegmentExtent,
+                        propSegmentLodMultiplier = propSegmentLodMultiplier,
                     };
 
                     last = transform.position;

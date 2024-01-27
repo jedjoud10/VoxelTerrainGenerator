@@ -8,12 +8,7 @@ public class VoxelChunk : MonoBehaviour {
     // Either the chunk's own voxel data (in case collisions are enabled) 
     // OR the voxel request data (temp)
     // If null it means the chunk cannot be generated (no voxel data!!)
-    // This will NEVER be modified by the edit system.
     public VoxelTempContainer container;
-
-    // Check if the chunk should contain its own data
-    // If this is set that means we must generate collisions for the chunk as well
-    public bool uniqueVoxelContainer;
 
     // Shared generated mesh
     public Mesh sharedMesh;
@@ -28,9 +23,9 @@ public class VoxelChunk : MonoBehaviour {
 
     // Remesh the chunk given the parent terrain
     public void Remesh(VoxelTerrain terrain) {
-        if (uniqueVoxelContainer) {
+        if (container is UniqueVoxelChunkContainer) {
             // Regenerate the mesh based on the unique voxel container
-            terrain.VoxelMesher.GenerateMesh(this, true);
+            terrain.VoxelMesher.GenerateMesh(this, node.depth == VoxelUtils.MaxDepth);
         } else {
             // If not, simply regenerate the chunk
             // This is pretty inefficient but it's a matter of memory vs performance
@@ -45,7 +40,7 @@ public class VoxelChunk : MonoBehaviour {
 }
 
 // Cached voxel chunk container for chunks with their own temp voxels (for modifs)
-public class VoxelChunkContainer : VoxelTempContainer {
+public class UniqueVoxelChunkContainer : VoxelTempContainer {
     public override void TempDispose() {
     }
 }

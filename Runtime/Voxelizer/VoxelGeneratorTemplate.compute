@@ -5,17 +5,9 @@
 Voxel GetVoxelAt(float3 position) {
 	Voxel voxel;
 
-	// Density value for biome 1
-	float density1 = -fbmCellular(position.xz * 0.001, 6, 0.49, 2.1).x * 20;
-
-	// Density value for biome 2
-	float density2 = -fbmCellular(position.xz * 0.001, 3, 0.22, 2.01).y * 320 + fbm(position.xz * 0.002, 7, 0.5, 2.2) * 30;
-
-	// Mixer between biome 1 and biome 2
-	float mixer = snoise(position.xz * 0.0006) * 0.5 + 0.5;
-	mixer = smoothstep(0, 1, mixer);
-
-	voxel.density = position.y + lerp(density1, density2, mixer);
+	float density1 = -fbmCellular(position.xz * 0.001, 8, 0.49, 2.2).x * 330 - 16;
+	density1 = opSmoothUnion(density1, 0, 120);
+	voxel.density = position.y + density1;
 
 	voxel.material = 0;
 	return voxel;

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 
 // Voxel prop that can be spawned in the world using two different methods
@@ -27,4 +28,20 @@ public class Prop : ScriptableObject {
     public bool billboardRestrictRotationY = false;
     public bool billboardCastShadows = false;
     public float billboardAlphaClipThreshold = 0.5f;
+}
+
+
+// Extra data that tells us how to render billboarded/instanced props
+public class IndirectExtraPropData {
+    public Texture2D billboardAlbedoTexture;
+    public Texture2D billboardNormalTexture;
+    public Material billboardMaterial;
+}
+
+
+// Blittable prop definition (that is also copied on the GPU compute shader)
+// World pos, worl rot, world scale
+public struct BlittableProp {
+    public float4 position_and_scale;
+    public float4 euler_angles_padding;
 }

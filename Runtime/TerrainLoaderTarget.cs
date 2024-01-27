@@ -2,7 +2,7 @@ using Unity.Mathematics;
 
 // Created from the octree loader objects
 // All parameters are stored in octree space
-public struct OctreeTarget {
+public struct TerrainLoaderTarget {
     // Should we generate collisions for chunks generated around this target?
     public bool generateCollisions;
 
@@ -12,6 +12,9 @@ public struct OctreeTarget {
     // Radius in world space
     public float radius;
 
-    // Required to tune prop generation
-    public float octreePropSegmentNodeMultiplier;
+    // Extents around the terrain loader where we must spawn prop segments
+    public uint3 propSegmentExtent;
+
+    // Multiplier for the LOD system
+    public float propSegmentLodMultiplier;
 }

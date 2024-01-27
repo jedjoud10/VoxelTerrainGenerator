@@ -14,7 +14,7 @@ public class VoxelOctree : VoxelBehaviour {
     public IOctreeSubdivider subdivider;
 
     // Internal since they are handled by the octree loader
-    internal NativeList<OctreeTarget> targets;
+    internal NativeList<TerrainLoaderTarget> targets;
     internal Dictionary<TerrainLoader, int> targetsLookup;
 
     // Native hashmap for keeping track of the current nodes in the tree
@@ -31,7 +31,7 @@ public class VoxelOctree : VoxelBehaviour {
     private NativeList<OctreeNode> copy;
 
     // Called whenever we detect a change in the octree
-    public delegate void OnOctreeChanged(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed);
+    public delegate void OnOctreeChanged(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed, ref NativeList<OctreeNode> all);
     public event OnOctreeChanged onOctreeChanged;
 
     // Final job handle that we must wait for
@@ -47,7 +47,7 @@ public class VoxelOctree : VoxelBehaviour {
         subdivider = new DefaultOctreeSubdivider { propSegmentWorldSize = VoxelUtils.PropSegmentSize };
         VoxelUtils.MaxDepth = maxDepth;
         Free = true;
-        targets = new NativeList<OctreeTarget>(Allocator.Persistent);
+        targets = new NativeList<TerrainLoaderTarget>(Allocator.Persistent);
         targetsLookup = new Dictionary<TerrainLoader, int>();
 
         octreeNodesHashSet = new NativeHashSet<OctreeNode>[2];
@@ -161,7 +161,7 @@ public class VoxelOctree : VoxelBehaviour {
             finalJobHandle.Complete();
 
             if (addedNodes.Length > 0 || removedNodes.Length > 0) {
-                onOctreeChanged?.Invoke(ref addedNodes, ref removedNodes);
+                onOctreeChanged?.Invoke(ref addedNodes, ref removedNodes, ref octreeNodesList[lastIndex]);
             }
 
             Free = true;

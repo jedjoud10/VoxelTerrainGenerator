@@ -3,21 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.HighDefinition;
-using UnityEngine.Rendering.HighDefinition.Attributes;
-using static Unity.Burst.Intrinsics.X86.Avx;
+using static UnityEngine.Rendering.HableCurve;
 
 // Responsible for generating the voxel props on the terrain
 // For this, we must force voxel generation to happen on the CPU so we can execute
 // custom code when the voxel edit must generate on world / voxel edits
 public class VoxelProps : VoxelBehaviour {
+    
+    // Toggles for debugging
     public bool debugGizmos = false;
     public bool renderInstancedMeshes = true;
     public bool renderBillboards = true;
-
+    public bool spawnPropPrefabs = true;
 
     [Min(0)]
     public int maxComputeBufferSize = 1;
@@ -34,20 +35,26 @@ public class VoxelProps : VoxelBehaviour {
     [SerializeField]
     public List<Prop> props;
 
+    // Used for prop billboard captures
     public GameObject propCaptureCameraPrefab;
     public Material propCaptureFullscreenMaterial;
     public Mesh quadBillboard;
-    public Shader billboardMaterialShaderBase;
-    public Material test;
+    public Material billboardMaterialBase;
 
-    // Generated billboard props
-    private List<BillboardProp> billboardedProps;
+    // Extra prop data that is shared with the prop segments
+    private List<IndirectExtraPropData> extraPropData;
 
     // Compute shader that will be responsble for prop  generation
     public ComputeShader propShader;
 
-    // Dictionary for all the prop segments that are in use by LOds
-    private Dictionary<int3, PropSegment> propSegments;
+    // Prop segment management and diffing
+    private NativeHashSet<int4> propSegments;
+    private NativeHashSet<int4> oldPropSegments;
+    private NativeList<int4> addedSegments;
+    private NativeList<int4> removedSegments;
+
+    // Prop segment classes bounded to their positions
+    private Dictionary<int4, PropSegment> propSegmentsDict;
 
     // When we load in a prop segment
     public delegate void PropSegmentLoaded(int3 position, PropSegment segment);
@@ -58,12 +65,13 @@ public class VoxelProps : VoxelBehaviour {
     public event PropSegmentUnloaded onPropSegmentUnloaded;
 
     // Pooled prop segments that we can reuse
-    public GameObject propSegmentPrefab;
-    internal List<GameObject> pooledPropSegments;
+    private List<GameObject> pooledPropSegmentsGameObjects;
+
+    // Unculled compute buffers for position/scale for each prop type
+    private List<ComputeBuffer> posScaleBuffers;
 
     // Edited externally
     internal HashSet<TerrainLoader> targets;
-    public Texture2D testu;
 
     private void OnValidate() {
         if (terrain == null) {
@@ -86,6 +94,7 @@ public class VoxelProps : VoxelBehaviour {
         propShader.SetFloat("propSegmentResolution", VoxelUtils.PropSegmentResolution);
     }
 
+    // Create captures of the props, and register main settings
     internal override void Init() {
         VoxelUtils.PropSegmentResolution = propSegmentResolution;
         VoxelUtils.ChunksPerPropSegment = voxelChunksInPropSegment;
@@ -93,34 +102,51 @@ public class VoxelProps : VoxelBehaviour {
         onPropSegmentLoaded += OnPropSegmentLoad;
         onPropSegmentUnloaded += OnPropSegmentUnload;
         targets = new HashSet<TerrainLoader>();
-        billboardedProps = new List<BillboardProp>();
-        propSegments = new Dictionary<int3, PropSegment>();
-        pooledPropSegments = new List<GameObject>();
-        terrain.VoxelOctree.onOctreeChanged += UpdatePropSegments;
+        pooledPropSegmentsGameObjects = new List<GameObject>();
 
+        propSegmentsDict = new Dictionary<int4, PropSegment>();
+        propSegments = new NativeHashSet<int4>(0, Allocator.Persistent);
+        oldPropSegments = new NativeHashSet<int4>(0, Allocator.Persistent);
+        addedSegments = new NativeList<int4>(Allocator.Persistent);
+        removedSegments = new NativeList<int4>(Allocator.Persistent);
+
+        CapturePropsBillboards();
+    }
+
+    // Capture the billboards of all props sequentially
+    private void CapturePropsBillboards() {
+        // Create a prop capture camera to 
+        extraPropData = new List<IndirectExtraPropData>();
         GameObject captureGo = Instantiate(propCaptureCameraPrefab);
         Camera cam = captureGo.GetComponent<Camera>();
         captureGo.layer = 31;
         cam.cullingMask = 1 << 31;
-        
+
+        // Capture all props
         foreach (var prop in props) {
-            billboardedProps.Add(CaptureBillboard(cam, prop));
+            (Texture2D albedo, Texture2D normal, Material mat) = CaptureBillboard(cam, prop);
+
+            extraPropData.Add(new IndirectExtraPropData {
+                billboardAlbedoTexture = albedo,
+                billboardNormalTexture = normal,
+                billboardMaterial = mat,
+            });
         }
 
         Destroy(captureGo);
     }
 
     // Capture the albedo, normal, and mask maps from billboarding a prop by spawning it temporarily
-    public BillboardProp CaptureBillboard(Camera camera, Prop prop) {
+    public (Texture2D, Texture2D, Material) CaptureBillboard(Camera camera, Prop prop) {
         int width = prop.billboardTextureWidth;
         int height = prop.billboardTextureHeight;
-        var temp = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBFloat);
+        var temp = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32);
         camera.orthographicSize = prop.billboardCaptureCameraScale;
         camera.targetTexture = temp;
 
         // Create the output texture 2Ds
-        Texture2D albedoTextureOut = new Texture2D(width, height, TextureFormat.RGBAFloat, false);
-        Texture2D normalTextureOut = new Texture2D(width, height, TextureFormat.RGBAFloat, false);
+        Texture2D albedoTextureOut = new Texture2D(width, height, TextureFormat.ARGB32, false);
+        Texture2D normalTextureOut = new Texture2D(width, height, TextureFormat.ARGB32, false);
 
         // Create a prop fake game object and render the camera
         GameObject faker = Instantiate(prop.prefab);
@@ -144,7 +170,7 @@ public class VoxelProps : VoxelBehaviour {
         Graphics.CopyTexture(temp, normalTextureOut);
 
         // Create a material that uses these values by default
-        Material mat = new Material(test);
+        Material mat = new Material(billboardMaterialBase);
 
         mat.SetTexture("_Albedo", temp);
         mat.SetTexture("_Normal_Map", normalTextureOut);
@@ -155,130 +181,86 @@ public class VoxelProps : VoxelBehaviour {
         mat.SetInt("_Lock_Rotation_Y", prop.billboardRestrictRotationY ? 1 : 0);
         Destroy(faker);
 
-        return new BillboardProp {
-            albedoTexture = albedoTextureOut,
-            normalTexture = normalTextureOut,
-            material = mat,
-        };
+        return (albedoTextureOut, normalTextureOut, mat);
     }
 
     // Fetches a pooled prop segment, or creates a new one from scratch
     private GameObject FetchPooledPropSegment() {
         GameObject go;
 
-        if (pooledPropSegments.Count == 0) {
-            GameObject obj = Instantiate(propSegmentPrefab);
+        if (pooledPropSegmentsGameObjects.Count == 0) {
+            GameObject obj = new GameObject("Prop Segment");
             obj.transform.SetParent(transform, false);
             go = obj;
         } else {
-            go = pooledPropSegments[0];
-            pooledPropSegments.RemoveAt(0);
+            go = pooledPropSegmentsGameObjects[0];
+            pooledPropSegmentsGameObjects.RemoveAt(0);
         }
 
         go.SetActive(true);
         return go;
     }
 
-    // Called when the octree changes to update the currently active prop segments
-    private void UpdatePropSegments(ref NativeList<OctreeNode> added, ref NativeList<OctreeNode> removed) {
-        Dictionary<int3, PropSegment> copy = new Dictionary<int3, PropSegment>(propSegments);
-
-        foreach (var item in removed) {
-            if (item.size == VoxelUtils.PropSegmentSize) {
-                propSegments.Remove((int3)item.position / VoxelUtils.PropSegmentSize);
-            }
-        }
-
-        foreach (var item in added) {
-            if (item.size == VoxelUtils.PropSegmentSize) {
-                GameObject propSegment = FetchPooledPropSegment();
-                propSegment.transform.position = item.position;
-                propSegments.Add((int3)item.position / VoxelUtils.PropSegmentSize, propSegment.GetComponent<PropSegment>());
-            }
-        }
-
-        // Extremely stupid and naive but eh will fix later
-        // check removed
-        foreach (var item in copy) {
-            if (!propSegments.ContainsKey(item.Key)) {
-                onPropSegmentUnloaded?.Invoke(item.Key, item.Value);
-            }
-        }
-
-        // check added
-        foreach (var item in propSegments) {
-            if (!copy.ContainsKey(item.Key)) {
-                onPropSegmentLoaded?.Invoke(item.Key, item.Value);
-            }
-        }
-    }
-
-    // Called when a new prop segment is loaded
-    // If the segment is LOD0, spawn the props directly as gameobjects
-    // If the segment is LOD1, render the props as instanced indirect
-    // If the segment is LOD2, render the props as billboarded instanced indirect
+    // Called when a new prop segment is loaded and should be generated
     private void OnPropSegmentLoad(int3 position, PropSegment segment) {
-        segment.gameObject.SetActive(true);
-        
-        int minLod = 2;
-        Vector3 center = segment.transform.position + Vector3.one * VoxelUtils.PropSegmentSize / 2.0f;
-
-        foreach (var target in targets) {
-            float distance = Vector3.Distance(target.transform.position, center);
-            int lod = 2;
-
-            if (distance < target.propSegmentPrefabSpawnerMaxDistance) {
-                lod = 0;
-            } else if (distance < target.propSegmentInstancedRendererLodMaxDistance) {
-                lod = 1;
-            }
-
-            minLod = Mathf.Min(lod, minLod);
-        }
-        segment.lod = minLod;
-
-        if (segment.lod == 1) {
-            segment.instancedIndirectProps = new List<(int, ComputeBuffer, Prop)>();
-        } else if (segment.lod == 2) {
-            segment.billboardProps = new List<(int, ComputeBuffer, BillboardProp)>();
-        }
-
+        // Call the compute shader for each prop type
         foreach (var propType in props) {
             var propsBuffer = new ComputeBuffer(maxComputeBufferSize, Marshal.SizeOf(new BlittableProp()), ComputeBufferType.Append);
             var countBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
-            propsBuffer.SetCounterValue(0);
 
+            // Set compute properties and run the compute shader
+            Vector3 newPosition = new Vector3(position.x, position.y, position.z) * VoxelUtils.PropSegmentSize;
             propsBuffer.SetCounterValue(0);
             countBuffer.SetData(new int[] { 0 });
             propShader.SetBuffer(0, "props", propsBuffer);
-            propShader.SetVector("propChunkOffset", segment.transform.position);
+            propShader.SetVector("propChunkOffset", newPosition);
+
+            // Execute the prop segment compute shader
             int _count = VoxelUtils.PropSegmentResolution / 4;
             propShader.Dispatch(0, _count, _count, _count);
 
             if (segment.lod == 0) {
+                GameObject obj = FetchPooledPropSegment();
+                obj.transform.position = newPosition;
+                segment.owner = obj;
                 SpawnPropPrefabs(segment, propType, propsBuffer, countBuffer);
             } else if (segment.lod == 1) {
-                SetPropInstancedIndirect(segment, propType, propsBuffer, countBuffer);
+                //SetPropInstancedIndirect(segment, propType, propsBuffer, countBuffer);
             } else {
-                SetProBillboarded(segment, propType, propsBuffer, countBuffer);
+                //SetProBillboarded(segment, propType, propsBuffer, countBuffer);
             }
         }
     }
 
+    // First runs the compute shader on a temporary buffer (max sized)
+    // Then copies the buffer into a bigger one (max sized * number of currently active segments)
+    // Main "segment" culling shader does frustum culling over prop segment regions first (broad phase)
+    // Secondary culling shader does frustum culling over props individually (maybe occlusion?)
+    //      Optionally do all billboard vertex logic here as well
+    //      Optionally select between "instanced" and "billboarded" meshes to render
+    
     // Called when an old prop segment is unloaded
     private void OnPropSegmentUnload(int3 position, PropSegment segment) {
+        if (segment.owner != null) {
+            Destroy(segment.owner);
+            segment.owner = null;
+        }
+        /*
         segment.gameObject.SetActive(false);
-        segment.instancedIndirectProps = null;
 
         for (int i = 0; i < segment.transform.childCount; i++) {
             Destroy(segment.transform.GetChild(i).gameObject);
         }
 
         pooledPropSegments.Add(segment.gameObject);
+        */
     }
 
     // Spawn the necessary prop gameobjects for a prop segment at lod 0
     private void SpawnPropPrefabs(PropSegment segment, Prop propType, ComputeBuffer propsBuffer, ComputeBuffer countBuffer) {
+        if (!spawnPropPrefabs)
+            return;
+
         ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
         int[] count = new int[1] { 0 };
         countBuffer.GetData(count);
@@ -287,7 +269,7 @@ public class VoxelProps : VoxelBehaviour {
         propsBuffer.GetData(generatedProps);
         foreach (var prop in generatedProps) {
             GameObject propGameObject = Instantiate(propType.prefab);
-            propGameObject.transform.SetParent(segment.transform);
+            propGameObject.transform.SetParent(segment.owner.transform);
             float3 propPosition = prop.position_and_scale.xyz;
             float3 propRotation = prop.euler_angles_padding.xyz;
             float propScale = prop.position_and_scale.w;
@@ -295,45 +277,108 @@ public class VoxelProps : VoxelBehaviour {
             propGameObject.transform.localScale = Vector3.one * propScale;
             propGameObject.transform.eulerAngles = propRotation;
         }
-
-        if (count[0] == 0) {
-            segment.gameObject.SetActive(false);
-        }
     }
 
-    // Set some props to be rendered by instancing
-    private void SetPropInstancedIndirect(PropSegment segment, Prop propType, ComputeBuffer propsBuffer, ComputeBuffer countBuffer) {
-        ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
-        int[] count = new int[1] { 0 };
-        countBuffer.GetData(count);
-        segment.instancedIndirectProps.Add((count[0], propsBuffer, propType));
+    // Updates the prop segments LOD and renders instanced/billboarded instances for props
+    private void Update() {
+        if (terrain.VoxelOctree.mustUpdate) {
+            NativeList<TerrainLoaderTarget> targets = terrain.VoxelOctree.targets;
 
-        if (count[0] == 0) {
-            segment.gameObject.SetActive(false);
+            PropSegmentSpawnDiffJob job = new PropSegmentSpawnDiffJob {
+                addedSegments = addedSegments,
+                removedSegments = removedSegments,
+                oldPropSegments = oldPropSegments,
+                propSegments = propSegments,
+                target = targets[0],
+                propSegmentSize = VoxelUtils.PropSegmentSize,
+            };
+
+            job.Schedule().Complete();
+
+            for (int i = 0; i < removedSegments.Length; i++) {
+                var pos = removedSegments[i];
+                if (propSegmentsDict.Remove(pos, out PropSegment val)) {
+                    onPropSegmentUnloaded.Invoke(pos.xyz, val);
+                }
+            }
+
+            for (int i = 0; i < addedSegments.Length; i++) {
+                var segment = new PropSegment();
+                var pos = addedSegments[i];
+                segment.lod = pos.w;
+                propSegmentsDict.Add(pos, segment);
+                onPropSegmentLoaded.Invoke(pos.xyz, segment);
+            }
+
+
         }
+
+        // Render all prop types using a single command
+        /*
+        for (int i = 0; i < props.Count; i++) {
+            IndirectExtraPropData extra = extraPropData[i];
+            Prop prop = props[i];
+
+        }
+        */
     }
 
-    // Set some props to be rendered by billboarding
-    private void SetProBillboarded(PropSegment segment, Prop propType, ComputeBuffer propsBuffer, ComputeBuffer countBuffer) {
-        ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
-        int[] count = new int[1] { 0 };
-        countBuffer.GetData(count);
-        int index = props.IndexOf(propType);
-        segment.billboardProps.Add((count[0], propsBuffer, billboardedProps[index]));
+    /*
+    // Render the billboards for a specific type of prop for one frame
+    private void RenderBillboardsForProp(IndirectExtraPropData extraData, Prop prop, GraphicsBuffer commandBuffer) {
+        if (!renderBillboards)
+            return;
 
-        if (count[0] == 0) {
-            segment.gameObject.SetActive(false);
-        }
+        ShadowCastingMode shadowCastingMode = prop.billboardCastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
+        RenderParams renderParams = new RenderParams(extraData.billboardMaterial);
+        renderParams.shadowCastingMode = shadowCastingMode;
+        renderParams.worldBounds = new Bounds {
+            center = Vector3.zero,
+            extents = Vector3.one * 100000.0f
+        };
+
+        renderParams.matProps = new MaterialPropertyBlock();
+        //renderParams.matProps.SetBuffer("_BlittablePropBuffer", prop.Item2);
+        renderParams.matProps.SetVector("_BoundsOffset", renderParams.worldBounds.center);
+        renderParams.matProps.SetTexture("_Albedo", extraData.billboardAlbedoTexture);
+        renderParams.matProps.SetTexture("_Normal_Map", extraData.billboardNormalTexture);
+
+        Mesh mesh = VoxelTerrain.Instance.VoxelProps.quadBillboard;
+        Graphics.RenderMeshIndirect(renderParams, quadBillboard, commandBuffer);
+    }
+    */
+
+    // Render the billboards for a specific prop segment
+    private void RenderBillboardsForSegment(IndirectExtraPropData extraData, Prop prop) {
+        if (!renderBillboards)
+            return;
+
+        ShadowCastingMode shadowCastingMode = prop.billboardCastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
+        RenderParams renderParams = new RenderParams(extraData.billboardMaterial);
+        renderParams.shadowCastingMode = shadowCastingMode;
+        renderParams.worldBounds = new Bounds {
+            center = Vector3.zero,
+            extents = Vector3.one * 100000.0f
+        };
+
+        renderParams.matProps = new MaterialPropertyBlock();
+        //renderParams.matProps.SetBuffer("_BlittablePropBuffer", prop.Item2);
+        renderParams.matProps.SetVector("_BoundsOffset", renderParams.worldBounds.center);
+        renderParams.matProps.SetTexture("_Albedo", extraData.billboardAlbedoTexture);
+        renderParams.matProps.SetTexture("_Normal_Map", extraData.billboardNormalTexture);
+
+        Mesh mesh = VoxelTerrain.Instance.VoxelProps.quadBillboard;
+        Graphics.RenderMeshIndirect(renderParams, quadBillboard, commandBuffer);
     }
 
     private void OnDrawGizmosSelected() {
         if (terrain != null && debugGizmos) {
             int size = VoxelUtils.PropSegmentSize;
-            foreach (var item in propSegments) {
-                var key = item.Key;
+            foreach (var item in propSegmentsDict) {
+                var key = item.Key.xyz;
                 Vector3 center = new Vector3(key.x, key.y, key.z) * size + Vector3.one * size / 2.0f;
 
-                switch (item.Value.lod) {
+                switch (item.Key.w) {
                     case 0:
                         Gizmos.color = Color.green;
                         break;
@@ -353,5 +398,9 @@ public class VoxelProps : VoxelBehaviour {
     }
 
     internal override void Dispose() {
+        propSegments.Dispose();
+        oldPropSegments.Dispose();
+        addedSegments.Dispose();
+        removedSegments.Dispose();
     }
 }

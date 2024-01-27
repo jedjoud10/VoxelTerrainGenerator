@@ -14,7 +14,7 @@ public struct SubdivideJob<T> : IJob where T: struct, IOctreeSubdivider {
 
     // The octree chunk targets 
     [ReadOnly]
-    public NativeArray<OctreeTarget> targets;
+    public NativeArray<TerrainLoaderTarget> targets;
 
     [ReadOnly] public int maxDepth;
     public T subdivider;
