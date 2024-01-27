@@ -69,11 +69,4 @@ public class TerrainLoader : MonoBehaviour {
             }
         }
     }
-
-    private void OnDestroy() {
-        // uhhhhhhhhhhhhhhhhhhhh
-        if(props != null) {
-            props.targets.Remove(this);
-        }
-    }
 }

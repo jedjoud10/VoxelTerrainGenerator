@@ -56,11 +56,11 @@ public struct PropSegmentSpawnDiffJob : IJob {
                 // multiple duplicates for each level to make sure there are no "zombie" segments that are left
                 // only have to worry about this when using multiple targets
 
-
-                removedSegments.Add(new int4(item.xyz, -1));
-                removedSegments.Add(new int4(item.xyz, 0));
-                removedSegments.Add(new int4(item.xyz, 1));
-                removedSegments.Add(new int4(item.xyz, 2));
+                removedSegments.Add(item);
+                //removedSegments.Add(new int4(item.xyz, -1));
+                //removedSegments.Add(new int4(item.xyz, 0));
+                //removedSegments.Add(new int4(item.xyz, 1));
+                //removedSegments.Add(new int4(item.xyz, 2));
             }
         }
 

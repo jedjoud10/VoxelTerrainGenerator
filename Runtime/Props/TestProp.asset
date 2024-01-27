@@ -22,8 +22,8 @@ MonoBehaviour:
   billboardTextureHeight: 128
   billboardCaptureRotation: {x: 0, y: 45, z: 0}
   billboardCapturePosition: {x: 0, y: -6, z: 5}
-  billboardSize: {x: 6.5, y: 19.5}
-  billboardOffset: {x: 0, y: 9, z: 0}
+  billboardSize: {x: 4, y: 13}
+  billboardOffset: {x: 0, y: 4.5, z: 0}
   billboardRestrictRotationY: 1
   billboardCastShadows: 1
-  billboardAlphaClipThreshold: 0.8
+  billboardAlphaClipThreshold: 0.5

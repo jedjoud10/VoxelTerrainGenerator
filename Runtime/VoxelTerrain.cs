@@ -1,4 +1,3 @@
-using Codice.Client.Common.TreeGrouper;
 using System;
 using System.Collections.Generic;
 using System.Linq;

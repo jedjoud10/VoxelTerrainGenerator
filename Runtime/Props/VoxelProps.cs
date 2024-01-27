@@ -7,7 +7,6 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
-using static UnityEngine.Rendering.HableCurve;
 
 // Responsible for generating the voxel props on the terrain
 // For this, we must force voxel generation to happen on the CPU so we can execute
@@ -64,14 +63,14 @@ public class VoxelProps : VoxelBehaviour {
     public delegate void PropSegmentUnloaded(int3 position, PropSegment segment);
     public event PropSegmentUnloaded onPropSegmentUnloaded;
 
-    // Pooled prop segments that we can reuse
-    private List<GameObject> pooledPropSegmentsGameObjects;
+    // Pooled props that we can reuse for each prop type
+    private List<GameObject>[] pooledPropGameObjects;
+
+    // Create a game object attached to the main terrain that will store pooled props
+    private GameObject[] pooledPropOwners;
 
     // Unculled compute buffers for position/scale for each prop type
-    private List<ComputeBuffer> posScaleBuffers;
-
-    // Edited externally
-    internal HashSet<TerrainLoader> targets;
+    private ComputeBuffer[] posScaleBuffers;
 
     private void OnValidate() {
         if (terrain == null) {
@@ -101,8 +100,15 @@ public class VoxelProps : VoxelBehaviour {
         UpdateStaticComputeFields();
         onPropSegmentLoaded += OnPropSegmentLoad;
         onPropSegmentUnloaded += OnPropSegmentUnload;
-        targets = new HashSet<TerrainLoader>();
-        pooledPropSegmentsGameObjects = new List<GameObject>();
+        pooledPropGameObjects = new List<GameObject>[props.Count];
+        pooledPropOwners = new GameObject[props.Count];
+
+        for (int i = 0; i < props.Count; i++) {
+            pooledPropGameObjects[i] = new List<GameObject>();
+            var obj = new GameObject();
+            obj.transform.SetParent(transform);
+            pooledPropOwners[i] = obj;
+        }
 
         propSegmentsDict = new Dictionary<int4, PropSegment>();
         propSegments = new NativeHashSet<int4>(0, Allocator.Persistent);
@@ -184,50 +190,36 @@ public class VoxelProps : VoxelBehaviour {
         return (albedoTextureOut, normalTextureOut, mat);
     }
 
-    // Fetches a pooled prop segment, or creates a new one from scratch
-    private GameObject FetchPooledPropSegment() {
-        GameObject go;
-
-        if (pooledPropSegmentsGameObjects.Count == 0) {
-            GameObject obj = new GameObject("Prop Segment");
-            obj.transform.SetParent(transform, false);
-            go = obj;
-        } else {
-            go = pooledPropSegmentsGameObjects[0];
-            pooledPropSegmentsGameObjects.RemoveAt(0);
-        }
-
-        go.SetActive(true);
-        return go;
-    }
-
     // Called when a new prop segment is loaded and should be generated
     private void OnPropSegmentLoad(int3 position, PropSegment segment) {
+        segment.test = new Dictionary<int, (ComputeBuffer, int)>();
+        segment.props = new Dictionary<int, List<GameObject>>();
+        
         // Call the compute shader for each prop type
-        foreach (var propType in props) {
+        for (int i = 0; i < props.Count; i++) {
+            Prop propType = props[i];
+
             var propsBuffer = new ComputeBuffer(maxComputeBufferSize, Marshal.SizeOf(new BlittableProp()), ComputeBufferType.Append);
             var countBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
 
             // Set compute properties and run the compute shader
-            Vector3 newPosition = new Vector3(position.x, position.y, position.z) * VoxelUtils.PropSegmentSize;
             propsBuffer.SetCounterValue(0);
             countBuffer.SetData(new int[] { 0 });
             propShader.SetBuffer(0, "props", propsBuffer);
-            propShader.SetVector("propChunkOffset", newPosition);
+            propShader.SetVector("propChunkOffset", segment.position);
 
             // Execute the prop segment compute shader
             int _count = VoxelUtils.PropSegmentResolution / 4;
             propShader.Dispatch(0, _count, _count, _count);
 
             if (segment.lod == 0) {
-                GameObject obj = FetchPooledPropSegment();
-                obj.transform.position = newPosition;
-                segment.owner = obj;
-                SpawnPropPrefabs(segment, propType, propsBuffer, countBuffer);
-            } else if (segment.lod == 1) {
-                //SetPropInstancedIndirect(segment, propType, propsBuffer, countBuffer);
+                segment.props.Add(i, new List<GameObject>());
+                SpawnPropPrefabs(i, segment, propType, propsBuffer, countBuffer);
             } else {
-                //SetProBillboarded(segment, propType, propsBuffer, countBuffer);
+                ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
+                int[] count = new int[1] { 0 };
+                countBuffer.GetData(count);
+                segment.test.Add(i, (propsBuffer, count[0]));
             }
         }
     }
@@ -241,23 +233,37 @@ public class VoxelProps : VoxelBehaviour {
     
     // Called when an old prop segment is unloaded
     private void OnPropSegmentUnload(int3 position, PropSegment segment) {
-        if (segment.owner != null) {
-            Destroy(segment.owner);
-            segment.owner = null;
-        }
-        /*
-        segment.gameObject.SetActive(false);
-
-        for (int i = 0; i < segment.transform.childCount; i++) {
-            Destroy(segment.transform.GetChild(i).gameObject);
+        foreach (var collection in segment.props) {
+            foreach (var item in collection.Value) {
+                item.SetActive(false);
+                pooledPropGameObjects[collection.Key].Add(item);
+            }
         }
 
-        pooledPropSegments.Add(segment.gameObject);
-        */
+        segment.test = null;
+        segment.props = null;
     }
 
     // Spawn the necessary prop gameobjects for a prop segment at lod 0
-    private void SpawnPropPrefabs(PropSegment segment, Prop propType, ComputeBuffer propsBuffer, ComputeBuffer countBuffer) {
+    private void SpawnPropPrefabs(int i, PropSegment segment, Prop propType, ComputeBuffer propsBuffer, ComputeBuffer countBuffer) {
+        // Fetches a pooled prop, or creates a new one from scratch
+        GameObject FetchPooledProp() {
+            GameObject go;
+
+            if (pooledPropGameObjects[i].Count == 0) {
+                GameObject obj = Instantiate(propType.prefab);
+                obj.transform.SetParent(transform, false);
+                go = obj;
+            } else {
+                go = pooledPropGameObjects[i][0];
+                pooledPropGameObjects[i].RemoveAt(0);
+            }
+
+            go.SetActive(true);
+            return go;
+        }
+
+
         if (!spawnPropPrefabs)
             return;
 
@@ -268,14 +274,15 @@ public class VoxelProps : VoxelBehaviour {
         BlittableProp[] generatedProps = new BlittableProp[count[0]];
         propsBuffer.GetData(generatedProps);
         foreach (var prop in generatedProps) {
-            GameObject propGameObject = Instantiate(propType.prefab);
-            propGameObject.transform.SetParent(segment.owner.transform);
+            GameObject propGameObject = FetchPooledProp();
+            propGameObject.transform.SetParent(pooledPropOwners[i].transform);
             float3 propPosition = prop.position_and_scale.xyz;
             float3 propRotation = prop.euler_angles_padding.xyz;
             float propScale = prop.position_and_scale.w;
             propGameObject.transform.position = propPosition;
             propGameObject.transform.localScale = Vector3.one * propScale;
             propGameObject.transform.eulerAngles = propRotation;
+            segment.props[i].Add(propGameObject);
         }
     }
 
@@ -295,21 +302,21 @@ public class VoxelProps : VoxelBehaviour {
 
             job.Schedule().Complete();
 
+            for (int i = 0; i < addedSegments.Length; i++) {
+                var segment = new PropSegment();
+                var pos = addedSegments[i];
+                segment.position = new Vector3(pos.x, pos.y, pos.z) * VoxelUtils.PropSegmentSize;
+                segment.lod = pos.w;
+                propSegmentsDict.Add(pos, segment);
+                onPropSegmentLoaded.Invoke(pos.xyz, segment);
+            }
+
             for (int i = 0; i < removedSegments.Length; i++) {
                 var pos = removedSegments[i];
                 if (propSegmentsDict.Remove(pos, out PropSegment val)) {
                     onPropSegmentUnloaded.Invoke(pos.xyz, val);
                 }
             }
-
-            for (int i = 0; i < addedSegments.Length; i++) {
-                var segment = new PropSegment();
-                var pos = addedSegments[i];
-                segment.lod = pos.w;
-                propSegmentsDict.Add(pos, segment);
-                onPropSegmentLoaded.Invoke(pos.xyz, segment);
-            }
-
 
         }
 
@@ -321,6 +328,20 @@ public class VoxelProps : VoxelBehaviour {
 
         }
         */
+
+        if (!renderBillboards)
+            return;
+
+        foreach (var segment in propSegmentsDict) {
+            if (segment.Value.test == null)
+                continue;
+
+            foreach (var item in segment.Value.test) {
+                IndirectExtraPropData extraData = extraPropData[item.Key];
+                Prop prop = props[item.Key];
+                RenderBillboardsForSegment(segment.Value.position, extraData, prop, item.Value.Item1, item.Value.Item2);
+            }
+        }
     }
 
     /*
@@ -349,26 +370,26 @@ public class VoxelProps : VoxelBehaviour {
     */
 
     // Render the billboards for a specific prop segment
-    private void RenderBillboardsForSegment(IndirectExtraPropData extraData, Prop prop) {
-        if (!renderBillboards)
+    private void RenderBillboardsForSegment(Vector3 position, IndirectExtraPropData extraData, Prop prop, ComputeBuffer buffer, int count) {
+        if (count == 0)
             return;
 
         ShadowCastingMode shadowCastingMode = prop.billboardCastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
         RenderParams renderParams = new RenderParams(extraData.billboardMaterial);
-        renderParams.shadowCastingMode = shadowCastingMode;
+        renderParams.shadowCastingMode = shadowCastingMode; 
         renderParams.worldBounds = new Bounds {
-            center = Vector3.zero,
-            extents = Vector3.one * 100000.0f
+            min = position,
+            max = position + Vector3.one * VoxelUtils.PropSegmentSize,
         };
 
         renderParams.matProps = new MaterialPropertyBlock();
-        //renderParams.matProps.SetBuffer("_BlittablePropBuffer", prop.Item2);
+        renderParams.matProps.SetBuffer("_BlittablePropBuffer", buffer);
         renderParams.matProps.SetVector("_BoundsOffset", renderParams.worldBounds.center);
         renderParams.matProps.SetTexture("_Albedo", extraData.billboardAlbedoTexture);
         renderParams.matProps.SetTexture("_Normal_Map", extraData.billboardNormalTexture);
 
         Mesh mesh = VoxelTerrain.Instance.VoxelProps.quadBillboard;
-        Graphics.RenderMeshIndirect(renderParams, quadBillboard, commandBuffer);
+        Graphics.RenderMeshPrimitives(renderParams, mesh, 0, count);
     }
 
     private void OnDrawGizmosSelected() {
