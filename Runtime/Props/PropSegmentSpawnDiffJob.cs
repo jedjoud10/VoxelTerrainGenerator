@@ -36,7 +36,7 @@ public struct PropSegmentSpawnDiffJob : IJob {
                     float distance = math.distance(target.center, segmentPos) / propSegmentSize;
 
                     int lod = (int)math.round(distance * target.propSegmentLodMultiplier);
-                    lod = math.clamp(lod, 0, 2);
+                    lod = math.clamp(lod, 0, 1);
                     propSegments.Add(new int4(segment, lod));
                 }
             }
@@ -57,10 +57,6 @@ public struct PropSegmentSpawnDiffJob : IJob {
                 // only have to worry about this when using multiple targets
 
                 removedSegments.Add(item);
-                //removedSegments.Add(new int4(item.xyz, -1));
-                //removedSegments.Add(new int4(item.xyz, 0));
-                //removedSegments.Add(new int4(item.xyz, 1));
-                //removedSegments.Add(new int4(item.xyz, 2));
             }
         }
 
@@ -69,24 +65,5 @@ public struct PropSegmentSpawnDiffJob : IJob {
         foreach (var item in propSegments) {
             oldPropSegments.Add(item);
         }
-
-        /*
-         * 
-         *     int minLod = 2;
-    Vector3 center = segment.transform.position + Vector3.one * VoxelUtils.PropSegmentSize / 2.0f;
-
-    foreach (var target in targets) {
-        float distance = Vector3.Distance(target.transform.position, center) / VoxelUtils.PropSegmentSize;
-        int lod = 2;
-
-        if (distance < target.propSegmentPrefabSpawnerMultiplier) {
-            lod = 0;
-        } else if (distance < target.propSegmentInstancedRendererLodMultiplier) {
-            lod = 1;
-        }
-
-        minLod = Mathf.Min(lod, minLod);
-    }*/
-
     }
 }

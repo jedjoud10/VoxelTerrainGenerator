@@ -7,6 +7,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
+using static UnityEditor.MaterialProperty;
 
 // Responsible for generating the voxel props on the terrain
 // For this, we must force voxel generation to happen on the CPU so we can execute
@@ -15,7 +16,6 @@ public class VoxelProps : VoxelBehaviour {
     
     // Toggles for debugging
     public bool debugGizmos = false;
-    public bool renderInstancedMeshes = true;
     public bool renderBillboards = true;
     public bool spawnPropPrefabs = true;
 
@@ -62,6 +62,14 @@ public class VoxelProps : VoxelBehaviour {
     // When we unload a prop segment
     public delegate void PropSegmentUnloaded(int3 position, PropSegment segment);
     public event PropSegmentUnloaded onPropSegmentUnloaded;
+
+    // Called when a prop prefab gets spawned in (might be pooled)
+    public delegate void PropPrefabSpawned(Prop type, GameObject prop);
+    public event PropPrefabSpawned onPropPrefabSpawned;
+
+    // Called when a prop prefab gets pooled back (deactivated)
+    public delegate void PropPrefabPooled(Prop type, GameObject prop);
+    public event PropPrefabPooled onPropPrefabPooled;
 
     // Pooled props that we can reuse for each prop type
     private List<GameObject>[] pooledPropGameObjects;
@@ -212,7 +220,7 @@ public class VoxelProps : VoxelBehaviour {
             int _count = VoxelUtils.PropSegmentResolution / 4;
             propShader.Dispatch(0, _count, _count, _count);
 
-            if (segment.lod == 0) {
+            if (segment.spawnPrefabs) {
                 segment.props.Add(i, new List<GameObject>());
                 SpawnPropPrefabs(i, segment, propType, propsBuffer, countBuffer);
             } else {
@@ -236,6 +244,7 @@ public class VoxelProps : VoxelBehaviour {
         foreach (var collection in segment.props) {
             foreach (var item in collection.Value) {
                 item.SetActive(false);
+                onPropPrefabPooled?.Invoke(props[collection.Key], item);
                 pooledPropGameObjects[collection.Key].Add(item);
             }
         }
@@ -275,9 +284,10 @@ public class VoxelProps : VoxelBehaviour {
         propsBuffer.GetData(generatedProps);
         foreach (var prop in generatedProps) {
             GameObject propGameObject = FetchPooledProp();
+            onPropPrefabSpawned?.Invoke(propType, propGameObject);
             propGameObject.transform.SetParent(pooledPropOwners[i].transform);
-            float3 propPosition = prop.position_and_scale.xyz;
-            float3 propRotation = prop.euler_angles_padding.xyz;
+            float3 propPosition = (float3)prop.position_and_scale.xyz;
+            float3 propRotation = (float3)prop.euler_angles_padding.xyz;
             float propScale = prop.position_and_scale.w;
             propGameObject.transform.position = propPosition;
             propGameObject.transform.localScale = Vector3.one * propScale;
@@ -306,7 +316,7 @@ public class VoxelProps : VoxelBehaviour {
                 var segment = new PropSegment();
                 var pos = addedSegments[i];
                 segment.position = new Vector3(pos.x, pos.y, pos.z) * VoxelUtils.PropSegmentSize;
-                segment.lod = pos.w;
+                segment.spawnPrefabs = pos.w == 0;
                 propSegmentsDict.Add(pos, segment);
                 onPropSegmentLoaded.Invoke(pos.xyz, segment);
             }
@@ -319,15 +329,6 @@ public class VoxelProps : VoxelBehaviour {
             }
 
         }
-
-        // Render all prop types using a single command
-        /*
-        for (int i = 0; i < props.Count; i++) {
-            IndirectExtraPropData extra = extraPropData[i];
-            Prop prop = props[i];
-
-        }
-        */
 
         if (!renderBillboards)
             return;
@@ -343,31 +344,6 @@ public class VoxelProps : VoxelBehaviour {
             }
         }
     }
-
-    /*
-    // Render the billboards for a specific type of prop for one frame
-    private void RenderBillboardsForProp(IndirectExtraPropData extraData, Prop prop, GraphicsBuffer commandBuffer) {
-        if (!renderBillboards)
-            return;
-
-        ShadowCastingMode shadowCastingMode = prop.billboardCastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
-        RenderParams renderParams = new RenderParams(extraData.billboardMaterial);
-        renderParams.shadowCastingMode = shadowCastingMode;
-        renderParams.worldBounds = new Bounds {
-            center = Vector3.zero,
-            extents = Vector3.one * 100000.0f
-        };
-
-        renderParams.matProps = new MaterialPropertyBlock();
-        //renderParams.matProps.SetBuffer("_BlittablePropBuffer", prop.Item2);
-        renderParams.matProps.SetVector("_BoundsOffset", renderParams.worldBounds.center);
-        renderParams.matProps.SetTexture("_Albedo", extraData.billboardAlbedoTexture);
-        renderParams.matProps.SetTexture("_Normal_Map", extraData.billboardNormalTexture);
-
-        Mesh mesh = VoxelTerrain.Instance.VoxelProps.quadBillboard;
-        Graphics.RenderMeshIndirect(renderParams, quadBillboard, commandBuffer);
-    }
-    */
 
     // Render the billboards for a specific prop segment
     private void RenderBillboardsForSegment(Vector3 position, IndirectExtraPropData extraData, Prop prop, ComputeBuffer buffer, int count) {
@@ -399,18 +375,10 @@ public class VoxelProps : VoxelBehaviour {
                 var key = item.Key.xyz;
                 Vector3 center = new Vector3(key.x, key.y, key.z) * size + Vector3.one * size / 2.0f;
 
-                switch (item.Key.w) {
-                    case 0:
-                        Gizmos.color = Color.green;
-                        break;
-                    case 1:
-                        Gizmos.color = Color.yellow;
-                        break;
-                    case 2:
-                        Gizmos.color = Color.red;
-                        break;
-                    default:
-                        break;
+                if (item.Value.spawnPrefabs) {
+                    Gizmos.color = Color.green;
+                } else {
+                    Gizmos.color = Color.red;
                 }
 
                 Gizmos.DrawWireCube(center, Vector3.one * size);

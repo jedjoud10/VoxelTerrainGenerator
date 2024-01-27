@@ -9,7 +9,7 @@ Voxel GetVoxelAt(float3 position) {
 	float density1 = -fbm(position.xz * 0.001 + snoise(position.xz * 0.01) * 0.03, 3, 0.49, 2.1) * 15;
 
 	// Density value for biome 2
-	float density2 = -fbmCellular(position.xz * 0.001, 6, 0.22, 2.01).y * 920 + fbm(position.xz * 0.002, 7, 0.5, 2.2) * 80;
+	float density2 = -fbmCellular(position.xz * 0.001, 6, 0.4, 2.2).y * 920;
 
 	// Mixer between biome 1 and biome 2
 	float mixer = snoise(position.xz * 0.0003) * 0.5 + 0.5;

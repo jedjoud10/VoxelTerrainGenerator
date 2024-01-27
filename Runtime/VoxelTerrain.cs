@@ -12,7 +12,15 @@ using UnityEngine;
 [RequireComponent(typeof(VoxelOctree))]
 [RequireComponent(typeof(VoxelEdits))]
 [RequireComponent(typeof(VoxelProps))]
-public class VoxelTerrain : MonoBehaviour {
+public partial class VoxelTerrain : MonoBehaviour {
+    public enum GenerationReason {
+        None,
+        Initial,
+        TerrainLoader,
+        Deserialized,
+        AnonymousRequest
+    }
+
     // Singleton pattern heheheha
     public static VoxelTerrain Instance { get; private set; }
 
@@ -56,17 +64,31 @@ public class VoxelTerrain : MonoBehaviour {
     public delegate void ChunkGenerationDone();
     public event ChunkGenerationDone onChunkGenerationDone;
 
+    // Called when the terrain is starting to get saved
+    public delegate void TerrainSerializationStart();
+    public event TerrainSerializationStart onSerializeStart;
+
+    // Called when the terrain was saved
+    public delegate void TerrainSerializationFinish();
+    public event TerrainSerializationFinish onSerializeFinish;
+
+    // Called when the terrain is starting to get loaded
+    public delegate void TerrainDeserializationStart();
+    public event TerrainDeserializationStart onDeserializeStart;
+
+    // Called when the terrain was loaded from saved data
+    public delegate void TerrainDeserializationFinish();
+    public event TerrainDeserializationFinish onDeserializeFinish;
+
     // When we add a chunk to the octree
     public delegate void ChunkAdded(VoxelChunk chunk);
     public event ChunkAdded onChunkAdded;
-
-
     public bool Free { get; private set; } = true;
     internal bool started = false;
     private System.Diagnostics.Stopwatch timer;
 
-    // Did the terrain finish computing the initial base terrain
-    public bool Initial { get; private set; } = false;
+    // Current reason why the terrain is generating
+    private GenerationReason requestReason;
 
     private void OnValidate() {
         if (!started) {
@@ -109,7 +131,6 @@ public class VoxelTerrain : MonoBehaviour {
         VoxelMesher.onVoxelMeshingComplete += OnVoxelMeshingComplete;
         VoxelCollisions.onCollisionBakingComplete += OnCollisionBakingComplete;
         VoxelOctree.onOctreeChanged += OnOctreeChanged;
-        onChunkGenerationDone += SwapsChunk;
 
         // Init local vars
         Chunks = new Dictionary<OctreeNode, VoxelChunk>();
@@ -117,6 +138,7 @@ public class VoxelTerrain : MonoBehaviour {
         pooledVoxelChunkContainers = new List<UniqueVoxelChunkContainer>();
         timer = new System.Diagnostics.Stopwatch();
         timer.Start();
+        requestReason = GenerationReason.Initial;
     }
 
     // Dispose of all the voxel behaviours
@@ -126,6 +148,7 @@ public class VoxelTerrain : MonoBehaviour {
         VoxelEdits.Dispose();
         VoxelGenerator.Dispose();
         VoxelCollisions.Dispose();
+        VoxelProps.Dispose();
 
 
         foreach (var item in Chunks) {
@@ -140,40 +163,45 @@ public class VoxelTerrain : MonoBehaviour {
     }
 
     private void Update() {
-
-
-        if (!Free && VoxelGenerator.Free && VoxelMesher.Free && VoxelOctree.Free && VoxelEdits.Free && toMakeVisible.Count > 0) {
+        if (!Free && VoxelGenerator.Free && VoxelMesher.Free && VoxelOctree.Free && VoxelEdits.Free) {
             Free = true;
-
             onChunkGenerationDone?.Invoke();
 
-            if (!Initial) {
-                timer.Stop();
-                Debug.Log($"Initial generation done. Took {timer.ElapsedMilliseconds}ms");
-                onInitialGenerationDone?.Invoke();
-                Initial = true;
+            if (toMakeVisible.Count > 0) {
+                // Remove the chunks from the scene and put them back into the pool
+                foreach (var item in toRemoveChunk) {
+                    if (Chunks.TryGetValue(item, out VoxelChunk voxelChunk)) {
+                        Chunks.Remove(item);
+                        PoolChunkBack(voxelChunk);
+                    }
+                }
+
+                toRemoveChunk.Clear();
+
+                // Make the chunks visible
+                foreach (var item in toMakeVisible) {
+                    item.GetComponent<MeshRenderer>().enabled = true;
+                }
+
+                toMakeVisible.Clear();
             }
-        }
-    }
 
-    // Deswpans the chunks that we do not need of and makes the new ones visible
-    void SwapsChunk() {
-        // Remove the chunks from the scene and put them back into the pool
-        foreach (var item in toRemoveChunk) {
-            if (Chunks.TryGetValue(item, out VoxelChunk voxelChunk)) {
-                Chunks.Remove(item);
-                PoolChunkBack(voxelChunk);
+            Debug.Log(requestReason);
+            switch (requestReason) {
+                case GenerationReason.Initial:
+                    timer.Stop();
+                    Debug.Log($"Initial generation done. Took {timer.ElapsedMilliseconds}ms");
+                    onInitialGenerationDone?.Invoke();
+                    break;
+                case GenerationReason.Deserialized:
+                    onDeserializeFinish?.Invoke();
+                    break;
+                default:
+                    break;
             }
+
+            requestReason = GenerationReason.None;
         }
-
-        toRemoveChunk.Clear();
-
-        // Make the chunks visible
-        foreach (var item in toMakeVisible) {
-            item.GetComponent<MeshRenderer>().enabled = true;
-        }
-
-        toMakeVisible.Clear();
     }
 
     // Give the chunk's resources back to the main pool
@@ -228,6 +256,10 @@ public class VoxelTerrain : MonoBehaviour {
         }
 
         Free = !generated;
+        
+        if (generated && requestReason == GenerationReason.None) {
+            requestReason = GenerationReason.TerrainLoader;
+        }
     }
 
     // Fetches a pooled chunk, or creates a new one from scratch
@@ -318,7 +350,7 @@ public class VoxelTerrain : MonoBehaviour {
     }
 
     // Request all the chunks to regenerate their voxels (optional) AND meshes
-    public void RequestAll(bool voxel, bool disableColliders = true, bool tempHide = false) {
+    public void RequestAll(bool voxel, bool disableColliders = true, bool tempHide = false, GenerationReason reason = GenerationReason.AnonymousRequest) {
         if (Free) {
             foreach (var item in Chunks) {
                 if (disableColliders) {
@@ -335,6 +367,8 @@ public class VoxelTerrain : MonoBehaviour {
                     item.Value.Remesh(this);
                 }
             }
+
+            this.requestReason = reason;
         }
     }
 

@@ -13,10 +13,6 @@ MonoBehaviour:
   m_Name: TestProp
   m_EditorClassIdentifier: 
   prefab: {fileID: 900193227329173065, guid: 7b5625836e801c04fbb54c9225ac4663, type: 3}
-  instancedMesh: {fileID: 3582805594628865998, guid: 1951ddca4eff0e043963e0f307ed0f50,
-    type: 3}
-  instancedMeshMaterial: {fileID: 2100000, guid: 4ab853c70982c494e81e66eb1607bf5d,
-    type: 2}
   billboardCaptureCameraScale: 6.5
   billboardTextureWidth: 32
   billboardTextureHeight: 128

@@ -7,9 +7,8 @@ public class PropSegment {
     public Vector3 position;
 
     // 0 => spawn gameobjects 
-    // 1 => indirectly draw the props
-    // 2 => billboard
-    public int lod;
+    // 1 => billboard
+    public bool spawnPrefabs;
 
     public Dictionary<int, (ComputeBuffer, int)> test;
     public Dictionary<int, List<GameObject>> props;

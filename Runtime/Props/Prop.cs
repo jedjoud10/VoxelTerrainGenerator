@@ -11,10 +11,6 @@ public class Prop : ScriptableObject {
     // Used for LOD0 prop segments; prefabs spawned in the world
     public GameObject prefab;
 
-    // Used for LOD1 prop segments; instanced indirect mesh rendering
-    public Mesh instancedMesh;
-    public Material instancedMeshMaterial;
-
     // Settings related to how we will generate the billboards
     public float billboardCaptureCameraScale = 10.0f;
     public int billboardTextureWidth = 1024;

@@ -16,7 +16,7 @@ public class CustomEditorVoxelTerrain : Editor {
         EditorGUILayout.LabelField("Voxel Size: " + voxelSize + "m");
 
         VoxelTerrain terrain = ((VoxelTerrain)target);
-        GUI.enabled = terrain.Free && terrain.Initial;
+        GUI.enabled = terrain.Free;
         if (GUILayout.Button("Regenerate")) {
             terrain.VoxelGenerator.UpdateStaticComputeFields();
             terrain.RequestAll(true);

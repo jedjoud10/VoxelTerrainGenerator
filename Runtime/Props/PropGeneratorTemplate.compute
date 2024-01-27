@@ -8,7 +8,7 @@ void CheckSpawnProps(float3 position) {
 	float mixer = snoise(position.xz * 0.0003) * 0.5 + 0.5;
 	mixer = smoothstep(0, 1, mixer - 0.2);
 
-	if (position.y > -2.0 && position.y < 2 && (mixer < (hash13(position) * 0.2 - 0.1))) {
+	if (position.y > -2.0 && position.y < 2 && (mixer < (hash13(position) * 0.24 - 0.05))) {
 		BlittableProp prop;
 
 		float3 randomOffset = (2 * hash33(position) - 1) * float3(10, 0, 10);
@@ -21,12 +21,10 @@ void CheckSpawnProps(float3 position) {
 		float density1 = -fbm(position.xz * 0.001 + snoise(position.xz * 0.01) * 0.03, 3, 0.49, 2.1) * 15;		
 
 		// Density value for biome 2
-		float density2 = -fbmCellular(position.xz * 0.001, 6, 0.22, 2.01).y * 920 + fbm(position.xz * 0.002, 7, 0.5, 2.2) * 80;
+		float density2 = -fbmCellular(position.xz * 0.001, 6, 0.4, 2.2).y * 920;
 
 		position.y = -lerp(density1, density2, mixer);;
-
-
-
+		
 		prop.position_and_scale = float4(position, 2.5 + randomScaleOffset * 0.6);
 		prop.euler_angles_padding = float4(0, randomRotation.y, 0, 0);
 		props.Append(prop);

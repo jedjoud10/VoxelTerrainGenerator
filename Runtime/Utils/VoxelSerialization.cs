@@ -6,25 +6,25 @@ using Unity.Mathematics;
 using Unity.Netcode;
 using UnityEngine;
 
-// General static class we will use for serializing the edits and world seed
-public static class VoxelSerialization {
-    // Serialize all edits, world region files, and seed and save it
-    public static void WriteValueSafe(this FastBufferWriter writer, VoxelTerrain terrain) {
-        if (!terrain.Free) {
+// Extension of the main voxel terrain to load / read from fast buffer writer / reader
+public partial class VoxelTerrain {
+    public void Serialize(ref FastBufferWriter writer) {
+        if (!Free) {
             Debug.LogWarning("Could not serialize terrain! (busy)");
             return;
         }
 
+        onSerializeStart?.Invoke();
         Debug.LogWarning("Serializing terrain using FastBufferWriter...");
-        writer.WriteValueSafe(terrain.VoxelGenerator.seed);
-        terrain.VoxelEdits.worldEditRegistry.Serialize(writer);
+        writer.WriteValueSafe(VoxelGenerator.seed);
+        VoxelEdits.worldEditRegistry.Serialize(writer);
         Debug.LogWarning($"Size after world edits: {writer.Position}");
-        writer.WriteValueSafe(terrain.VoxelEdits.nodes.Length);
-        writer.WriteValueSafe(terrain.VoxelEdits.nodes.AsArray());
-        NativeHashMap<VoxelEditOctreeNode.RawNode, int> chunkLookup = terrain.VoxelEdits.chunkLookup;
+        writer.WriteValueSafe(VoxelEdits.nodes.Length);
+        writer.WriteValueSafe(VoxelEdits.nodes.AsArray());
+        NativeHashMap<VoxelEditOctreeNode.RawNode, int> chunkLookup = VoxelEdits.chunkLookup;
         writer.WriteValueSafe(chunkLookup.GetKeyArray(Allocator.Temp));
         writer.WriteValueSafe(chunkLookup.GetValueArray(Allocator.Temp));
-        NativeHashMap<int, int> lookup = terrain.VoxelEdits.lookup;
+        NativeHashMap<int, int> lookup = VoxelEdits.lookup;
         writer.WriteValueSafe(lookup.GetKeyArray(Allocator.Temp));
         writer.WriteValueSafe(lookup.GetValueArray(Allocator.Temp));
         Debug.LogWarning($"Size after voxel edit meta-data: {writer.Position}");
@@ -35,8 +35,8 @@ public static class VoxelSerialization {
 
         int[] arr = new int[32];
 
-        writer.WriteValueSafe(terrain.VoxelEdits.sparseVoxelData.Count);
-        foreach (var data in terrain.VoxelEdits.sparseVoxelData) {
+        writer.WriteValueSafe(VoxelEdits.sparseVoxelData.Count);
+        foreach (var data in VoxelEdits.sparseVoxelData) {
             CompressionJob encode = new CompressionJob {
                 materialsOut = compressedMaterials,
                 densitiesOut = compressedDensities,
@@ -67,28 +67,29 @@ public static class VoxelSerialization {
         }
 
         Debug.LogWarning($"Finished serializing the terrain! Final size: {writer.Position} bytes");
+        onSerializeFinish?.Invoke();
     }
 
-    // Deserialize the edits and seed and set them in the voxel terrain
-    public static void ReadValueSafe(this FastBufferReader reader, VoxelTerrain terrain) {
-        if (!terrain.Free) {
+    public void Deserialize(ref FastBufferReader reader) {
+        if (!Free) {
             Debug.LogWarning("Could not deserialize terrain! (busy)");
             return;
         }
 
+        onDeserializeStart?.Invoke();
         Debug.LogWarning("Deserializing terrain using FastBufferReader...");
-        reader.ReadValueSafe(out terrain.VoxelGenerator.seed);
-        terrain.VoxelEdits.worldEditRegistry.Deserialize(reader);
-        terrain.VoxelGenerator.SeedToPerms();
+        reader.ReadValueSafe(out VoxelGenerator.seed);
+        VoxelEdits.worldEditRegistry.Deserialize(reader);
+        VoxelGenerator.SeedToPerms();
 
         reader.ReadValueSafe(out int nodesCount);
-        terrain.VoxelEdits.nodes.Resize(nodesCount, NativeArrayOptions.ClearMemory);
+        VoxelEdits.nodes.Resize(nodesCount, NativeArrayOptions.ClearMemory);
 
         reader.ReadValueSafeTemp(out NativeArray<VoxelEditOctreeNode> nodes);
-        terrain.VoxelEdits.nodes.Clear();
-        terrain.VoxelEdits.nodes.AddRange(nodes);
+        VoxelEdits.nodes.Clear();
+        VoxelEdits.nodes.AddRange(nodes);
 
-        NativeHashMap<VoxelEditOctreeNode.RawNode, int> chunkLookup = terrain.VoxelEdits.chunkLookup;
+        NativeHashMap<VoxelEditOctreeNode.RawNode, int> chunkLookup = VoxelEdits.chunkLookup;
         chunkLookup.Clear();
         reader.ReadValueSafeTemp(out NativeArray<VoxelEditOctreeNode.RawNode> keys);
         reader.ReadValueSafeTemp(out NativeArray<int> values);
@@ -97,7 +98,7 @@ public static class VoxelSerialization {
             chunkLookup.Add(keys[i], values[i]);
         }
 
-        NativeHashMap<int, int> lookup = terrain.VoxelEdits.lookup;
+        NativeHashMap<int, int> lookup = VoxelEdits.lookup;
         lookup.Clear();
         reader.ReadValueSafeTemp(out NativeArray<int> keys2);
         reader.ReadValueSafeTemp(out NativeArray<int> values2);
@@ -108,8 +109,8 @@ public static class VoxelSerialization {
 
         reader.ReadValueSafe(out int sparseVoxelDataCount);
 
-        var sparse = terrain.VoxelEdits.sparseVoxelData;
-        int missing = sparseVoxelDataCount - terrain.VoxelEdits.sparseVoxelData.Count;
+        var sparse = VoxelEdits.sparseVoxelData;
+        int missing = sparseVoxelDataCount - VoxelEdits.sparseVoxelData.Count;
         // add if missing
         for (int i = 0; i < Mathf.Max(missing, 0); i++) {
             sparse.Add(new SparseVoxelDeltaData {
@@ -161,6 +162,6 @@ public static class VoxelSerialization {
         compressedMaterials.Dispose();
         compressedDensities.Dispose();
 
-        terrain.RequestAll(true);
+        RequestAll(true, reason: GenerationReason.Deserialized);
     }
 }
