@@ -9,5 +9,5 @@ void CSPropenator(uint3 id : SV_DispatchThreadID)
 	
 	// World offset and scale
 	position = (position * worldScale) + worldOffset;
-	CheckSpawnProps(position);
+	CheckSpawnProps(id, position);
 }

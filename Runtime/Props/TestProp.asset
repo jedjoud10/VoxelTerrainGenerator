@@ -16,10 +16,11 @@ MonoBehaviour:
   billboardCaptureCameraScale: 6.5
   billboardTextureWidth: 32
   billboardTextureHeight: 128
-  billboardCaptureRotation: {x: 0, y: 45, z: 0}
+  billboardCaptureRotation: {x: 0, y: 35, z: 0}
   billboardCapturePosition: {x: 0, y: -6, z: 5}
+  generationShader: {fileID: 7200000, guid: a564b702928195d4a8a3350466841cf5, type: 3}
   billboardSize: {x: 4, y: 13}
   billboardOffset: {x: 0, y: 4.5, z: 0}
   billboardRestrictRotationY: 1
   billboardCastShadows: 1
-  billboardAlphaClipThreshold: 0.5
+  billboardAlphaClipThreshold: 0.6

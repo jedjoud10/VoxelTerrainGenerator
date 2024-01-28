@@ -369,6 +369,7 @@ public partial class VoxelTerrain : MonoBehaviour {
             }
 
             this.requestReason = reason;
+            Free = false;
         }
     }
 

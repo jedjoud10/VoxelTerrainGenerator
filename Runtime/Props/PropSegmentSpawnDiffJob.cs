@@ -17,6 +17,8 @@ public struct PropSegmentSpawnDiffJob : IJob {
     [WriteOnly]
     public NativeList<int4> removedSegments;
 
+    public int maxSegmentsInWorld;
+
     public float propSegmentSize;
 
     public void Execute() {
@@ -24,6 +26,8 @@ public struct PropSegmentSpawnDiffJob : IJob {
 
         // TODO: Implement multi target support
         int3 c = (int3)target.propSegmentExtent;
+        int3 min = new int3(-maxSegmentsInWorld, -maxSegmentsInWorld, -maxSegmentsInWorld);
+        int3 max = new int3(maxSegmentsInWorld, maxSegmentsInWorld, maxSegmentsInWorld);
 
         int3 offset = (int3)math.round(target.center / propSegmentSize);
 
@@ -37,7 +41,10 @@ public struct PropSegmentSpawnDiffJob : IJob {
 
                     int lod = (int)math.round(distance * target.propSegmentLodMultiplier);
                     lod = math.clamp(lod, 0, 1);
-                    propSegments.Add(new int4(segment, lod));
+
+                    if (math.all(segment > min) && math.all(segment < max)) {
+                        propSegments.Add(new int4(segment, lod));
+                    }
                 }
             }
         }

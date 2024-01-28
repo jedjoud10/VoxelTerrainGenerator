@@ -102,7 +102,7 @@ public static class VoxelUtils {
     };
 
     // Create a 3D render texture with the specified size and format
-    public static RenderTexture CreateRenderTexture(int size, GraphicsFormat format) {
+    public static RenderTexture Create3DRenderTexture(int size, GraphicsFormat format) {
         RenderTexture texture = new RenderTexture(size, size, 0, format);
         texture.height = size;
         texture.width = size;
@@ -114,11 +114,16 @@ public static class VoxelUtils {
         return texture;
     }
 
-    // Create a 3D texture with the specified size and format
-    public static Texture3D CreateTexture(int size, GraphicsFormat format) {
-        Texture3D texture = new Texture3D(size, size, size, format, TextureCreationFlags.None);
-        texture.dimension = UnityEngine.Rendering.TextureDimension.Tex3D;
-        texture.Apply();
+    // Create a 2D render texture with the specified size and format
+    public static RenderTexture Create2DRenderTexture(int size, GraphicsFormat format) {
+        RenderTexture texture = new RenderTexture(size, size, 0, format);
+        texture.height = size;
+        texture.width = size;
+        texture.depth = 0;
+        texture.volumeDepth = 1;
+        texture.dimension = UnityEngine.Rendering.TextureDimension.Tex2D;
+        texture.enableRandomWrite = true;
+        texture.Create();
         return texture;
     }
 

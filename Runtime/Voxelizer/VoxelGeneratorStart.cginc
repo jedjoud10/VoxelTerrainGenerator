@@ -19,11 +19,12 @@ float voxelSize;
 // Used for async readback
 RWTexture3D<uint> voxels;
 
-struct Voxel {
-	float density;
-	uint material;
-};
-
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/noises.cginc"
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/sdf.cginc"
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/morton.cginc"
+
+float propSegmentWorldSize;
+float propSegmentResolution;
+float3 propChunkOffset;
+RWTexture3D<float> cachedPropDensities;
+RWTexture2D<int> minAxiiY;

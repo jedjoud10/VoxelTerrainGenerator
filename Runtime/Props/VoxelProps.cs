@@ -6,8 +6,8 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
-using static UnityEditor.MaterialProperty;
 
 // Responsible for generating the voxel props on the terrain
 // For this, we must force voxel generation to happen on the CPU so we can execute
@@ -43,9 +43,6 @@ public class VoxelProps : VoxelBehaviour {
     // Extra prop data that is shared with the prop segments
     private List<IndirectExtraPropData> extraPropData;
 
-    // Compute shader that will be responsble for prop  generation
-    public ComputeShader propShader;
-
     // Prop segment management and diffing
     private NativeHashSet<int4> propSegments;
     private NativeHashSet<int4> oldPropSegments;
@@ -80,6 +77,9 @@ public class VoxelProps : VoxelBehaviour {
     // Unculled compute buffers for position/scale for each prop type
     private ComputeBuffer[] posScaleBuffers;
 
+    // Texture3D that will be used to store intermediate voxel types for a whole prop segment
+    private RenderTexture propSegmentDensityVoxels;
+
     private void OnValidate() {
         if (terrain == null) {
             propSegmentResolution = Mathf.ClosestPowerOfTwo(propSegmentResolution);
@@ -91,18 +91,27 @@ public class VoxelProps : VoxelBehaviour {
 
     // Update the static world generation fields (will also update the seed)
     public void UpdateStaticComputeFields() {
-        propShader.SetVector("worldOffset", terrain.VoxelGenerator.worldOffset);
-        propShader.SetVector("worldScale", terrain.VoxelGenerator.worldScale * VoxelUtils.VoxelSizeFactor);
         var permutationSeed = terrain.VoxelGenerator.permutationSeed;
         var moduloSeed = terrain.VoxelGenerator.moduloSeed;
-        propShader.SetInts("permuationSeed", new int[] { permutationSeed.x, permutationSeed.y, permutationSeed.z });
-        propShader.SetInts("moduloSeed", new int[] { moduloSeed.x, moduloSeed.y, moduloSeed.z });
-        propShader.SetFloat("propSegmentWorldSize", VoxelUtils.PropSegmentSize);
-        propShader.SetFloat("propSegmentResolution", VoxelUtils.PropSegmentResolution);
+
+        foreach (var propType in props) {
+            ComputeShader compShader = propType.generationShader;
+            compShader.SetVector("worldOffset", terrain.VoxelGenerator.worldOffset);
+            compShader.SetVector("worldScale", terrain.VoxelGenerator.worldScale * VoxelUtils.VoxelSizeFactor);
+            compShader.SetInts("permuationSeed", new int[] { permutationSeed.x, permutationSeed.y, permutationSeed.z });
+            compShader.SetInts("moduloSeed", new int[] { moduloSeed.x, moduloSeed.y, moduloSeed.z });
+            compShader.SetFloat("propSegmentWorldSize", VoxelUtils.PropSegmentSize);
+            compShader.SetFloat("propSegmentResolution", VoxelUtils.PropSegmentResolution);
+        }
+
+        terrain.VoxelGenerator.voxelShader.SetFloat("propSegmentWorldSize", VoxelUtils.PropSegmentSize);
+        terrain.VoxelGenerator.voxelShader.SetFloat("propSegmentResolution", VoxelUtils.PropSegmentResolution);
+        terrain.VoxelGenerator.voxelShader.SetTexture(1, "cachedPropDensities", propSegmentDensityVoxels);
     }
 
     // Create captures of the props, and register main settings
     internal override void Init() {
+        propSegmentDensityVoxels = VoxelUtils.Create3DRenderTexture(propSegmentResolution, GraphicsFormat.R32_SFloat);
         VoxelUtils.PropSegmentResolution = propSegmentResolution;
         VoxelUtils.ChunksPerPropSegment = voxelChunksInPropSegment;
         UpdateStaticComputeFields();
@@ -206,19 +215,26 @@ public class VoxelProps : VoxelBehaviour {
         // Call the compute shader for each prop type
         for (int i = 0; i < props.Count; i++) {
             Prop propType = props[i];
+            var minAxii = VoxelUtils.Create2DRenderTexture(propSegmentResolution, GraphicsFormat.R32_UInt); 
 
+            // Execute the prop segment voxel cache compute shader
+            int _count = VoxelUtils.PropSegmentResolution / 4;
+            var voxelShader = terrain.VoxelGenerator.voxelShader;
+            voxelShader.SetVector("propChunkOffset", segment.position);
+            voxelShader.SetTexture(1, "minAxiiY", minAxii);
+            voxelShader.Dispatch(1, _count, _count, _count);
+            
             var propsBuffer = new ComputeBuffer(maxComputeBufferSize, Marshal.SizeOf(new BlittableProp()), ComputeBufferType.Append);
             var countBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
 
             // Set compute properties and run the compute shader
             propsBuffer.SetCounterValue(0);
             countBuffer.SetData(new int[] { 0 });
-            propShader.SetBuffer(0, "props", propsBuffer);
-            propShader.SetVector("propChunkOffset", segment.position);
-
-            // Execute the prop segment compute shader
-            int _count = VoxelUtils.PropSegmentResolution / 4;
-            propShader.Dispatch(0, _count, _count, _count);
+            propType.generationShader.SetBuffer(0, "props", propsBuffer);
+            propType.generationShader.SetVector("propChunkOffset", segment.position);
+            propType.generationShader.SetTexture(0, "_Voxels", propSegmentDensityVoxels);
+            propType.generationShader.SetTexture(0, "_MinAxii", minAxii);
+            propType.generationShader.Dispatch(0, _count, _count, _count);
 
             if (segment.spawnPrefabs) {
                 segment.props.Add(i, new List<GameObject>());
@@ -286,8 +302,8 @@ public class VoxelProps : VoxelBehaviour {
             GameObject propGameObject = FetchPooledProp();
             onPropPrefabSpawned?.Invoke(propType, propGameObject);
             propGameObject.transform.SetParent(pooledPropOwners[i].transform);
-            float3 propPosition = (float3)prop.position_and_scale.xyz;
-            float3 propRotation = (float3)prop.euler_angles_padding.xyz;
+            float3 propPosition = prop.position_and_scale.xyz;
+            float3 propRotation = prop.euler_angles_padding.xyz;
             float propScale = prop.position_and_scale.w;
             propGameObject.transform.position = propPosition;
             propGameObject.transform.localScale = Vector3.one * propScale;
@@ -307,6 +323,7 @@ public class VoxelProps : VoxelBehaviour {
                 oldPropSegments = oldPropSegments,
                 propSegments = propSegments,
                 target = targets[0],
+                maxSegmentsInWorld = VoxelUtils.PropSegmentsCount / 2,
                 propSegmentSize = VoxelUtils.PropSegmentSize,
             };
 

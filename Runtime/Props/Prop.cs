@@ -17,6 +17,7 @@ public class Prop : ScriptableObject {
     public int billboardTextureHeight = 1024;
     public Vector3 billboardCaptureRotation = Vector3.zero;
     public Vector3 billboardCapturePosition = new Vector3(10, 0, 0);
+    public ComputeShader generationShader;
 
     // Settings related to how we will render the billboards
     public Vector2 billboardSize = Vector2.one * 10;

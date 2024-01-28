@@ -61,7 +61,7 @@ public class VoxelGenerator : VoxelBehaviour {
 
     // Initialize the voxel generator
     internal override void Init() {
-        readbackTexture = VoxelUtils.CreateRenderTexture(VoxelUtils.Size, GraphicsFormat.R32_UInt);
+        readbackTexture = VoxelUtils.Create3DRenderTexture(VoxelUtils.Size, GraphicsFormat.R32_UInt);
         freeVoxelNativeArrays = new BitArray(asyncReadbacks, true);
         pendingVoxelGenerationChunks = new Queue<VoxelChunk>();
         voxelNativeArrays = new List<NativeArray<Voxel>>(asyncReadbacks);
