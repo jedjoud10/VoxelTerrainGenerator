@@ -107,6 +107,7 @@ public class VoxelProps : VoxelBehaviour {
         terrain.VoxelGenerator.voxelShader.SetFloat("propSegmentWorldSize", VoxelUtils.PropSegmentSize);
         terrain.VoxelGenerator.voxelShader.SetFloat("propSegmentResolution", VoxelUtils.PropSegmentResolution);
         terrain.VoxelGenerator.voxelShader.SetTexture(1, "cachedPropDensities", propSegmentDensityVoxels);
+        terrain.VoxelGenerator.voxelShader.SetTexture(2, "cachedPropDensities", propSegmentDensityVoxels);
     }
 
     // Create captures of the props, and register main settings
@@ -195,7 +196,7 @@ public class VoxelProps : VoxelBehaviour {
         // Create a material that uses these values by default
         Material mat = new Material(billboardMaterialBase);
 
-        mat.SetTexture("_Albedo", temp);
+        mat.SetTexture("_Albedo", albedoTextureOut);
         mat.SetTexture("_Normal_Map", normalTextureOut);
         mat.SetFloat("_Alpha_Clip_Threshold", prop.billboardAlphaClipThreshold);
         mat.SetVector("_BillboardSize", prop.billboardSize);
@@ -203,6 +204,7 @@ public class VoxelProps : VoxelBehaviour {
         mat.SetInt("_RECEIVE_SHADOWS_OFF", prop.billboardCastShadows ? 0 : 1);
         mat.SetInt("_Lock_Rotation_Y", prop.billboardRestrictRotationY ? 1 : 0);
         Destroy(faker);
+        temp.Release();
 
         return (albedoTextureOut, normalTextureOut, mat);
     }
@@ -215,7 +217,8 @@ public class VoxelProps : VoxelBehaviour {
         // Call the compute shader for each prop type
         for (int i = 0; i < props.Count; i++) {
             Prop propType = props[i];
-            var minAxii = VoxelUtils.Create2DRenderTexture(propSegmentResolution, GraphicsFormat.R32_UInt); 
+            var minAxii = VoxelUtils.Create2DRenderTexture(propSegmentResolution, GraphicsFormat.R32_UInt);
+            var minAxiiPos = VoxelUtils.Create2DRenderTexture(propSegmentResolution, GraphicsFormat.R16G16_SFloat);
 
             // Execute the prop segment voxel cache compute shader
             int _count = VoxelUtils.PropSegmentResolution / 4;
@@ -223,7 +226,12 @@ public class VoxelProps : VoxelBehaviour {
             voxelShader.SetVector("propChunkOffset", segment.position);
             voxelShader.SetTexture(1, "minAxiiY", minAxii);
             voxelShader.Dispatch(1, _count, _count, _count);
-            
+
+            // Execute the ray casting shader that will store thickness and position of the rays
+            voxelShader.SetTexture(2, "minAxiiY", minAxii);
+            voxelShader.SetTexture(2, "minAxiiYTest", minAxiiPos);
+            voxelShader.Dispatch(2, _count, _count, 1);
+
             var propsBuffer = new ComputeBuffer(maxComputeBufferSize, Marshal.SizeOf(new BlittableProp()), ComputeBufferType.Append);
             var countBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
 
@@ -233,7 +241,7 @@ public class VoxelProps : VoxelBehaviour {
             propType.generationShader.SetBuffer(0, "props", propsBuffer);
             propType.generationShader.SetVector("propChunkOffset", segment.position);
             propType.generationShader.SetTexture(0, "_Voxels", propSegmentDensityVoxels);
-            propType.generationShader.SetTexture(0, "_MinAxii", minAxii);
+            propType.generationShader.SetTexture(0, "_MinAxii", minAxiiPos);
             propType.generationShader.Dispatch(0, _count, _count, _count);
 
             if (segment.spawnPrefabs) {

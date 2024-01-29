@@ -27,4 +27,5 @@ float propSegmentWorldSize;
 float propSegmentResolution;
 float3 propChunkOffset;
 RWTexture3D<float> cachedPropDensities;
-RWTexture2D<int> minAxiiY;
+RWTexture2D<uint> minAxiiY;
+RWTexture2D<float2> minAxiiYTest;

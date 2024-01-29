@@ -4,6 +4,7 @@ void CSPropenator(uint3 id : SV_DispatchThreadID)
 {
 	// Calculate the main world position
 	float3 position = float3(id.xzy);
+	position *= 1.015625;
 	position *= propSegmentWorldSize / propSegmentResolution;
 	position += propChunkOffset;
 	
