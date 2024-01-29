@@ -9,12 +9,13 @@ int3 permuationSeed;
 int3 moduloSeed;
 
 struct BlittableProp {
-    float4 position_and_scale;
-    float4 euler_angles_padding;
+    uint2 packed_position_and_scale;
+    uint2 packed_euler_angles_padding;
 };
 
 // Used for async readback AND GPU indirect rendering
 AppendStructuredBuffer<BlittableProp> props;
 
-#include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/noises.cginc"
-#include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/sdf.cginc"
+#include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/Noises.cginc"
+#include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/SDF.cginc"
+#include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/PropUtils.cginc"

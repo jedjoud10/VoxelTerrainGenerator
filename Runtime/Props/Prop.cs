@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Mathematics;
@@ -9,22 +10,42 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "VoxelTerrain/New Voxel prop")]
 public class Prop : ScriptableObject {
     // Used for LOD0 prop segments; prefabs spawned in the world
+    [Header("Behavior")]
     public GameObject prefab;
+    public PropSpawnBehavior propSpawnBehavior = PropSpawnBehavior.RenderBillboards | PropSpawnBehavior.SpawnPrefabs;
 
     // Settings related to how we will generate the billboards
+    [Header("Billboard Capture")]
     public float billboardCaptureCameraScale = 10.0f;
     public int billboardTextureWidth = 1024;
     public int billboardTextureHeight = 1024;
     public Vector3 billboardCaptureRotation = Vector3.zero;
     public Vector3 billboardCapturePosition = new Vector3(10, 0, 0);
-    public ComputeShader generationShader;
 
-    // Settings related to how we will render the billboards
+    // How to show the billboard
+    [Header("Billboard Rendering")]
     public Vector2 billboardSize = Vector2.one * 10;
     public Vector3 billboardOffset;
     public bool billboardRestrictRotationY = false;
     public bool billboardCastShadows = false;
     public float billboardAlphaClipThreshold = 0.5f;
+
+    [Header("Generation")]
+    public ComputeShader generationShader;
+}
+
+[Flags]
+public enum PropSpawnBehavior {
+    None = 0,
+
+    // Enables/disables rendering far away billboards
+    RenderBillboards = 1 << 0,
+
+    // Enables/disables spawning in actual prefabs
+    SpawnPrefabs = 1 << 1,
+
+    // Swaps out everything for instanced meshes (useful for small rocks or stuff not to be interacted with)
+    //OnlyRenderInstances = 1 << 2,
 }
 
 
@@ -37,8 +58,11 @@ public class IndirectExtraPropData {
 
 
 // Blittable prop definition (that is also copied on the GPU compute shader)
-// World pos, worl rot, world scale
+// World pos, world rot, world scale
 public struct BlittableProp {
-    public float4 position_and_scale;
-    public float4 euler_angles_padding;
+    // 2 bytes for x,y,z and w (scale)
+    public half4 packed_position_and_scale;
+
+    // 2 bytes for x,y,z (rotation) and 2 bytes for spawner index
+    public half4 packed_euler_angles_padding;
 }

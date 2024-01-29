@@ -186,7 +186,6 @@ public partial class VoxelTerrain : MonoBehaviour {
                 toMakeVisible.Clear();
             }
 
-            Debug.Log(requestReason);
             switch (requestReason) {
                 case GenerationReason.Initial:
                     timer.Stop();

@@ -26,30 +26,6 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 	voxels[mortonPos.xzy] = packedData;
 }
 
-float3 PropSegmentToWorld(uint3 id) {
-	// Calculate the main world position
-	float3 position = float3(id.xzy);
-	position *= 1.015625;
-	position *= propSegmentWorldSize / propSegmentResolution;
-	position += propChunkOffset;
-
-	// World offset and scale
-	position = (position * worldScale) + worldOffset;
-	return position;
-}
-
-float3 WorldToPropSegment(float3 world) {
-	// World offset and scale
-	float3 gridPos = world - worldOffset;
-	gridPos /= worldScale;
-
-	// Inverse of PropSegmentToWorld
-	gridPos -= propChunkOffset;
-	gridPos /= propSegmentWorldSize / propSegmentResolution;
-	gridPos /= 1.015625;
-	return float3(gridPos.xzy / 64.0);
-}
-
 // Generates the prop cached voxel data
 [numthreads(4, 4, 4)]
 void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
@@ -65,31 +41,17 @@ void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 	}
 }
 
-float invLerp(float from, float to, float value) {
-	return (value - from) / (to - from);
-}
-
 // Raycasts to get the position of the surface in a specific axis
 [numthreads(4, 4, 1)]
 void CSPropRaycaster(uint2 id : SV_DispatchThreadID)
 {
 	uint pos = minAxiiY[id.xy]-1;
 
-	if (pos > 64) {
+	if (pos > ((uint)propSegmentResolution)) {
 		minAxiiYTest[id.xy] = float2(asfloat(0xffffffff), -10000);
 		return;
 	}
 
-	//minAxiiYTest[id.xy] = ToWorldCock(uint3(id.x, id.y, pos)).y;
-	
-	/*
-	if (pos == 0) {
-		//minAxiiYTest[id.xy] = asfloat(0xffffffff);
-		//return;
-	}
-	*/
-
-	
 	float d1 = cachedPropDensities[uint3(id.x, id.y, pos)];
 	float d2 = cachedPropDensities[uint3(id.x, id.y, pos + 1)];
 	float p1 = PropSegmentToWorld(uint3(id.x, id.y, pos)).y;

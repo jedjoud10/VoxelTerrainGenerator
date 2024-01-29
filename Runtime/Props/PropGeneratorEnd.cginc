@@ -2,13 +2,6 @@
 [numthreads(4, 4, 4)]
 void CSPropenator(uint3 id : SV_DispatchThreadID)
 {
-	// Calculate the main world position
-	float3 position = float3(id.xzy);
-	position *= 1.015625;
-	position *= propSegmentWorldSize / propSegmentResolution;
-	position += propChunkOffset;
-	
-	// World offset and scale
-	position = (position * worldScale) + worldOffset;
+	float3 position = PropSegmentToWorld(id);
 	CheckSpawnProps(id, position);
 }
