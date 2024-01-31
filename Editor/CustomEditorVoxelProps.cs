@@ -12,5 +12,10 @@ public class CustomEditorVoxelProps : Editor
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Global Prop Segment Count: " + VoxelUtils.PropSegmentsCount);
         EditorGUILayout.LabelField("Prop Segment Size: " + VoxelUtils.PropSegmentSize);
+
+        if (GUILayout.Button("Regenerate")) {
+            props.UpdateStaticComputeFields();
+            props.RegenerateProps();
+        }
     }
 }

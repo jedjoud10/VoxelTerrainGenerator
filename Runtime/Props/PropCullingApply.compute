@@ -1,0 +1,22 @@
+#pragma kernel CSPropCullingApply
+#define UNITY_INDIRECT_DRAW_ARGS IndirectDrawIndexedArgs
+#include "UnityIndirect.cginc"
+
+int maxPropTypes;
+RWStructuredBuffer<uint> culledCount;
+RWStructuredBuffer<UNITY_INDIRECT_DRAW_ARGS> drawArgs;
+
+// Do some culling on the props and save them to the culled props buffer
+[numthreads(32, 1, 1)]
+void CSPropCullingApply(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x < maxPropTypes) {
+		IndirectDrawIndexedArgs args;
+		args.indexCountPerInstance = 6;
+		args.instanceCount = culledCount[id.x];
+		args.startIndex = 0;
+		args.baseVertexIndex = 0;
+		args.startInstance = 0;
+		drawArgs[id.x] = args;
+	}
+}

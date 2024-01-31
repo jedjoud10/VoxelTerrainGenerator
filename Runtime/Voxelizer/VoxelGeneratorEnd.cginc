@@ -30,6 +30,12 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 [numthreads(4, 4, 4)]
 void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 {
+	// TODO: Optimize in its own pass
+	if (id.z == 0) {
+		int test;
+		InterlockedExchange(minAxiiY[id.xy], 0, test);
+	}
+
 	float3 position = PropSegmentToWorld(id);
 	float density = 0.0;
 	uint material = 0;

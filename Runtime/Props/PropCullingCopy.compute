@@ -1,0 +1,23 @@
+#pragma kernel CSPropCullingCopy
+#define UNITY_INDIRECT_DRAW_ARGS IndirectDrawIndexedArgs
+#include "UnityIndirect.cginc"
+#include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/PropPackUtils.cginc"
+
+RWStructuredBuffer<uint> culledCount;
+StructuredBuffer<uint4> unculledProps;
+RWStructuredBuffer<uint4> culledProps;
+float3 cameraForward;
+float3 cameraPosition;
+
+// Do some culling on the props and save them to the culled props buffer
+[numthreads(32, 1, 1)]
+void CSPropCullingCopy(uint3 id : SV_DispatchThreadID)
+{
+	float4 positionScale = UnpackPositionAndScale(unculledProps[id.x].xy);
+
+	if (dot(normalize(cameraPosition - positionScale.xyz), cameraForward) < 0) {
+		int index;
+		InterlockedAdd(culledCount[0], 1, index);
+		culledProps[index] = unculledProps[id.x];
+	}
+}

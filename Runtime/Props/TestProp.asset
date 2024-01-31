@@ -14,14 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   prefab: {fileID: 900193227329173065, guid: 7b5625836e801c04fbb54c9225ac4663, type: 3}
   propSpawnBehavior: -1
+  maxPropsPerSegment: 4096
+  maxPropsInTotal: 262144
+  maxVisibleProps: 131072
   billboardCaptureCameraScale: 6.5
-  billboardTextureWidth: 32
-  billboardTextureHeight: 128
+  billboardTextureWidth: 64
+  billboardTextureHeight: 256
   billboardCaptureRotation: {x: 0, y: 35, z: 0}
-  billboardCapturePosition: {x: 0, y: -6, z: 5}
-  billboardSize: {x: 4.5, y: 14.4}
-  billboardOffset: {x: 0, y: 6.85, z: 0}
+  billboardCapturePosition: {x: 0, y: -7, z: 5}
+  billboardSize: {x: 4.2, y: 14}
+  billboardOffset: {x: 0, y: 16.7, z: 0}
   billboardRestrictRotationY: 1
   billboardCastShadows: 1
-  billboardAlphaClipThreshold: 0.55
+  billboardAlphaClipThreshold: 0.8
   generationShader: {fileID: 7200000, guid: a564b702928195d4a8a3350466841cf5, type: 3}

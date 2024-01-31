@@ -27,18 +27,13 @@ void CheckSpawnProps(uint3 id, float3 position) {
 	float diff2 = -(baseTest2.x - baseTest2.y);
 	float total = abs(diff) + abs(diff2);
 
-	if (position.y > -10.0 && position.y < 10 && (mixer < (hash13(position) * 0.08 - 0.05)) && baseTest.y > 0.2 && total < 1.2) {
-		BlittableProp prop;
-
-
+	if (position.y > -10.0 && position.y < 10 && (mixer < (hash13(position) * 0.08 - 0.05)) && baseTest.y > 0.2 && total < 3.2) {
 		position += randomOffset;
 		float randomScaleOffset = (2 * hash13(position) - 1) * 1;
 		float3 randomRotation = (2 * hash33(position) - 1) * 180;
 
 		position.y = baseTest.x;
-		prop.packed_position_and_scale = PackPositionAndScale(position, 2.5 + randomScaleOffset * 0.7);
-		prop.packed_euler_angles_padding = PackRotationAndId(float3(0, randomRotation.y, 0), 0);
-		props.Append(prop);
+		Spawn(position, 2.5 + randomScaleOffset * 0.1, float3(0, 0, 0), id);
 	}
 }
 

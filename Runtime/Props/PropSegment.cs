@@ -15,9 +15,6 @@ public class PropSegment {
     // 1 => billboard
     public bool spawnPrefabs;
 
-    // bitmask containing all the generated prop types for this segment
-    public BitField32 generatedProps;
-
-    public Dictionary<int, (ComputeBuffer, int)> test;
+    // Props that are handled by this prop segment
     public Dictionary<int, List<GameObject>> props;
 }

@@ -69,35 +69,20 @@ public class VoxelGenerator : VoxelBehaviour {
             voxelNativeArrays.Add(new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent));
         }
 
-        SeedToPerms();
+        UpdateStaticComputeFields();
     }
 
-    // Convert the seed as permutation seeds
-    public void SeedToPerms() {
+    // Update the static world generation fields (will also update the seed)
+    public void UpdateStaticComputeFields() {
         var random = new System.Random(seed);
 
         permutationSeed.x = random.Next(-1000, 1000);
         permutationSeed.y = random.Next(-1000, 1000);
         permutationSeed.z = random.Next(-1000, 1000);
-
         moduloSeed.x = random.Next(-1000, 1000);
         moduloSeed.y = random.Next(-1000, 1000);
         moduloSeed.z = random.Next(-1000, 1000);
-        UpdateStaticComputeFields();
-    }
 
-
-    // Randomize the seed value
-    public void RandomizeSeed() {
-        for (int i = 0; i < 16; i++) {
-            seed = UnityEngine.Random.Range(-ushort.MinValue, ushort.MaxValue);
-        }
-
-        SeedToPerms();
-    }
-
-    // Update the static world generation fields (will also update the seed)
-    public void UpdateStaticComputeFields() {
         voxelShader.SetVector("worldOffset", worldOffset);
         voxelShader.SetVector("worldScale", worldScale * VoxelUtils.VoxelSizeFactor);
         voxelShader.SetFloat("isosurfaceOffset", isosurfaceOffset);

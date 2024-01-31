@@ -26,6 +26,7 @@ public class TerrainLoader : MonoBehaviour {
     private Vector3 last;
     private VoxelOctree octree;
     private VoxelProps props;
+    public Camera viewCamera;
 
     void Start() {
         last = transform.position;

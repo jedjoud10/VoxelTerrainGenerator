@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
+using static UnityEditor.MaterialProperty;
 
 // Voxel prop that can be spawned in the world using two different methods
 // Ray based method and density based method
@@ -14,11 +15,17 @@ public class Prop : ScriptableObject {
     public GameObject prefab;
     public PropSpawnBehavior propSpawnBehavior = PropSpawnBehavior.RenderBillboards | PropSpawnBehavior.SpawnPrefabs;
 
+    // Max number of props per segment and PER ALL segments
+    // Spawning more segments than this will cause them to not be loaded, not very good
+    [Min(1)] public int maxPropsPerSegment = 4096;
+    [Min(1)] public int maxPropsInTotal = 4096;
+    [Min(1)] public int maxVisibleProps = 4096;
+
     // Settings related to how we will generate the billboards
     [Header("Billboard Capture")]
     public float billboardCaptureCameraScale = 10.0f;
-    public int billboardTextureWidth = 1024;
-    public int billboardTextureHeight = 1024;
+    public int billboardTextureWidth = 256;
+    public int billboardTextureHeight = 256;
     public Vector3 billboardCaptureRotation = Vector3.zero;
     public Vector3 billboardCapturePosition = new Vector3(10, 0, 0);
 
@@ -32,6 +39,12 @@ public class Prop : ScriptableObject {
 
     [Header("Generation")]
     public ComputeShader generationShader;
+
+    // Will this prop be generated as a prefab
+    public bool WillSpawnPrefab => propSpawnBehavior.HasFlag(PropSpawnBehavior.SpawnPrefabs);
+
+    // Will this prop be rendered as a billboard
+    public bool WillRenderBillboard => propSpawnBehavior.HasFlag(PropSpawnBehavior.RenderBillboards);
 }
 
 [Flags]

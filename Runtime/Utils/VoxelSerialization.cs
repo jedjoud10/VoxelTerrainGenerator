@@ -80,7 +80,7 @@ public partial class VoxelTerrain {
         Debug.LogWarning("Deserializing terrain using FastBufferReader...");
         reader.ReadValueSafe(out VoxelGenerator.seed);
         VoxelEdits.worldEditRegistry.Deserialize(reader);
-        VoxelGenerator.SeedToPerms();
+        VoxelGenerator.UpdateStaticComputeFields();
 
         reader.ReadValueSafe(out int nodesCount);
         VoxelEdits.nodes.Resize(nodesCount, NativeArrayOptions.ClearMemory);

@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using System.Linq;
 
 // Responsible for generating the voxel props on the terrain
 // For this, we must force voxel generation to happen on the CPU so we can execute
@@ -16,9 +17,6 @@ public class VoxelProps : VoxelBehaviour {
     
     // Toggles for debugging
     public bool debugGizmos = false;
-
-    [Min(0)]
-    public int maxComputeBufferSize = 1;
 
     // Prop resolution per segment
     [Range(4, 32)]
@@ -40,6 +38,24 @@ public class VoxelProps : VoxelBehaviour {
 
     // Extra prop data that is shared with the prop segments
     private List<IndirectExtraPropData> extraPropData;
+
+    // Prop GPU copy and block search
+    public ComputeShader propFreeBlockSearch;
+    public ComputeShader propFreeBlockCopy;
+    public ComputeShader propCullingCopy;
+    public ComputeShader propCullingApply;
+
+    // Unculled pos scale, culled pos scale, and indirect args
+    private ComputeBuffer[] tempPropPosScaleBuffers;
+    private ComputeBuffer[] unculledPosScaleBuffers;
+    private ComputeBuffer[] culledPosScaleBuffers;
+    private ComputeBuffer[] usedBitmaskBuffers;
+    private ComputeBuffer culledCountBuffer;
+    private ComputeBuffer rawCountBuffer;
+    private ComputeBuffer rawIndexBuffer;
+    private GraphicsBuffer drawArgsBuffer;
+
+    private BitField64 free = new BitField64(0);
 
     // Prop segment management and diffing
     private NativeHashSet<int4> propSegments;
@@ -66,14 +82,9 @@ public class VoxelProps : VoxelBehaviour {
     public delegate void PropPrefabPooled(Prop type, GameObject prop);
     public event PropPrefabPooled onPropPrefabPooled;
 
-    // Pooled props that we can reuse for each prop type
+    // Pooled props and prop owners
     private List<GameObject>[] pooledPropGameObjects;
-
-    // Create a game object attached to the main terrain that will store pooled props
-    private GameObject[] pooledPropOwners;
-
-    // Unculled compute buffers for position/scale for each prop type
-    private ComputeBuffer[] posScaleBuffers;
+    private GameObject[] propOwners;
 
     // Texture3D that will be used to store intermediate voxel types for a whole prop segment
     private RenderTexture propSegmentDensityVoxels;
@@ -81,7 +92,18 @@ public class VoxelProps : VoxelBehaviour {
     // Pending prop segment to generated
     internal Queue<PropSegment> pendingSegments;
 
+    // Used for collision and GPU based raycasting
+    RenderTexture minAxii;
+    RenderTexture minAxiiPos;
+
     private bool mustUpdate = false;
+
+    // Checks if we completed prop generation
+    public bool Free {
+        get {
+            return !mustUpdate && pendingSegments.Count == 0;
+        }
+    }
 
     private void OnValidate() {
         if (terrain == null) {
@@ -89,6 +111,17 @@ public class VoxelProps : VoxelBehaviour {
             voxelChunksInPropSegment = Mathf.ClosestPowerOfTwo(voxelChunksInPropSegment);
             VoxelUtils.PropSegmentResolution = propSegmentResolution;
             VoxelUtils.ChunksPerPropSegment = voxelChunksInPropSegment;
+        }
+    }
+
+    // Clear out all the props and regenerate them
+    public void RegenerateProps() {
+        if (mustUpdate)
+            return;
+
+        foreach (var item in propSegmentsDict) {
+            onPropSegmentUnloaded?.Invoke(item.Value);
+            pendingSegments.Enqueue(item.Value);
         }
     }
 
@@ -122,14 +155,32 @@ public class VoxelProps : VoxelBehaviour {
         onPropSegmentLoaded += OnPropSegmentLoad;
         onPropSegmentUnloaded += OnPropSegmentUnload;
         pooledPropGameObjects = new List<GameObject>[props.Count];
-        pooledPropOwners = new GameObject[props.Count];
+        unculledPosScaleBuffers = new ComputeBuffer[props.Count];
+        culledPosScaleBuffers = new ComputeBuffer[props.Count];
+        drawArgsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, props.Count, GraphicsBuffer.IndirectDrawIndexedArgs.size);
+        usedBitmaskBuffers = new ComputeBuffer[props.Count];
+        tempPropPosScaleBuffers = new ComputeBuffer[props.Count];
+        propOwners = new GameObject[props.Count];
         pendingSegments = new Queue<PropSegment>();
+        culledCountBuffer = new ComputeBuffer(props.Count, sizeof(int));
+        rawCountBuffer = new ComputeBuffer(props.Count, sizeof(int), ComputeBufferType.Raw);
+        rawIndexBuffer = new ComputeBuffer(props.Count, sizeof(int), ComputeBufferType.Raw);
+        minAxii = VoxelUtils.Create2DRenderTexture(propSegmentResolution, GraphicsFormat.R32_UInt);
+        minAxiiPos = VoxelUtils.Create2DRenderTexture(propSegmentResolution, GraphicsFormat.R16G16_SFloat);
 
         for (int i = 0; i < props.Count; i++) {
             pooledPropGameObjects[i] = new List<GameObject>();
             var obj = new GameObject();
             obj.transform.SetParent(transform);
-            pooledPropOwners[i] = obj;
+            propOwners[i] = obj;
+
+            Prop propType = props[i];
+
+            int sizeBlittableProp = Marshal.SizeOf(new BlittableProp { });
+            unculledPosScaleBuffers[i] = new ComputeBuffer(propType.maxPropsInTotal, sizeBlittableProp, ComputeBufferType.Structured);
+            culledPosScaleBuffers[i] = new ComputeBuffer(propType.maxVisibleProps, sizeBlittableProp, ComputeBufferType.Structured);
+            tempPropPosScaleBuffers[i] = new ComputeBuffer(propType.maxPropsPerSegment, sizeBlittableProp, ComputeBufferType.Append);
+            usedBitmaskBuffers[i] = new ComputeBuffer(Mathf.CeilToInt((float)propType.maxPropsInTotal / (32.0f)), sizeof(uint), ComputeBufferType.Structured);
         }
 
         propSegmentsDict = new Dictionary<int4, PropSegment>();
@@ -206,77 +257,83 @@ public class VoxelProps : VoxelBehaviour {
         return (albedoTextureOut, normalTextureOut, mat);
     }
 
-    class Test { public int val = 0; }
+    class Test {
+        public int val = 0;
+    }
 
     // Called when a new prop segment is loaded and should be generated
     private void OnPropSegmentLoad(PropSegment segment) {
-        segment.test = new Dictionary<int, (ComputeBuffer, int)>();
         segment.props = new Dictionary<int, List<GameObject>>();
+
+        // Quit early if we shouldn't do shit
+        if (!props.Any(x => x.WillRenderBillboard | (x.WillSpawnPrefab && segment.spawnPrefabs))) {
+            return;
+        }
+
+        // Execute the prop segment voxel cache compute shader
+        int _count = VoxelUtils.PropSegmentResolution / 4;
+        var voxelShader = terrain.VoxelGenerator.voxelShader;
+        voxelShader.SetVector("propChunkOffset", segment.worldPosition);
+        voxelShader.SetTexture(1, "minAxiiY", minAxii);
+        voxelShader.Dispatch(1, _count, _count, _count);
+
+        // Execute the ray casting shader that will store thickness and position of the rays
+        voxelShader.SetTexture(2, "minAxiiY", minAxii);
+        voxelShader.SetTexture(2, "minAxiiYTest", minAxiiPos);
+        voxelShader.Dispatch(2, _count, _count, 1);
 
         // Call the compute shader for each prop type
         for (int i = 0; i < props.Count; i++) {
             Prop propType = props[i];
-
-            var minAxii = VoxelUtils.Create2DRenderTexture(propSegmentResolution, GraphicsFormat.R32_UInt);
-            var minAxiiPos = VoxelUtils.Create2DRenderTexture(propSegmentResolution, GraphicsFormat.R16G16_SFloat);
-
-            // Execute the prop segment voxel cache compute shader
-            int _count = VoxelUtils.PropSegmentResolution / 4;
-            var voxelShader = terrain.VoxelGenerator.voxelShader;
-            voxelShader.SetVector("propChunkOffset", segment.worldPosition);
-            voxelShader.SetTexture(1, "minAxiiY", minAxii);
-            voxelShader.Dispatch(1, _count, _count, _count);
-
-            // Execute the ray casting shader that will store thickness and position of the rays
-            voxelShader.SetTexture(2, "minAxiiY", minAxii);
-            voxelShader.SetTexture(2, "minAxiiYTest", minAxiiPos);
-            voxelShader.Dispatch(2, _count, _count, 1);
-
-            var propsBuffer = new ComputeBuffer(maxComputeBufferSize, Marshal.SizeOf(new BlittableProp()), ComputeBufferType.Append);
-            var countBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
+            var tempBuf = tempPropPosScaleBuffers[i];
 
             // Set compute properties and run the compute shader
-            propsBuffer.SetCounterValue(0);
-            countBuffer.SetData(new int[] { 0 });
-            propType.generationShader.SetBuffer(0, "props", propsBuffer);
+            tempBuf.SetCounterValue(0);
+            rawCountBuffer.SetData(new int[1]);
+            propType.generationShader.SetBuffer(0, "props", tempBuf);
             propType.generationShader.SetVector("propChunkOffset", segment.worldPosition);
             propType.generationShader.SetTexture(0, "_Voxels", propSegmentDensityVoxels);
             propType.generationShader.SetTexture(0, "_MinAxii", minAxiiPos);
             propType.generationShader.Dispatch(0, _count, _count, _count);
-
-            // Set this as a generated prop
-            segment.generatedProps.SetBits(i, true);
-            ComputeBuffer.CopyCount(propsBuffer, countBuffer, 0);
+            ComputeBuffer.CopyCount(tempBuf, rawCountBuffer, 0);
 
             // Either start waiting for the buffer asynchronously or simply set it to render using GPU instanced indirect
-            if (segment.spawnPrefabs && propType.propSpawnBehavior.HasFlag(PropSpawnBehavior.SpawnPrefabs)) {
+            if (segment.spawnPrefabs && propType.WillSpawnPrefab) {
+                free.SetBits(i, true);
                 segment.props.Add(i, new List<GameObject>());
-                var test123 = new Test { val = i };
 
+                // Custom class we use to send data to the delegate because it seems
+                // as if sharing values by value doesn't really work out, wtv
+                var test123 = new Test { val = i, };
+
+                // Spawn the prefabs when we get the data back asynchronously
                 AsyncGPUReadback.Request(
-                    propsBuffer,
+                    tempBuf,
                     delegate (AsyncGPUReadbackRequest asyncRequest) {
-                        SpawnPropPrefabs(test123.val, segment, propType, asyncRequest.GetData<BlittableProp>(), countBuffer);
-                        //Debug.Log(asyncRequest.GetData());
+                        SpawnPropPrefabs(test123.val, segment, propType, asyncRequest.GetData<BlittableProp>());
+                        free.SetBits(test123.val, false);
                     }
                 );
+            } else if (propType.WillRenderBillboard) {
+                rawIndexBuffer.SetData(new uint[] { uint.MaxValue });
 
-                //
-            } else if (propType.propSpawnBehavior.HasFlag(PropSpawnBehavior.RenderBillboards)) {
-                int[] count = new int[1] { 0 };
-                countBuffer.GetData(count);
-                segment.test.Add(i, (propsBuffer, count[0]));
+                // Find a free block that we can use
+                propFreeBlockSearch.SetBuffer(0, "counter", rawCountBuffer);
+                propFreeBlockSearch.SetBuffer(0, "index", rawIndexBuffer);
+                propFreeBlockSearch.SetBuffer(0, "usedBitmask", usedBitmaskBuffers[i]);
+                propFreeBlockSearch.Dispatch(0, Mathf.CeilToInt((float)propType.maxPropsInTotal / (32.0f*128.0f)), 1, 1);
+                
+                // Copy the temporary data to the permanent data that we will cull
+                propFreeBlockCopy.SetBuffer(0, "counter", rawCountBuffer);
+                propFreeBlockCopy.SetBuffer(0, "index", rawIndexBuffer);
+                propFreeBlockCopy.SetBuffer(0, "usedBitmask", usedBitmaskBuffers[i]);
+                propFreeBlockCopy.SetBuffer(0, "tempProps", tempBuf);
+                propFreeBlockCopy.SetBuffer(0, "permProps", unculledPosScaleBuffers[i]);
+                propFreeBlockCopy.Dispatch(0, Mathf.CeilToInt((float)propType.maxPropsPerSegment / 32.0f), 1, 1);
             }
         }
     }
 
-    // First runs the compute shader on a temporary buffer (max sized)
-    // Then copies the buffer into a bigger one (max sized * number of currently active segments)
-    // Main "segment" culling shader does frustum culling over prop segment regions first (broad phase)
-    // Secondary culling shader does frustum culling over props individually (maybe occlusion?)
-    //      Optionally do all billboard vertex logic here as well
-    //      Optionally select between "instanced" and "billboarded" meshes to render
-    
     // Called when an old prop segment is unloaded
     private void OnPropSegmentUnload(PropSegment segment) {
         foreach (var collection in segment.props) {
@@ -287,7 +344,6 @@ public class VoxelProps : VoxelBehaviour {
             }
         }
 
-        segment.test = null;
         segment.props = null;
     }
 
@@ -309,15 +365,19 @@ public class VoxelProps : VoxelBehaviour {
     }
 
     // Spawn the necessary prop gameobjects for a prop segment at lod 0
-    private void SpawnPropPrefabs(int i, PropSegment segment, Prop propType, NativeArray<BlittableProp> data, ComputeBuffer countBuffer) {
-        int[] count = new int[1] { 0 };
-        countBuffer.GetData(count);
+    private void SpawnPropPrefabs(int i, PropSegment segment, Prop propType, NativeArray<BlittableProp> data) {
+        if (segment.props == null)
+            return;
 
-        for (int k = 0; k < count[0]; k++) {
+        int[] count = new int[props.Count];
+        rawCountBuffer.GetData(count);
+        int counter = count[i];
+
+        for (int k = 0; k < counter; k++) {
             var prop = data[k];
             GameObject propGameObject = FetchPooledProp(i, propType);
             onPropPrefabSpawned?.Invoke(propType, propGameObject);
-            propGameObject.transform.SetParent(pooledPropOwners[i].transform);
+            propGameObject.transform.SetParent(propOwners[i].transform);
             float3 propPosition = prop.packed_position_and_scale.xyz;
             float3 propRotation = prop.packed_euler_angles_padding.xyz;
             float propScale = prop.packed_position_and_scale.w;
@@ -353,7 +413,6 @@ public class VoxelProps : VoxelBehaviour {
                 segment.worldPosition = new Vector3(pos.x, pos.y, pos.z) * VoxelUtils.PropSegmentSize;
                 segment.segmentPosition = pos.xyz;
                 segment.spawnPrefabs = pos.w == 0;
-                segment.generatedProps.Clear();
                 propSegmentsDict.Add(pos, segment);
                 pendingSegments.Enqueue(segment);
             }
@@ -365,44 +424,69 @@ public class VoxelProps : VoxelBehaviour {
                 }
             }
 
+            // update the bit mask used for 
+
             mustUpdate = false;
         }
 
         PropSegment result;
-        if (pendingSegments.TryDequeue(out result)) {
-            onPropSegmentLoaded.Invoke(result);
-        }
-        
-        foreach (var segment in propSegmentsDict) {
-            if (segment.Value.test == null)
-                continue;
 
-            foreach (var item in segment.Value.test) {
-                IndirectExtraPropData extraData = extraPropData[item.Key];
-                Prop prop = props[item.Key];
-                
-                if (prop.propSpawnBehavior.HasFlag(PropSpawnBehavior.RenderBillboards)) 
-                    RenderBillboardsForSegment(segment.Value.worldPosition, extraData, prop, item.Value.Item1, item.Value.Item2);
+        if (pendingSegments.TryPeek(out result)) {
+            if (!free.IsSet(0)) {
+                pendingSegments.Dequeue();
+                onPropSegmentLoaded.Invoke(result);
             }
+        }
+    
+        Camera camera = null;
+
+        if (terrain.VoxelOctree.targetsLookup.Count > 0) {
+            camera = terrain.VoxelOctree.targetsLookup.First().Key.viewCamera;
+        }
+
+        if (camera == null)
+            return;
+
+        culledCountBuffer.SetData(new int[props.Count]);
+        for (int i = 0; i < props.Count; i++) {
+            Prop prop = props[i];
+            ComputeBuffer unculled = unculledPosScaleBuffers[i];
+            ComputeBuffer culled = culledPosScaleBuffers[i];
+
+            propCullingCopy.SetBuffer(0, "unculledProps", unculled);
+            propCullingCopy.SetBuffer(0, "culledProps", culled);
+            propCullingCopy.SetBuffer(0, "culledCount", culledCountBuffer);
+            propCullingCopy.SetVector("cameraForward", camera.transform.forward);
+            propCullingCopy.SetVector("cameraPosition", camera.transform.position);
+            propCullingCopy.Dispatch(0, Mathf.CeilToInt((float)prop.maxVisibleProps / (32.0f)), 1, 1);
+        }
+
+        propCullingApply.SetBuffer(0, "culledCount", culledCountBuffer);
+        propCullingApply.SetBuffer(0, "drawArgs", drawArgsBuffer);
+        propCullingApply.SetInt("maxPropTypes", props.Count);
+        propCullingApply.Dispatch(0, Mathf.CeilToInt((float)props.Count / 32.0f), 1, 1);
+
+        for (int i = 0; i < props.Count; i++) {
+            IndirectExtraPropData extraData = extraPropData[i];
+            Prop prop = props[i];
+            ComputeBuffer culled = culledPosScaleBuffers[i];
+            RenderBillboardsOfType(i, extraData, prop, culled);
         }
     }
 
-    // Render the billboards for a specific prop segment
-    private void RenderBillboardsForSegment(Vector3 position, IndirectExtraPropData extraData, Prop prop, ComputeBuffer buffer, int count) {
-        if (count == 0)
-            return;
-
+    // Render the billboards for a specific type of prop type
+    private void RenderBillboardsOfType(int i, IndirectExtraPropData extraData, Prop prop, ComputeBuffer posScale) {
         ShadowCastingMode shadowCastingMode = prop.billboardCastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
         RenderParams renderParams = new RenderParams(extraData.billboardMaterial);
-        renderParams.shadowCastingMode = shadowCastingMode; 
+        renderParams.shadowCastingMode = shadowCastingMode;
         renderParams.worldBounds = new Bounds {
-            min = position,
-            max = position + Vector3.one * VoxelUtils.PropSegmentSize,
+            min = -Vector3.one * VoxelUtils.PropSegmentSize * 100000,
+            max = Vector3.one * VoxelUtils.PropSegmentSize * 100000,
         };
 
         var mat = new MaterialPropertyBlock();
         renderParams.matProps = mat;
-        mat.SetBuffer("_BlittablePropBuffer", buffer);
+        mat.SetBuffer("_BlittablePropBuffer", posScale);
         mat.SetVector("_BoundsOffset", renderParams.worldBounds.center);
         mat.SetTexture("_Albedo", extraData.billboardAlbedoTexture);
         mat.SetTexture("_Normal_Map", extraData.billboardNormalTexture);
@@ -413,7 +497,7 @@ public class VoxelProps : VoxelBehaviour {
         mat.SetInt("_Lock_Rotation_Y", prop.billboardRestrictRotationY ? 1 : 0);
 
         Mesh mesh = VoxelTerrain.Instance.VoxelProps.quadBillboard;
-        Graphics.RenderMeshPrimitives(renderParams, mesh, 0, count);
+        Graphics.RenderMeshIndirect(renderParams, mesh, drawArgsBuffer, 1, i);
     }
 
     private void OnDrawGizmosSelected() {
@@ -439,5 +523,17 @@ public class VoxelProps : VoxelBehaviour {
         oldPropSegments.Dispose();
         addedSegments.Dispose();
         removedSegments.Dispose();
+
+
+        drawArgsBuffer.Dispose();
+        culledCountBuffer.Dispose();
+        rawCountBuffer.Dispose();
+        rawIndexBuffer.Dispose();
+        for (int i = 0; i < props.Count; i++) {
+            unculledPosScaleBuffers[i].Dispose();
+            culledPosScaleBuffers[i].Dispose();
+            usedBitmaskBuffers[i].Dispose();
+            tempPropPosScaleBuffers[i].Dispose();
+        }
     }
 }

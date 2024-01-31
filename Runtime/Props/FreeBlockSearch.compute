@@ -1,0 +1,31 @@
+#pragma kernel CSFreeBlockSearch
+
+StructuredBuffer<int> counter;
+
+// each bit represents 64 props
+StructuredBuffer<uint> usedBitmask;
+RWStructuredBuffer<uint> index;
+
+// Searches for a free block segment region that we can store data inside of
+// Uses the bitset to check which spots are empty or used (64 props per bit)
+[numthreads(32, 1, 1)]
+void CSFreeBlockSearch(uint3 id : SV_DispatchThreadID)
+{
+	for (uint i = 0; i < 128; i++)
+	{
+		uint baseIndex = id.x * 128 + i;
+		uint count = counter[0];
+
+		// TODO: Eventually fix this by checking whole blocks at once
+		for (uint i = baseIndex; i < (baseIndex + count); i++)
+		{
+			uint block = i / 32;
+			uint local = i % 32;
+			if (((usedBitmask[block] >> local) & 1) == 1) {
+				return;
+			}
+		}
+
+		InterlockedMin(index[0], baseIndex);
+	}
+}

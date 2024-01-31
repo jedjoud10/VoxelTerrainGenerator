@@ -17,6 +17,7 @@ void VoxelAt(float3 position, out float density, out uint material) {
 	mixer = smoothstep(0, 1, mixer - 0.4);
 
 	density = position.y + lerp(density1, density2, mixer);
+	//density = position.y + 15;
 	material = 0;
 }
 

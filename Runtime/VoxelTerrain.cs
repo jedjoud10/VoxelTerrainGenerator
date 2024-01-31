@@ -152,8 +152,7 @@ public partial class VoxelTerrain : MonoBehaviour {
 
 
         foreach (var item in Chunks) {
-            if (item.Value.container != null)
-                item.Value.container.voxels.Dispose();
+            PoolChunkBack(item.Value);
         }
 
         foreach (var item in pooledVoxelChunkContainers) {
@@ -163,7 +162,7 @@ public partial class VoxelTerrain : MonoBehaviour {
     }
 
     private void Update() {
-        if (!Free && VoxelGenerator.Free && VoxelMesher.Free && VoxelOctree.Free && VoxelEdits.Free) {
+        if (!Free && VoxelGenerator.Free && VoxelMesher.Free && VoxelOctree.Free && VoxelEdits.Free && VoxelProps.Free) {
             Free = true;
             onChunkGenerationDone?.Invoke();
 
@@ -381,10 +380,11 @@ public partial class VoxelTerrain : MonoBehaviour {
         }
 
         if (debugGUI) {
-            GUI.Box(new Rect(0, 0, 300, 315), "");
-            Label($"Pending GPU async readback jobs: {VoxelGenerator.pendingVoxelGenerationChunks.Count}");
-            Label($"Pending mesh jobs: {VoxelMesher.pendingMeshJobs.Count}");
-            Label($"Pending mesh baking jobs: {VoxelCollisions.ongoingBakeJobs.Count}");
+            GUI.Box(new Rect(0, 0, 300, 345), "");
+            Label($"# of pending GPU async readback jobs: {VoxelGenerator.pendingVoxelGenerationChunks.Count}");
+            Label($"# of pending mesh jobs: {VoxelMesher.pendingMeshJobs.Count}");
+            Label($"# of pending mesh baking jobs: {VoxelCollisions.ongoingBakeJobs.Count}");
+            Label($"# of pending prop segments jobs: {VoxelProps.pendingSegments.Count}");
             Label($"# of pooled chunk game objects: {pooledChunkGameObjects.Count}");
             Label($"# of pooled native voxel arrays: {pooledVoxelChunkContainers.Count}");
 
@@ -409,6 +409,7 @@ public partial class VoxelTerrain : MonoBehaviour {
             Label("Mesher free: " + VoxelMesher.Free);
             Label("Octree free: " + VoxelOctree.Free);
             Label("Edits free: " + VoxelEdits.Free);
+            Label("Props free: " + VoxelProps.Free);
         }
     }
 }

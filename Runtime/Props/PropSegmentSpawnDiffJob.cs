@@ -42,7 +42,7 @@ public struct PropSegmentSpawnDiffJob : IJob {
                     int lod = (int)math.round(distance * target.propSegmentLodMultiplier);
                     lod = math.clamp(lod, 0, 1);
 
-                    if (math.all(segment > min) && math.all(segment < max)) {
+                    if (math.all(segment >= min) && math.all(segment <= max)) {
                         propSegments.Add(new int4(segment, lod));
                     }
                 }
