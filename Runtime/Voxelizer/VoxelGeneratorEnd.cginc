@@ -1,16 +1,19 @@
+// Seems to work without this janky thing below
+//position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5);
+
 [numthreads(4, 4, 4)]
 void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 {
 	// Calculate the main world position
 	float3 position = float3(id.xzy);
-	position -= 1.0;
 	position *= voxelSize;
+	position -= (1.5 * voxelSize);
 
 	// Chunk offsets + vertex scaling
 	position *= vertexScaling;
 	position *= chunkScale;
-	position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5);
-	
+	position += chunkOffset;
+
 	// World offset and scale
 	position = ((position * worldScale) / voxelSize) + worldOffset;
 	float density = 0.0;
@@ -37,6 +40,10 @@ void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 	}
 
 	float3 position = PropSegmentToWorld(id);
+	
+	// TODO: Understand why we need this
+	// Props are constant size so why would voxel size affect them?
+	position *= (1 / voxelSize);
 	float density = 0.0;
 	uint material = 0;
 	VoxelAt(position, density, material);

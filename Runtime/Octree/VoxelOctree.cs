@@ -168,22 +168,32 @@ public class VoxelOctree : VoxelBehaviour {
         }
     }
 
-    // Check if an AABB intersects the octree, and return a native list of the intersected leaf nodes
-    // Returns false if the octree is currently updating (and thus cannot handle the request)
-    public bool TryCheckAABBIntersection(Bounds bounds, out NativeList<OctreeNode>? output) {
+    // Check if a single AABB intersects the octree, and return a native list of the intersected leaf nodes
+    public bool TryCheckAABBIntersection(Bounds bound, out NativeList<OctreeNode>? output) {
+        return TryCheckAABBIntersection(new Bounds[] { bound }, out output);
+    }
+
+    // Check if multiple AABBs intersects the octree, and return a native list of the intersected leaf nodes
+    public bool TryCheckAABBIntersection(Bounds[] bounds, out NativeList<OctreeNode>? output) {
+        if (!Free) {
+            output = null;
+            return false;
+        }
+
         NativeQueue<int> pendingQueue = new NativeQueue<int>(Allocator.TempJob);
+        NativeArray<Bounds> boundsArr = new NativeArray<Bounds>(bounds, Allocator.TempJob);
         pendingQueue.Enqueue(0);
         NativeList<OctreeNode> intersectLeafs = new NativeList<OctreeNode>(Allocator.TempJob);
 
         var handle = new IntersectJob {
-            min = bounds.min,
-            max = bounds.max,
+            bounds = boundsArr,
             pending = pendingQueue,
             nodes = octreeNodesList[1 - lastIndex],
             intersectLeafs = intersectLeafs
         }.Schedule();
 
         pendingQueue.Dispose(handle);
+        boundsArr.Dispose(handle);
 
         handle.Complete();
 

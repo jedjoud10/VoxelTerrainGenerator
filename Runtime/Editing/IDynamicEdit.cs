@@ -5,9 +5,9 @@ using Unity.Mathematics;
 using Unity.Netcode;
 using UnityEngine;
 
-// Interface for world edits that we can disable / toggle / move around
-public interface IWorldEdit : INetworkSerializable {
-    // Is the world edit even enabled
+// Interface for dynamic edits that we can disable / toggle / move around
+public interface IDynamicEdit : INetworkSerializable {
+    // Is the dynamic edit even enabled
     public bool Enabled { get; }
 
     // Create the delta voxel modifications (without having to read the inner voxel data)
@@ -22,9 +22,9 @@ public interface IWorldEdit : INetworkSerializable {
     // MUST CALL THE "ApplyGeneric" function because we can't hide away generics
     public JobHandle Apply(VoxelChunk chunk, ref NativeArray<Voxel> voxels, JobHandle dep);
 
-    // Apply any generic world edit onto oncoming data
-    internal static JobHandle ApplyGeneric<T>(VoxelChunk chunk, ref NativeArray<Voxel> voxels, JobHandle dep, T edit) where T : struct, IWorldEdit {
-        WorldEditJob<T> job = new WorldEditJob<T> {
+    // Apply any generic dynamic edit onto oncoming data
+    internal static JobHandle ApplyGeneric<T>(VoxelChunk chunk, ref NativeArray<Voxel> voxels, JobHandle dep, T edit) where T : struct, IDynamicEdit {
+        DynamicEditJob<T> job = new DynamicEditJob<T> {
             chunkOffset = math.float3(chunk.node.position),
             voxelScale = VoxelUtils.VoxelSizeFactor,
             size = VoxelUtils.Size,

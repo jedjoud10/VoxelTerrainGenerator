@@ -395,7 +395,7 @@ public partial class VoxelTerrain : MonoBehaviour {
             Label($"# of enabled chunks: {Chunks.Where(x => x.Value.gameObject.activeSelf).Count()}");
             Label($"# of enabled and meshed chunks: {Chunks.Where(x => (x.Value.gameObject.activeSelf && x.Value.sharedMesh.subMeshCount > 0)).Count()}");
             Label($"# of chunks to remove: {toRemoveChunk.Count}");
-            Label($"# of world edits: {VoxelEdits.worldEditRegistry.TryGetAll<IWorldEdit>().Count}");
+            Label($"# of world edits: {VoxelEdits.worldEditRegistry.TryGetAll<IDynamicEdit>().Count}");
             Label($"# of pending voxel edits: {VoxelEdits.tempVoxelEdits.Count}");
             int mul = System.Runtime.InteropServices.Marshal.SizeOf(Voxel.Empty) * VoxelUtils.Volume;
             int bytes = pooledVoxelChunkContainers.Count * mul;

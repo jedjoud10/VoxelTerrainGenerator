@@ -4,9 +4,9 @@ using Unity.Mathematics;
 using Unity.Netcode;
 using UnityEngine;
 
-[assembly: RegisterGenericJobType(typeof(WorldEditJob<SphereWorldEdit>))]
+[assembly: RegisterGenericJobType(typeof(DynamicEditJob<SphereWorldEdit>))]
 
-public struct SphereWorldEdit : IWorldEdit {
+public struct SphereWorldEdit : IDynamicEdit {
     [ReadOnly] public float3 center;
     [ReadOnly] public float radius;
     [ReadOnly] public ushort material;
@@ -14,7 +14,7 @@ public struct SphereWorldEdit : IWorldEdit {
     public bool Enabled => true;
 
     public JobHandle Apply(VoxelChunk chunk, ref NativeArray<Voxel> voxels, JobHandle dep) {
-        return IWorldEdit.ApplyGeneric(chunk, ref voxels, dep, this);
+        return IDynamicEdit.ApplyGeneric(chunk, ref voxels, dep, this);
     }
 
     public Bounds GetBounds() {

@@ -1,0 +1,9 @@
+#pragma kernel CSTEST
+
+RWStructuredBuffer<uint4> permProps[10];
+
+[numthreads(32, 1, 1)]
+void CSTEST(uint3 id : SV_DispatchThreadID)
+{
+	permProps[0][id.x] = uint4(0, 0, 0, 0);
+}

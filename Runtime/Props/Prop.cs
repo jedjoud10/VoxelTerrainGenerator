@@ -1,9 +1,6 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
-using static UnityEditor.MaterialProperty;
 
 // Voxel prop that can be spawned in the world using two different methods
 // Ray based method and density based method
@@ -58,7 +55,7 @@ public enum PropSpawnBehavior {
     SpawnPrefabs = 1 << 1,
 
     // Swaps out everything for instanced meshes (useful for small rocks or stuff not to be interacted with)
-    //OnlyRenderInstances = 1 << 2,
+    OnlyRenderInstances = 1 << 2,
 }
 
 

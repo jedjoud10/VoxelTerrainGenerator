@@ -1,6 +1,4 @@
 #pragma kernel CSFreeBlockCopy
-#define UNITY_INDIRECT_DRAW_ARGS IndirectDrawIndexedArgs
-#include "UnityIndirect.cginc"
 
 // Input and output buffers
 int segmentLookup;

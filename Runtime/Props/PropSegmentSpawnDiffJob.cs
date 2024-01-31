@@ -2,7 +2,6 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Burst;
-using static UnityEngine.Rendering.HableCurve;
 
 // This will handle spawning the prop segments from scratch and to be diffed later
 [BurstCompile(CompileSynchronously = true)]

@@ -5,8 +5,8 @@ using Unity.Mathematics;
 
 // Edit job for dynamic edits
 [BurstCompile(CompileSynchronously = true)]
-struct WorldEditJob<T> : IJobParallelFor
-    where T : struct, IWorldEdit {
+struct DynamicEditJob<T> : IJobParallelFor
+    where T : struct, IDynamicEdit {
     [ReadOnly] public float3 chunkOffset;
     [ReadOnly] public float voxelScale;
     [ReadOnly] public int size;

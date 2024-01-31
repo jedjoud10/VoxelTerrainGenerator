@@ -10,7 +10,7 @@ RWStructuredBuffer<UNITY_INDIRECT_DRAW_ARGS> drawArgs;
 [numthreads(32, 1, 1)]
 void CSPropCullingApply(uint3 id : SV_DispatchThreadID)
 {
-	if (id.x < maxPropTypes) {
+	if (id.x < (uint)maxPropTypes) {
 		IndirectDrawIndexedArgs args;
 		args.indexCountPerInstance = 6;
 		args.instanceCount = culledCount[id.x];

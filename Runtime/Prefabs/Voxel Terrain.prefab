@@ -67,7 +67,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e787133040bb3d45acfc35df2b68f88, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxDepth: 5
+  maxDepth: 7
   debugGizmos: 0
   mustUpdate: 0
 --- !u!114 &7158265105977027013
@@ -103,8 +103,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 998d14371a252d844953b5096474c997, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  meshJobsPerFrame: 4
-  minSkirtDensityThreshold: -5
+  meshJobsPerFrame: 2
+  minSkirtDensityThreshold: -15
   smoothing: 1
   skirts: 1
   voxelMaterials:
@@ -149,17 +149,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: efb0edf5fd1e01a4283d253eaa649b4e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  debugGizmos: 1
-  renderInstancedMeshes: 1
-  renderBillboards: 1
-  spawnPropPrefabs: 1
-  maxComputeBufferSize: 2048
+  debugGizmos: 0
   propSegmentResolution: 32
-  voxelChunksInPropSegment: 8
+  voxelChunksInPropSegment: 4
   props:
   - {fileID: 11400000, guid: 3ab5956d7784dc341b5dcb3cb8b0c70c, type: 2}
-  propCaptureCameraPrefab: {fileID: 0}
-  propCaptureFullscreenMaterial: {fileID: 0}
-  quadBillboard: {fileID: 0}
-  billboardMaterialBase: {fileID: 0}
-  propShader: {fileID: 7200000, guid: a564b702928195d4a8a3350466841cf5, type: 3}
+  propCaptureCameraPrefab: {fileID: 507919951813536729, guid: b5f593c8c122c934ca1aef0d4969cb43,
+    type: 3}
+  propCaptureFullscreenMaterial: {fileID: 2100000, guid: 6a57ba25d9097ae498538688f424599b,
+    type: 2}
+  quadBillboard: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+  billboardMaterialBase: {fileID: 2100000, guid: 646a06c2b757afa4d89f8ee6901875ec,
+    type: 2}
+  propFreeBlockSearch: {fileID: 7200000, guid: fa5b04c4e2be05c4683ba659eb1c2bf5, type: 3}
+  propFreeBlockCopy: {fileID: 7200000, guid: 328bf8d3e8bc49d4588683eb391693fe, type: 3}
+  propCullingCopy: {fileID: 7200000, guid: 0fc248ebd7631a242afffc4ccdbe1b5e, type: 3}
+  propCullingApply: {fileID: 7200000, guid: b37299e5f05f5004b9698816461e0df3, type: 3}
+  removePropSegments: {fileID: 7200000, guid: 62d1ba42545233149af3b0666c4246c9, type: 3}

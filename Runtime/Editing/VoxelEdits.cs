@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
@@ -25,13 +24,18 @@ public class VoxelEdits : VoxelBehaviour {
     // Stores the containers of the different types of world edits
     internal SerializableRegistry worldEditRegistry;
 
-    // Temporary place for voxel edits that have not been applied yet
+    // Temporary place for voxel/dynamic edits that have not been applied yet
     internal Queue<IVoxelEdit> tempVoxelEdits = new Queue<IVoxelEdit>();
+    internal Queue<IDynamicEdit> tempDynamicEdit = new Queue<IDynamicEdit>();
+
     public bool Free => tempVoxelEdits.Count == 0 && terrain.VoxelMesher.Free;
 
     // Used to register custom dynamic edit types
     public delegate void RegisterDynamicEditType(SerializableRegistry registry);
     public event RegisterDynamicEditType registerDynamicEditTypes;
+
+    // Tells us when we can apply edits
+    bool applyEdits;
 
     // Initialize the voxel edits handler
     internal override void Init() {
@@ -42,6 +46,8 @@ public class VoxelEdits : VoxelBehaviour {
         lookup = new NativeHashMap<int, int>(0, Allocator.Persistent);
         sparseVoxelData = new List<SparseVoxelDeltaData>();
         worldEditRegistry = new SerializableRegistry();
+
+        terrain.onInitialGenerationDone += () => { applyEdits = true; };
 
         // Register common dynamic edit types
         registerDynamicEditTypes += (SerializableRegistry registry) => {
@@ -66,15 +72,25 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     private void Update() {
-        IVoxelEdit edit;
-        if (tempVoxelEdits.TryDequeue(out edit)) {
-            ApplyVoxelEdit(edit, true);
+        if (!applyEdits)
+            return;
+
+        if (terrain.Free && terrain.VoxelOctree.Free && terrain.VoxelMesher.Free) {
+            IVoxelEdit edit;
+            if (tempVoxelEdits.TryDequeue(out edit)) {
+                ApplyVoxelEdit(edit, true);
+            }
+
+            IDynamicEdit dynEdit;
+            if (tempDynamicEdit.TryDequeue(out dynEdit)) {
+                InternalApplyDynEditImmediate(dynEdit);
+            }
         }
     }
 
     // Apply a voxel edit to the terrain world
     public void ApplyVoxelEdit(IVoxelEdit edit, bool neverForget = false) {
-        if ((!terrain.VoxelOctree.Free || !terrain.VoxelMesher.Free)) {
+        if (!terrain.Free) {
             if (neverForget)
                 tempVoxelEdits.Enqueue(edit);
             return;
@@ -142,11 +158,10 @@ public class VoxelEdits : VoxelBehaviour {
         addedNodes.Dispose();
     }
 
-    // Apply a world edit to the terrain world immediately
-    // The returned int is the index inside the registry for the world edit
-    public int ApplyWorldEdit<T>(T worldEdit) where T: struct, IWorldEdit {
+    // Internally used to hide generic
+    private void InternalApplyDynEditImmediate(IDynamicEdit dynamicEdit) {
         // Custom job to find all the octree nodes that touch the bounds
-        Bounds bound = worldEdit.GetBounds();
+        Bounds bound = dynamicEdit.GetBounds();
         NativeList<OctreeNode>? temp;
         terrain.VoxelOctree.TryCheckAABBIntersection(bound, out temp);
 
@@ -156,9 +171,19 @@ public class VoxelEdits : VoxelBehaviour {
             chunk.Remesh(terrain);
         }
         temp.Value.Dispose();
+    }
+
+    // Apply a dynamic edit to the terrain world when free or immediately
+    // The returned int is the index inside the registry for the dynamic edit
+    public int ApplyDynamicEdit<T>(T dynamicEdit, bool immediate = false) where T: struct, IDynamicEdit {
+        if (immediate && terrain.Free) {
+            InternalApplyDynEditImmediate(dynamicEdit);
+        } else {
+            tempDynamicEdit.Enqueue(dynamicEdit);
+        }
 
         // We can add this later since the mesher isn't immediate; it will mesh next frame
-        return worldEditRegistry.Add(worldEdit);
+        return worldEditRegistry.Add(dynamicEdit);
     }
 
     // Check if a chunk contains voxel edits
@@ -175,7 +200,7 @@ public class VoxelEdits : VoxelBehaviour {
     // Check if a chunk contains dynamic edits
     public bool IsChunkAffectedByDynamicEdits(VoxelChunk chunk) {
         Bounds chunkBounds = chunk.GetBounds();
-        return worldEditRegistry.TryGetAll<IWorldEdit>().Select(x => x.GetBounds()).Any(bound => bound.Intersects(chunkBounds));
+        return worldEditRegistry.TryGetAll<IDynamicEdit>().Select(x => x.GetBounds()).Any(bound => bound.Intersects(chunkBounds));
     }
 
     // Create an apply job dependeny for a chunk that has voxel edits
@@ -212,7 +237,7 @@ public class VoxelEdits : VoxelBehaviour {
         JobHandle dep = new JobHandle();
         foreach (var registry in worldEditRegistry.types) {
             foreach (var worldEdit in registry.List) {
-                IWorldEdit edit = (IWorldEdit)worldEdit;
+                IDynamicEdit edit = (IDynamicEdit)worldEdit;
                 dep = edit.Apply(chunk, ref voxels, dep);
             }
         }

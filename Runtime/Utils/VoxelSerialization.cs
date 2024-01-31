@@ -1,5 +1,4 @@
 using System;
-using System.Text;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;

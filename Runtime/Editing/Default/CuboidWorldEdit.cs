@@ -4,8 +4,8 @@ using Unity.Mathematics;
 using Unity.Netcode;
 using UnityEngine;
 
-[assembly: RegisterGenericJobType(typeof(WorldEditJob<CuboidWorldEdit>))]
-public struct CuboidWorldEdit : IWorldEdit {
+[assembly: RegisterGenericJobType(typeof(DynamicEditJob<CuboidWorldEdit>))]
+public struct CuboidWorldEdit : IDynamicEdit {
     [ReadOnly] public float3 center;
     [ReadOnly] public float3 halfExtents;
     [ReadOnly] public ushort material;
@@ -13,7 +13,7 @@ public struct CuboidWorldEdit : IWorldEdit {
     public bool Enabled => true;
 
     public JobHandle Apply(VoxelChunk chunk, ref NativeArray<Voxel> voxels, JobHandle dep) {
-        return IWorldEdit.ApplyGeneric(chunk, ref voxels, dep, this);
+        return IDynamicEdit.ApplyGeneric(chunk, ref voxels, dep, this);
     }
 
     public Bounds GetBounds() {

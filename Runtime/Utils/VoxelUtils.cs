@@ -17,6 +17,9 @@ public static class VoxelUtils {
     // Doesn't actually represent the actual size of the voxel (since we do some scaling anyways)
     public static float VoxelSizeFactor => 1F / Mathf.Pow(2F, VoxelSizeReduction);
 
+    // Global world size in meters
+    public static float GlobalWorldSize => Mathf.CeilToInt(Mathf.Pow(2F, (float)MaxDepth) * VoxelSizeFactor * Size);
+
     // Max depth of the octree world
     public static int MaxDepth { get; internal set; }
 
@@ -27,13 +30,13 @@ public static class VoxelUtils {
     public static int ChunksPerPropSegment { get; internal set; }
 
     // Total size of a prop segment
-    public static int PropSegmentSize => (int)(ChunksPerPropSegment * Size * VoxelSizeFactor);
+    public static int PropSegmentSize => (int)(ChunksPerPropSegment * Size);
 
     // Chunk resolution for prop chunks (remember that prop chunks are 8 times as big as normal chunks)
     public static int PropSegmentResolution { get; internal set; }
 
     // Number of prop segments per world
-    public static int PropSegmentsCount => Mathf.CeilToInt(Mathf.Pow(2F, (float)MaxDepth) * VoxelSizeFactor / ChunksPerPropSegment);
+    public static int PropSegmentsCount => (int)GlobalWorldSize / PropSegmentSize;
 
     // Should we use skirts when meshing?
     public static bool Skirts { get; internal set; }

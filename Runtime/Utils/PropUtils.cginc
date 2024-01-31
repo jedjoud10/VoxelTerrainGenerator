@@ -3,6 +3,7 @@
 float3 PropSegmentToWorld(uint3 id) {
 	// Calculate the main world position
 	float3 position = float3(id.xzy);
+
 	position *= (propSegmentResolution + 1) / propSegmentResolution;
 	position *= propSegmentWorldSize / propSegmentResolution;
 	position += propChunkOffset;

@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ca249502b12e6574a82400f18da30c2f, type: 3}
-  m_Name: TestProp
+  m_Name: TestProp 1
   m_EditorClassIdentifier: 
-  prefab: {fileID: 900193227329173065, guid: 7b5625836e801c04fbb54c9225ac4663, type: 3}
-  propSpawnBehavior: -1
+  prefab: {fileID: 7381158461132351974, guid: bb32b47df5c13e4489e0cfa645ef79ce, type: 3}
+  propSpawnBehavior: 2
   maxPropsPerSegment: 4096
   maxPropsInTotal: 262144
-  maxVisibleProps: 131072
+  maxVisibleProps: 65536
   billboardCaptureCameraScale: 6.5
   billboardTextureWidth: 64
   billboardTextureHeight: 256

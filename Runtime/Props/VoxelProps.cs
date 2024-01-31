@@ -4,14 +4,10 @@ using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using System.Linq;
-using System.Collections;
-using static UnityEditor.MaterialProperty;
-using Unity.Burst.Intrinsics;
 
 // Responsible for generating the voxel props on the terrain
 // For this, we must force voxel generation to happen on the CPU so we can execute
@@ -34,6 +30,7 @@ public class VoxelProps : VoxelBehaviour {
     public List<Prop> props;
 
     // Used for prop billboard captures
+    [Header("Billboard Capture & Rendering")]
     public GameObject propCaptureCameraPrefab;
     public Material propCaptureFullscreenMaterial;
     public Mesh quadBillboard;
@@ -43,6 +40,7 @@ public class VoxelProps : VoxelBehaviour {
     private List<IndirectExtraPropData> extraPropData;
 
     // Prop GPU copy, block search, and bitmask removal (basically a GPU allocator at this point lol)
+    [Header("Prop GPU allocator and culler")]
     public ComputeShader propFreeBlockSearch;
     public ComputeShader propFreeBlockCopy;
     public ComputeShader propCullingCopy;

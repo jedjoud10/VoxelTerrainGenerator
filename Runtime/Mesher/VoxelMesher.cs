@@ -25,7 +25,6 @@ public class VoxelMesher : VoxelBehaviour {
 
     // Used for collision
     internal Queue<PendingMeshJob> pendingMeshJobs;
-    internal HashSet<VoxelChunk> dedupe;
 
     // Checks if the voxel mesher has completed all the work
     public bool Free {
@@ -40,7 +39,6 @@ public class VoxelMesher : VoxelBehaviour {
     internal override void Init() {
         handlers = new List<MeshJobHandler>(meshJobsPerFrame);
         pendingMeshJobs = new Queue<PendingMeshJob>();
-        dedupe = new HashSet<VoxelChunk>();
         VoxelUtils.MinSkirtDensityThreshold = minSkirtDensityThreshold;
         VoxelUtils.Smoothing = smoothing;
         VoxelUtils.Skirts = skirts;
@@ -53,15 +51,18 @@ public class VoxelMesher : VoxelBehaviour {
     // Begin generating the mesh data using the given chunk and voxel container
     // Automatically creates a dependency from the editing system if it is editing modified chunks
     public void GenerateMesh(VoxelChunk chunk, bool computeCollisions) {
-        if (chunk.container == null || dedupe.Contains(chunk)) {
+        if (chunk.container == null)
             return;
-        }
 
-        //dedupe.Add(chunk);
-        pendingMeshJobs.Enqueue(new PendingMeshJob {
+        var job = new PendingMeshJob {
             chunk = chunk,
             computeCollisions = computeCollisions,
-        });
+        };
+
+        if (pendingMeshJobs.Contains(job))
+            return;
+
+        pendingMeshJobs.Enqueue(job);
     }
 
     // Begin generating the mesh data immediately without putting the mesh through the queue
@@ -114,7 +115,6 @@ public class VoxelMesher : VoxelBehaviour {
                 JobHandle dynamicEdit = terrain.VoxelEdits.TryGetApplyDynamicEditJobDependency(output.chunk, ref handler.voxels);
                 JobHandle voxelEdit = terrain.VoxelEdits.TryGetApplyVoxelEditJobDependency(output.chunk, ref handler.voxels, dynamicEdit);
                 handler.BeginJob(voxelEdit, output.chunk.node);
-                dedupe.Remove(output.chunk);
             }
         }
     }

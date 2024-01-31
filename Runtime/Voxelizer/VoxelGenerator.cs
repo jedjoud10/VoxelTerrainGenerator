@@ -96,6 +96,7 @@ public class VoxelGenerator : VoxelBehaviour {
 
     // Add the given chunk inside the queue for voxel generation
     public void GenerateVoxels(VoxelChunk chunk) {
+        if (pendingVoxelGenerationChunks.Contains(chunk)) return;
         pendingVoxelGenerationChunks.Enqueue(chunk);
     }
 

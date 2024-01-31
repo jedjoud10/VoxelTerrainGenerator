@@ -1,7 +1,5 @@
 ﻿using UnityEngine;
 using UnityEditor;
-using Palmmedia.ReportGenerator.Core;
-using System.Reflection.Emit;
 
 [CustomEditor(typeof(VoxelTerrain))]
 public class CustomEditorVoxelTerrain : Editor {
