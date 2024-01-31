@@ -6,6 +6,7 @@
 RWStructuredBuffer<uint> culledCount;
 StructuredBuffer<uint4> unculledProps;
 RWStructuredBuffer<uint4> culledProps;
+StructuredBuffer<uint> usedBitmask;
 float3 cameraForward;
 float3 cameraPosition;
 
@@ -15,7 +16,14 @@ void CSPropCullingCopy(uint3 id : SV_DispatchThreadID)
 {
 	float4 positionScale = UnpackPositionAndScale(unculledProps[id.x].xy);
 
-	if (dot(normalize(cameraPosition - positionScale.xyz), cameraForward) < 0) {
+	uint block = id.x / 32;
+	uint local = id.x % 32;
+	bool valid = ((usedBitmask[block] >> local) & 1) == 1;
+
+	bool visible = dot(normalize(cameraPosition - positionScale.xyz), cameraForward) < 0;
+	visible = true;
+
+	if (visible && valid) {
 		int index;
 		InterlockedAdd(culledCount[0], 1, index);
 		culledProps[index] = unculledProps[id.x];

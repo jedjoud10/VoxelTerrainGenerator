@@ -39,7 +39,7 @@ public struct PropSegmentSpawnDiffJob : IJob {
                     float3 segmentPos = new float3(segment.x, segment.y, segment.z) * propSegmentSize + new float3(1, 1, 1) * (propSegmentSize / 2.0f);
                     float distance = math.distance(target.center, segmentPos) / propSegmentSize;
 
-                    int lod = (int)math.round(distance * target.propSegmentLodMultiplier);
+                    int lod = (int)math.round(distance / math.max(target.propSegmentLodMultiplier, 0.01));
                     lod = math.clamp(lod, 0, 1);
 
                     if (math.all(segment >= min) && math.all(segment <= max)) {

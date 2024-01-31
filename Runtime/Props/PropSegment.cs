@@ -17,4 +17,7 @@ public class PropSegment {
 
     // Props that are handled by this prop segment
     public Dictionary<int, List<GameObject>> props;
+
+    // Lookup index we use when destroying this prop segment and need to get rid of the billboards
+    public int indexRangeLookup;
 }

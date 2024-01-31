@@ -9,6 +9,9 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using System.Linq;
+using System.Collections;
+using static UnityEditor.MaterialProperty;
+using Unity.Burst.Intrinsics;
 
 // Responsible for generating the voxel props on the terrain
 // For this, we must force voxel generation to happen on the CPU so we can execute
@@ -39,23 +42,28 @@ public class VoxelProps : VoxelBehaviour {
     // Extra prop data that is shared with the prop segments
     private List<IndirectExtraPropData> extraPropData;
 
-    // Prop GPU copy and block search
+    // Prop GPU copy, block search, and bitmask removal (basically a GPU allocator at this point lol)
     public ComputeShader propFreeBlockSearch;
     public ComputeShader propFreeBlockCopy;
     public ComputeShader propCullingCopy;
     public ComputeShader propCullingApply;
+    public ComputeShader removePropSegments;
 
     // Unculled pos scale, culled pos scale, and indirect args
     private ComputeBuffer[] tempPropPosScaleBuffers;
     private ComputeBuffer[] unculledPosScaleBuffers;
     private ComputeBuffer[] culledPosScaleBuffers;
     private ComputeBuffer[] usedBitmaskBuffers;
+    private ComputeBuffer[] segmentIndexCountBuffer;
     private ComputeBuffer culledCountBuffer;
     private ComputeBuffer rawCountBuffer;
     private ComputeBuffer rawIndexBuffer;
     private GraphicsBuffer drawArgsBuffer;
+    private ComputeBuffer segmentsToRemoveBuffer;
 
     private BitField64 free = new BitField64(0);
+
+    private NativeBitArray unusedBbSegments;
 
     // Prop segment management and diffing
     private NativeHashSet<int4> propSegments;
@@ -89,14 +97,16 @@ public class VoxelProps : VoxelBehaviour {
     // Texture3D that will be used to store intermediate voxel types for a whole prop segment
     private RenderTexture propSegmentDensityVoxels;
 
-    // Pending prop segment to generated
+    // Pending prop segment to generated and to be deleted
     internal Queue<PropSegment> pendingSegments;
+    internal bool segmentsAwaitingRemoval;
 
     // Used for collision and GPU based raycasting
     RenderTexture minAxii;
     RenderTexture minAxiiPos;
 
     private bool mustUpdate = false;
+    int bruhCounter = 0;
 
     // Checks if we completed prop generation
     public bool Free {
@@ -154,12 +164,14 @@ public class VoxelProps : VoxelBehaviour {
         UpdateStaticComputeFields();
         onPropSegmentLoaded += OnPropSegmentLoad;
         onPropSegmentUnloaded += OnPropSegmentUnload;
+        segmentsAwaitingRemoval = false;
         pooledPropGameObjects = new List<GameObject>[props.Count];
         unculledPosScaleBuffers = new ComputeBuffer[props.Count];
         culledPosScaleBuffers = new ComputeBuffer[props.Count];
         drawArgsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, props.Count, GraphicsBuffer.IndirectDrawIndexedArgs.size);
         usedBitmaskBuffers = new ComputeBuffer[props.Count];
         tempPropPosScaleBuffers = new ComputeBuffer[props.Count];
+        segmentIndexCountBuffer = new ComputeBuffer[props.Count];
         propOwners = new GameObject[props.Count];
         pendingSegments = new Queue<PropSegment>();
         culledCountBuffer = new ComputeBuffer(props.Count, sizeof(int));
@@ -181,8 +193,13 @@ public class VoxelProps : VoxelBehaviour {
             culledPosScaleBuffers[i] = new ComputeBuffer(propType.maxVisibleProps, sizeBlittableProp, ComputeBufferType.Structured);
             tempPropPosScaleBuffers[i] = new ComputeBuffer(propType.maxPropsPerSegment, sizeBlittableProp, ComputeBufferType.Append);
             usedBitmaskBuffers[i] = new ComputeBuffer(Mathf.CeilToInt((float)propType.maxPropsInTotal / (32.0f)), sizeof(uint), ComputeBufferType.Structured);
+            segmentIndexCountBuffer[i] = new ComputeBuffer(4096, sizeof(int) * 2);
         }
 
+        unusedBbSegments = new NativeBitArray(4096, Allocator.Persistent);
+        unusedBbSegments.Clear();
+
+        segmentsToRemoveBuffer = new ComputeBuffer(4096, sizeof(int));
         propSegmentsDict = new Dictionary<int4, PropSegment>();
         propSegments = new NativeHashSet<int4>(0, Allocator.Persistent);
         oldPropSegments = new NativeHashSet<int4>(0, Allocator.Persistent);
@@ -305,6 +322,7 @@ public class VoxelProps : VoxelBehaviour {
                 // Custom class we use to send data to the delegate because it seems
                 // as if sharing values by value doesn't really work out, wtv
                 var test123 = new Test { val = i, };
+                bruhCounter++;
 
                 // Spawn the prefabs when we get the data back asynchronously
                 AsyncGPUReadback.Request(
@@ -312,18 +330,23 @@ public class VoxelProps : VoxelBehaviour {
                     delegate (AsyncGPUReadbackRequest asyncRequest) {
                         SpawnPropPrefabs(test123.val, segment, propType, asyncRequest.GetData<BlittableProp>());
                         free.SetBits(test123.val, false);
+                        bruhCounter--;
                     }
                 );
             } else if (propType.WillRenderBillboard) {
                 rawIndexBuffer.SetData(new uint[] { uint.MaxValue });
+                segment.indexRangeLookup = unusedBbSegments.Find(0, 1);
+                unusedBbSegments.Set(segment.indexRangeLookup, true);
 
                 // Find a free block that we can use
                 propFreeBlockSearch.SetBuffer(0, "counter", rawCountBuffer);
                 propFreeBlockSearch.SetBuffer(0, "index", rawIndexBuffer);
                 propFreeBlockSearch.SetBuffer(0, "usedBitmask", usedBitmaskBuffers[i]);
                 propFreeBlockSearch.Dispatch(0, Mathf.CeilToInt((float)propType.maxPropsInTotal / (32.0f*128.0f)), 1, 1);
-                
+
                 // Copy the temporary data to the permanent data that we will cull
+                propFreeBlockCopy.SetInt("segmentLookup", segment.indexRangeLookup);
+                propFreeBlockCopy.SetBuffer(0, "segmentIndexCount", segmentIndexCountBuffer[i]);
                 propFreeBlockCopy.SetBuffer(0, "counter", rawCountBuffer);
                 propFreeBlockCopy.SetBuffer(0, "index", rawIndexBuffer);
                 propFreeBlockCopy.SetBuffer(0, "usedBitmask", usedBitmaskBuffers[i]);
@@ -344,6 +367,9 @@ public class VoxelProps : VoxelBehaviour {
             }
         }
 
+        if (segment.indexRangeLookup != -1) {
+            unusedBbSegments.Set(segment.indexRangeLookup, false);
+        }
         segment.props = null;
     }
 
@@ -392,7 +418,7 @@ public class VoxelProps : VoxelBehaviour {
     private void Update() {
         mustUpdate |= terrain.VoxelOctree.mustUpdate;
 
-        if (mustUpdate && pendingSegments.Count == 0) {
+        if (mustUpdate && pendingSegments.Count == 0 && !segmentsAwaitingRemoval) {
             NativeList<TerrainLoaderTarget> targets = terrain.VoxelOctree.targets;
 
             PropSegmentSpawnDiffJob job = new PropSegmentSpawnDiffJob {
@@ -413,20 +439,43 @@ public class VoxelProps : VoxelBehaviour {
                 segment.worldPosition = new Vector3(pos.x, pos.y, pos.z) * VoxelUtils.PropSegmentSize;
                 segment.segmentPosition = pos.xyz;
                 segment.spawnPrefabs = pos.w == 0;
+                segment.indexRangeLookup = -1;
                 propSegmentsDict.Add(pos, segment);
                 pendingSegments.Enqueue(segment);
+            }
+
+            mustUpdate = false;
+            segmentsAwaitingRemoval = removedSegments.Length > 0;
+        }
+
+
+        if (pendingSegments.Count == 0 && segmentsAwaitingRemoval && bruhCounter == 0) {
+            int[] arr = new int[4096];
+
+            for (int i = 0; i < 4096; i++) {
+                arr[i] = -1;
             }
 
             for (int i = 0; i < removedSegments.Length; i++) {
                 var pos = removedSegments[i];
                 if (propSegmentsDict.Remove(pos, out PropSegment val)) {
+                    arr[i] = val.indexRangeLookup;
                     onPropSegmentUnloaded.Invoke(val);
+                } else {
+                    arr[i] = -1;
                 }
             }
 
-            // update the bit mask used for 
+            // TODO: Test fluke? One time when tested (spaz) shit didn't work. DEBUG PLS
+            if (removedSegments.Length > 0) {
+                segmentsToRemoveBuffer.SetData(arr);
+                removePropSegments.SetBuffer(0, "usedBitmask", usedBitmaskBuffers[0]);
+                removePropSegments.SetBuffer(0, "segmentIndices", segmentsToRemoveBuffer);
+                removePropSegments.SetBuffer(0, "segmentIndexCount", segmentIndexCountBuffer[0]);
+                removePropSegments.Dispatch(0, Mathf.CeilToInt((float)removedSegments.Length / 32.0f), 1, 1);
+            }
 
-            mustUpdate = false;
+            segmentsAwaitingRemoval = false;
         }
 
         PropSegment result;
@@ -437,7 +486,7 @@ public class VoxelProps : VoxelBehaviour {
                 onPropSegmentLoaded.Invoke(result);
             }
         }
-    
+
         Camera camera = null;
 
         if (terrain.VoxelOctree.targetsLookup.Count > 0) {
@@ -453,6 +502,7 @@ public class VoxelProps : VoxelBehaviour {
             ComputeBuffer unculled = unculledPosScaleBuffers[i];
             ComputeBuffer culled = culledPosScaleBuffers[i];
 
+            propCullingCopy.SetBuffer(0, "usedBitmask", usedBitmaskBuffers[i]);
             propCullingCopy.SetBuffer(0, "unculledProps", unculled);
             propCullingCopy.SetBuffer(0, "culledProps", culled);
             propCullingCopy.SetBuffer(0, "culledCount", culledCountBuffer);
@@ -535,5 +585,6 @@ public class VoxelProps : VoxelBehaviour {
             usedBitmaskBuffers[i].Dispose();
             tempPropPosScaleBuffers[i].Dispose();
         }
+        unusedBbSegments.Dispose();
     }
 }

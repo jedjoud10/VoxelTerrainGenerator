@@ -1,0 +1,27 @@
+#pragma kernel CSRemoveSegments
+
+StructuredBuffer<int> segmentIndices;
+RWStructuredBuffer<uint2> segmentIndexCount;
+RWStructuredBuffer<uint> usedBitmask;
+
+// Delete the bits set inside the bitmask for multiple segments at once
+[numthreads(32, 1, 1)]
+void CSRemoveSegments(uint3 id : SV_DispatchThreadID)
+{
+	int index = segmentIndices[id.x];
+
+	if (index == -1) {
+		return;
+	}
+
+	uint2 vals = segmentIndexCount[index];
+
+	for (uint i = vals.x; i < (vals.x + vals.y); i++)
+	{
+		uint block = i / 32;
+		uint local = i % 32;
+		InterlockedAnd(usedBitmask[block], !(1 << local));
+	}
+
+	segmentIndexCount[index] = uint2(0, 0);
+}

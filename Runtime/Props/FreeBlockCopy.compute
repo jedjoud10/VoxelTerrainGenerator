@@ -3,6 +3,8 @@
 #include "UnityIndirect.cginc"
 
 // Input and output buffers
+int segmentLookup;
+RWStructuredBuffer<uint2> segmentIndexCount;
 StructuredBuffer<uint> index;
 StructuredBuffer<int> counter;
 StructuredBuffer<uint4> tempProps;
@@ -15,7 +17,11 @@ RWStructuredBuffer<uint> usedBitmask;
 [numthreads(32, 1, 1)]
 void CSFreeBlockCopy(uint3 id : SV_DispatchThreadID)
 {
-	if ((id.x) >= counter[0]) {
+	if (id.x == 0) {
+		segmentIndexCount[segmentLookup] = uint2(index[0], counter[0]);
+	}
+
+	if ((id.x) >= (uint)counter[0]) {
 		return;
 	}
 
@@ -23,8 +29,8 @@ void CSFreeBlockCopy(uint3 id : SV_DispatchThreadID)
 	permProps[finalIndex] = tempProps[id.x];
 
 	uint bitmaskIndex = finalIndex;
-	uint bitBlock = bitmaskIndex / 32;
-	uint bitIndex = bitmaskIndex % 32;
+	uint block = bitmaskIndex / 32;
+	uint local = bitmaskIndex % 32;
 
-	InterlockedOr(usedBitmask[bitBlock], 1 << bitIndex);
+	InterlockedOr(usedBitmask[block], 1 << local);
 }
