@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: TestProp 1
   m_EditorClassIdentifier: 
   prefab: {fileID: 7381158461132351974, guid: bb32b47df5c13e4489e0cfa645ef79ce, type: 3}
-  propSpawnBehavior: 2
+  propSpawnBehavior: 3
   maxPropsPerSegment: 4096
   maxPropsInTotal: 262144
   maxVisibleProps: 65536
@@ -27,4 +27,3 @@ MonoBehaviour:
   billboardRestrictRotationY: 1
   billboardCastShadows: 1
   billboardAlphaClipThreshold: 0.8
-  generationShader: {fileID: 7200000, guid: a564b702928195d4a8a3350466841cf5, type: 3}

@@ -266,10 +266,34 @@ public static class VoxelUtils {
     // Convert a ushort to two bytes
     public static (byte, byte) UshortToBytes(ushort val) {
         return ((byte)(val >> 8), (byte)(val & 0xFF));
-    } 
-    
+    }
+
+    // Convert a uint to four bytes
+    public static (byte, byte, byte, byte) UintToBytes(uint val) {
+        return ((byte)(val >> 16), (byte)(val >> 16), (byte)(val >> 8), (byte)(val & 0xFF));
+    }
+
     // Convert two bytes to a ushort
     public static ushort BytesToUshort(byte first, byte second) {
         return (ushort)(first << 8 | second);
     }
+
+    // Uncompress the rotation of a blittable prop type
+    public static Vector3 UncompressPropRotation(ref BlittableProp prop) {
+        half2 damn = prop.packed_rotation_dispatch_index_prop_variant_padding.xy;
+        uint rotationBytes = (uint)damn.x.value | ((uint)damn.y.value << 16);
+        (byte _, byte zRotByte, byte yRotByte, byte xRotByte) = VoxelUtils.UintToBytes(rotationBytes);
+        return UncompressPropRotationFromRaw(xRotByte, yRotByte, zRotByte);
+    }
+
+    // Convert all compressed prop rotations to euler angles
+    public static Vector3 UncompressPropRotationFromRaw(byte xRot, byte yRot, byte zRot) {
+        static float Single(byte rot) {
+            const float RATIO = 360.0f / 255.0f;
+            return ((float)rot * RATIO);
+        }
+
+        return new Vector3(Single(xRot), Single(yRot), Single(zRot));
+    }
+
 }

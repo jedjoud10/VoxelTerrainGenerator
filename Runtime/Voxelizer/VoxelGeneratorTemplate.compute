@@ -4,6 +4,7 @@
 
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Voxelizer/VoxelGeneratorStart.cginc"
 
+// Called for each voxel in the chunk to check the density and material at a specific position
 void VoxelAt(float3 position, out float density, out uint material) {
 	float box = sdBox(position, float3(20, 20, 20));
 

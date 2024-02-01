@@ -9,8 +9,21 @@ uint2 PackPositionAndScale(float3 position, float scale) {
 	return uint2(first, second);
 }
 
+uint NormalizeAndPackAngle(float angle) {
+	if (angle < 0) {
+		angle = fmod(360 + angle, 360.0);
+	}
+
+	angle = fmod(angle, 360.0);
+	return (uint)((angle / 360.0) * 255.0);
+}
+
 uint2 PackRotationAndId(float3 rotation, uint3 id) {
-	return uint2(0, 0);
+	uint x = NormalizeAndPackAngle(rotation.x);
+	uint y = NormalizeAndPackAngle(rotation.y);
+	uint z = NormalizeAndPackAngle(rotation.z);
+	uint rots = x | (y << 8) | (z << 16);
+	return uint2(rots, 0);
 }
 
 float4 UnpackPositionAndScale(uint2 packed) {

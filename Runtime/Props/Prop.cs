@@ -34,9 +34,6 @@ public class Prop : ScriptableObject {
     public bool billboardCastShadows = false;
     public float billboardAlphaClipThreshold = 0.5f;
 
-    [Header("Generation")]
-    public ComputeShader generationShader;
-
     // Will this prop be generated as a prefab
     public bool WillSpawnPrefab => propSpawnBehavior.HasFlag(PropSpawnBehavior.SpawnPrefabs);
 
@@ -73,6 +70,9 @@ public struct BlittableProp {
     // 2 bytes for x,y,z and w (scale)
     public half4 packed_position_and_scale;
 
-    // 2 bytes for x,y,z (rotation) and 2 bytes for spawner index
-    public half4 packed_euler_angles_padding;
+    // 3 bytes for rotation (x,y,z)
+    // 2 bytes for dispatch index
+    // 1 byte for prop variant
+    // 2 unused padding bytes
+    public half4 packed_rotation_dispatch_index_prop_variant_padding;
 }

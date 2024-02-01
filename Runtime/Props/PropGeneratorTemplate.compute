@@ -4,12 +4,14 @@
 Texture3D<float> _Voxels;
 SamplerState sampler_Voxels;
 
+/*
 Texture2D<float2> _MinAxii;
 SamplerState sampler_MinAxii;
+*/
 
-// Called for each voxel inside the prop segment to check if we should spawn a prop
-// This will select the appropriate density prop and it will spawn it / render it
-void CheckSpawnProps(uint3 id, float3 position) {
+// Called at each prop segment voxel inside the segment to check what props to spawn
+void PropsAt(uint3 id, float3 position) {
+	/*
 	// Mixer between biome 1 and biome 2
 	float mixer = snoise(position.xz * 0.0003) * 0.5 + 0.5;
 	mixer = smoothstep(0, 1, mixer - 0.4);
@@ -17,6 +19,7 @@ void CheckSpawnProps(uint3 id, float3 position) {
 	float3 randomOffset = (2 * hash33(position) - 1) * float3(10, 0, 10);
 	float3 test3 = WorldToPropSegment(position + randomOffset);
 
+	/*
 	float2 baseTest = _MinAxii.SampleLevel(sampler_MinAxii, test3.xy, 0);
 	float4 baseTest2 = _MinAxii.Gather(sampler_MinAxii, test3.xy, 0);
 
@@ -27,13 +30,23 @@ void CheckSpawnProps(uint3 id, float3 position) {
 	float diff2 = -(baseTest2.x - baseTest2.y);
 	float total = abs(diff) + abs(diff2);
 
-	if (position.y > -10.0 && position.y < 10 && (position.x + randomOffset.x) < 10 && (mixer < (hash13(position) * 0.08 - 0.05)) && baseTest.y > 0.2 && total < 3.2) {
+	//  && baseTest.y > 0.2 && total < 3.2
+	if (position.y > -10.0 && position.y < 10 && (position.x + randomOffset.x) < 10 && (mixer < (hash13(position) * 0.08 - 0.05))) {
 		position += randomOffset;
 		float randomScaleOffset = (2 * hash13(position) - 1) * 1;
 		float3 randomRotation = (2 * hash33(position) - 1) * 180;
 
-		position.y = baseTest.x;
+		position.y = 0;
 		Spawn(position, 2.5 + randomScaleOffset * 0.1, float3(0, 0, 0), id);
+	}
+	*/
+
+	if (position.y > -1.0 && position.y < 1) {
+		Spawn(position, 1.0, float3(0, 0, 0), 0, 0, id);
+	}
+
+	if (position.y > -5.0 && position.y < -4) {
+		Spawn(position, 1.0, float3(0, 0, 0), 1, 0, id);
 	}
 }
 

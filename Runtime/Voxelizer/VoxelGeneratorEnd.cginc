@@ -33,11 +33,13 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 [numthreads(4, 4, 4)]
 void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 {
+	/*
 	// TODO: Optimize in its own pass
 	if (id.z == 0) {
 		int test;
-		InterlockedExchange(minAxiiY[id.xy], 0, test);
+		//InterlockedExchange(minAxiiY[id.xy], 0, test);
 	}
+	*/
 
 	float3 position = PropSegmentToWorld(id);
 	
@@ -49,15 +51,18 @@ void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 	VoxelAt(position, density, material);
 	cachedPropDensities[id.xyz] = density;
 
+	/*
 	if (density < 0.0) {
-		InterlockedMax(minAxiiY[id.xy], id.z+1);
+		InterlockedMax(minAxiiY[uint3(id.xy, 0)], id.z+1);
 	}
+	*/
 }
 
 // Raycasts to get the position of the surface in a specific axis
 [numthreads(4, 4, 1)]
 void CSPropRaycaster(uint2 id : SV_DispatchThreadID)
 {
+	/*
 	uint pos = minAxiiY[id.xy]-1;
 
 	if (pos > ((uint)propSegmentResolution)) {
@@ -76,4 +81,5 @@ void CSPropRaycaster(uint2 id : SV_DispatchThreadID)
 	else {
 		minAxiiYTest[id.xy] = float2(asfloat(0xffffffff), -10000);
 	}
+	*/
 }

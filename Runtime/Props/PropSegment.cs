@@ -10,8 +10,7 @@ public class PropSegment {
     // World space position
     public Vector3 worldPosition;
 
-    // 0 => spawn gameobjects 
-    // 1 => billboard
+    // Basically denotes how close the user is to the prop segment
     public bool spawnPrefabs;
 
     // Props that are handled by this prop segment

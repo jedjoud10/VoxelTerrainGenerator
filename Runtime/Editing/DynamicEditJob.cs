@@ -21,14 +21,13 @@ struct DynamicEditJob<T> : IJobParallelFor
         float3 position = (math.float3(id));
 
         // Needed for voxel size reduction
-        position -= math.float3(1);
         position *= voxelScale;
+        position -= 1.5f * voxelScale;
+
+        //position -= math.float3(1);
         position *= vertexScaling;
         position *= scalingFactor;
-        //position += chunkOffset;
-
-        // Chunk offsets + vertex scaling
-        position += math.float3((chunkOffset - ((size * scalingFactor) / (size - 3.0f)) * 0.5f));
+        position += chunkOffset;
 
         // Read, modify, write
         voxels[index] = dynamicEdit.Modify(position, voxels[index]);
