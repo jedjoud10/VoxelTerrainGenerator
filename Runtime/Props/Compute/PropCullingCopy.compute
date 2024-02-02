@@ -4,9 +4,14 @@
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/PropPackUtils.cginc"
 
 RWStructuredBuffer<uint> culledCount;
-StructuredBuffer<uint4> unculledProps;
+StructuredBuffer<uint4> permProps;
+
 RWStructuredBuffer<uint4> culledProps;
 StructuredBuffer<uint> usedBitmask;
+
+StructuredBuffer<int> propSectionPermOffsets;
+StructuredBuffer<int> propSectionVisibleOffsets;
+
 float3 cameraForward;
 float3 cameraPosition;
 
@@ -14,17 +19,21 @@ float3 cameraPosition;
 [numthreads(32, 1, 1)]
 void CSPropCullingCopy(uint3 id : SV_DispatchThreadID)
 {
-	float4 positionScale = UnpackPositionAndScale(unculledProps[id.x].xy);
+	uint permOffset = propSectionPermOffsets[id.y];
+	uint visibleOffset = propSectionVisibleOffsets[id.y];
+	uint inputIndex = id.x + permOffset;
 
-	uint block = id.x / 32;
-	uint local = id.x % 32;
+	float4 positionScale = UnpackPositionAndScale(permProps[inputIndex].xy);
+
+	uint block = inputIndex / 32;
+	uint local = inputIndex % 32;
 	bool valid = ((usedBitmask[block] >> local) & 1) == 1;
 
 	bool visible = dot(normalize(cameraPosition - positionScale.xyz), cameraForward) < 0;
-	
+
 	if (visible && valid) {
 		int index;
-		InterlockedAdd(culledCount[0], 1, index);
-		culledProps[index] = unculledProps[id.x];
+		InterlockedAdd(culledCount[id.y], 1, index);
+		culledProps[index + visibleOffset] = permProps[inputIndex];
 	}
 }

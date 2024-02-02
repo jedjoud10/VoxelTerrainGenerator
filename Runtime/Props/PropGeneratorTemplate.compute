@@ -1,14 +1,6 @@
 #pragma kernel CSPropenator
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Props/PropGeneratorStart.cginc"
 
-Texture3D<float> _Voxels;
-SamplerState sampler_Voxels;
-
-/*
-Texture2D<float2> _MinAxii;
-SamplerState sampler_MinAxii;
-*/
-
 // Called at each prop segment voxel inside the segment to check what props to spawn
 void PropsAt(uint3 id, float3 position) {
 	/*
@@ -41,11 +33,11 @@ void PropsAt(uint3 id, float3 position) {
 	}
 	*/
 
-	if (position.y > -1.0 && position.y < 1) {
-		Spawn(position, 1.0, float3(0, 0, 0), 0, 0, id);
+	if (position.y > -0.1 && position.y < 0.01) {
+		Spawn(position + float3(0, snoise(position.xz * 0.01) * 20, 0), 1.0, float3(0, 0, 0), 0, 0, id);
 	}
 
-	if (position.y > -5.0 && position.y < -4) {
+	if (position.y > -5.0 && position.y < -4 && GetDensity(position) > -20) {
 		Spawn(position, 1.0, float3(0, 0, 0), 1, 0, id);
 	}
 }

@@ -67,6 +67,9 @@ public class IndirectExtraPropData {
 // Blittable prop definition (that is also copied on the GPU compute shader)
 // World pos, world rot, world scale
 public struct BlittableProp {
+    // Size in bytes of the blittable prop
+    public const int size = 16; 
+
     // 2 bytes for x,y,z and w (scale)
     public half4 packed_position_and_scale;
 

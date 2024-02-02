@@ -1,31 +1,31 @@
 #pragma kernel CSFreeBlockSearch
 
-StructuredBuffer<int> counter;
-
-// each bit represents 64 props
+StructuredBuffer<int> tempCounters;
+RWStructuredBuffer<uint> tempIndices;
 StructuredBuffer<uint> usedBitmask;
-RWStructuredBuffer<uint> index;
+StructuredBuffer<int> propSectionPermOffsets;
+uint enabledProps;
 
-// Searches for a free block segment region that we can store data inside of
-// Uses the bitset to check which spots are empty or used (64 props per bit)
+// Finds a free index we can use to copy the temp memory to perm memory
 [numthreads(32, 1, 1)]
 void CSFreeBlockSearch(uint3 id : SV_DispatchThreadID)
 {
-	for (uint i = 0; i < 128; i++)
-	{
-		uint baseIndex = id.x * 128 + i;
-		uint count = counter[0];
+	uint baseIndex = id.x + propSectionPermOffsets[id.y];
+	uint count = tempCounters[id.y];
 
-		// TODO: Eventually fix this by checking whole blocks at once
-		for (uint i = baseIndex; i < (baseIndex + count); i++)
-		{
-			uint block = i / 32;
-			uint local = i % 32;
-			if (((usedBitmask[block] >> local) & 1) == 1) {
-				return;
-			}
-		}
-
-		InterlockedMin(index[0], baseIndex);
+	if (count == 0 || ((enabledProps >> id.y) & 1) == 0) {
+		return;
 	}
+
+	// TODO: Eventually fix this by checking whole blocks at once
+	for (uint i = baseIndex; i < (baseIndex + count); i++)
+	{
+		uint block = i / 32;
+		uint local = i % 32;
+		if (((usedBitmask[block] >> local) & 1) == 1) {
+			return;
+		}
+	}
+
+	InterlockedMin(tempIndices[id.y], baseIndex);
 }

@@ -162,5 +162,6 @@ public partial class VoxelTerrain {
         compressedDensities.Dispose();
 
         RequestAll(true, reason: GenerationReason.Deserialized);
+        VoxelProps.RegenerateProps();
     }
 }

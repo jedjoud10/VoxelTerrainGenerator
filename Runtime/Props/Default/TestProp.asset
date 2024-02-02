@@ -15,7 +15,7 @@ MonoBehaviour:
   prefab: {fileID: 900193227329173065, guid: 7b5625836e801c04fbb54c9225ac4663, type: 3}
   propSpawnBehavior: 3
   maxPropsPerSegment: 4096
-  maxPropsInTotal: 262144
+  maxPropsInTotal: 131072
   maxVisibleProps: 65536
   billboardCaptureCameraScale: 6.5
   billboardTextureWidth: 64

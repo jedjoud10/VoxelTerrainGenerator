@@ -18,7 +18,16 @@ struct BlittableProp {
 // we can write to specific indices within those sections with the offset buffer and counter buffer
 RWStructuredBuffer<BlittableProp> tempProps;
 RWStructuredBuffer<int> tempCounters;
-StructuredBuffer<int> propSectionOffsets;
+StructuredBuffer<int> propSectionTempOffsets;
+
+// Voxels texture that we pregenerated
+Texture3D<float> _Voxels;
+SamplerState sampler_Voxels;
+
+/*
+Texture2D<float2> _MinAxii;
+SamplerState sampler_MinAxii;
+*/
 
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/Noises.cginc"
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/SDF.cginc"
@@ -34,6 +43,12 @@ void Spawn(float3 position, float scale, float3 rotation, uint propType, uint pr
 	
 	int index = 0;
 	InterlockedAdd(tempCounters[propType], 1, index);
-	int finalIndex = index + propSectionOffsets[propType];
+	int finalIndex = index + propSectionTempOffsets[propType];
 	tempProps[finalIndex] = prop;
+}
+
+// Get the density value at a specific point (world space)
+float GetDensity(float3 position) {
+	float3 localPos = WorldToPropSegment(position);
+	return _Voxels.SampleLevel(sampler_Voxels, localPos, 0).x;
 }

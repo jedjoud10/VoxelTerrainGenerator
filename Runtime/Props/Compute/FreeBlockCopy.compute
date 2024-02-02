@@ -2,33 +2,48 @@
 
 // Input and output buffers
 int segmentLookup;
+int propCount;
 RWStructuredBuffer<uint2> segmentIndexCount;
-StructuredBuffer<uint> index;
-StructuredBuffer<int> counter;
+
+StructuredBuffer<int> tempCounters;
+RWStructuredBuffer<uint> tempIndices;
+
 StructuredBuffer<uint4> tempProps;
 RWStructuredBuffer<uint4> permProps;
-
-// each bit represents 64 props
 RWStructuredBuffer<uint> usedBitmask;
 
-// Copy the temporary team props to the permanent team prop
+StructuredBuffer<int> propSectionTempOffsets;
+
+// Copy the temporary prop buffer to the permanent prop buffer
 [numthreads(32, 1, 1)]
 void CSFreeBlockCopy(uint3 id : SV_DispatchThreadID)
 {
-	if (id.x == 0) {
-		segmentIndexCount[segmentLookup] = uint2(index[0], counter[0]);
-	}
+	int counter = tempCounters[id.y];
 
-	if ((id.x) >= (uint)counter[0]) {
+	// already comes with the perm offset applied
+	int baseFreeIndex = tempIndices[id.y];
+
+	// nothing to spawn
+	if (counter == 0 || baseFreeIndex == 0xffffffff) {
 		return;
 	}
 
-	uint finalIndex = index[0] + id.x;
-	permProps[finalIndex] = tempProps[id.x];
+	// set the index count uint2 only by one dispatch group
+	if (id.x == 0) {
+		segmentIndexCount[segmentLookup * propCount + id.y] = uint2(baseFreeIndex, counter);
+	}
 
-	uint bitmaskIndex = finalIndex;
+	// quite if 2 much 4 us
+	if ((id.x) >= (uint)counter) {
+		return;
+	}
+
+	// copy data to perm spot
+	permProps[id.x + baseFreeIndex] = tempProps[id.x + propSectionTempOffsets[id.y]];
+
+	// also update the bitmask whilst we're at it
+	uint bitmaskIndex = id.x + baseFreeIndex;
 	uint block = bitmaskIndex / 32;
 	uint local = bitmaskIndex % 32;
-
 	InterlockedOr(usedBitmask[block], 1 << local);
 }

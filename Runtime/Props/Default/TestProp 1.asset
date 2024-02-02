@@ -20,10 +20,10 @@ MonoBehaviour:
   billboardCaptureCameraScale: 6.5
   billboardTextureWidth: 64
   billboardTextureHeight: 256
-  billboardCaptureRotation: {x: 0, y: 35, z: 0}
-  billboardCapturePosition: {x: 0, y: -7, z: 5}
-  billboardSize: {x: 4.2, y: 14}
-  billboardOffset: {x: 0, y: 16.7, z: 0}
+  billboardCaptureRotation: {x: 0, y: 0, z: 0}
+  billboardCapturePosition: {x: 0, y: 0, z: 5}
+  billboardSize: {x: 8, y: 8}
+  billboardOffset: {x: 0, y: 0, z: 0}
   billboardRestrictRotationY: 1
   billboardCastShadows: 1
   billboardAlphaClipThreshold: 0.8

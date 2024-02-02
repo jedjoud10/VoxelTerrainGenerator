@@ -2,20 +2,27 @@
 #define UNITY_INDIRECT_DRAW_ARGS IndirectDrawIndexedArgs
 #include "UnityIndirect.cginc"
 
-int maxPropTypes;
+int propCount;
 RWStructuredBuffer<uint> culledCount;
 RWStructuredBuffer<UNITY_INDIRECT_DRAW_ARGS> drawArgs;
+StructuredBuffer<int> propSectionVisibleOffsets;
 
 // Do some culling on the props and save them to the culled props buffer
 [numthreads(32, 1, 1)]
 void CSPropCullingApply(uint3 id : SV_DispatchThreadID)
 {
-	if (id.x < (uint)maxPropTypes) {
+	if (id.x < (uint)propCount) {
 		IndirectDrawIndexedArgs args;
 		args.indexCountPerInstance = 6;
 		args.instanceCount = culledCount[id.x];
+
+		if (id.x > 0) {
+			args.instanceCount = 0;
+		}
+
 		args.startIndex = 0;
 		args.baseVertexIndex = 0;
+		//args.startInstance = propSectionVisibleOffsets[id.x];
 		args.startInstance = 0;
 		drawArgs[id.x] = args;
 	}

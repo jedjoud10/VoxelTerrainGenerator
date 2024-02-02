@@ -1,5 +1,6 @@
 #pragma kernel CSRemoveSegments
 
+int propCount;
 StructuredBuffer<int> segmentIndices;
 RWStructuredBuffer<uint2> segmentIndexCount;
 RWStructuredBuffer<uint> usedBitmask;
@@ -14,7 +15,8 @@ void CSRemoveSegments(uint3 id : SV_DispatchThreadID)
 		return;
 	}
 
-	uint2 vals = segmentIndexCount[index];
+	int tahiniIndex = index * propCount + id.y;
+	uint2 vals = segmentIndexCount[tahiniIndex];
 
 	for (uint i = vals.x; i < (vals.x + vals.y); i++)
 	{
@@ -23,5 +25,5 @@ void CSRemoveSegments(uint3 id : SV_DispatchThreadID)
 		InterlockedAnd(usedBitmask[block], !(1 << local));
 	}
 
-	segmentIndexCount[index] = uint2(0, 0);
+	segmentIndexCount[tahiniIndex] = uint2(0, 0);
 }
