@@ -15,7 +15,8 @@ void PropsAt(uint3 id, float3 position) {
 		return;
 	}
 
-	float3 randomOffset = (2 * hash33(position) - 1) * float3(10, 0, 10);
+	/*
+	float3 randomOffset = (2 * hash33(position) - 1) * float3(10, 0, 10) * 0 + float3(4, 0, 4);
 	float3 treePos = position + randomOffset;
 	float distance;
 	CheckRay(treePos, distance);
@@ -29,15 +30,16 @@ void PropsAt(uint3 id, float3 position) {
 		treePos.y = distance;
 		Spawn(treePos, 2.5 + randomScaleOffset * 0.1, float3(0, 0, 0), 0, 0, id);
 	}
+	*/
 
-	float3 randomOffset2 = (2 * hash33(position * 2 + 0.588456) - 1) * 10;
+	float3 randomOffset2 = (2 * hash33(position * 2 + 0.588456) - 1) * 0;
 	float3 rockPos = position + randomOffset2;
 	float distance2;
-	CheckRay(rockPos, distance2);
+	CheckRay(id, distance2);
 
-	if (rockPos.y > -10.0 && rockPos.y < 10 && distance2 < 100 && hash13(rockPos) < 0.2) {
+	if (rockPos.y > -10.0 && rockPos.y < 10 && distance2 < 100 && hash13(rockPos) < 0.6) {
 		rockPos.y = distance2;
-		Spawn(rockPos, 3.0, hash33(position) * 360, 1, 0, id);
+		Spawn(rockPos, 1.0, hash33(position) * 0, 1, 0, id);
 	}
 }
 

@@ -62,7 +62,7 @@ void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 	if (density < 0.0) {
 		InterlockedMax(broadPhaseIntersections[uint3(id.xy, 0)], id.z + 1);
 		InterlockedMax(broadPhaseIntersections[uint3(id.xz, 1)], id.y + 1);
-		InterlockedMax(broadPhaseIntersections[uint3(id.yz, 1)], id.x + 1);
+		InterlockedMax(broadPhaseIntersections[uint3(id.yz, 2)], id.x + 1);
 	}
 }
 
@@ -70,7 +70,8 @@ void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 [numthreads(4, 4, 1)]
 void CSPropRaycaster(uint3 id : SV_DispatchThreadID)
 {
-	uint pos = broadPhaseIntersections[id]-1;
+	positionIntersections[id] = float4(100000, 100000, 100000, 100000);
+	uint pos = broadPhaseIntersections[uint3(id.x, id.y, id.z)]-1;
 
 	if (pos > ((uint)propSegmentResolution)) {
 		positionIntersections[id] = float4(100000, 100000, 100000, 100000);
@@ -79,13 +80,45 @@ void CSPropRaycaster(uint3 id : SV_DispatchThreadID)
 	
 	float d1 = cachedPropDensities[uint3(id.x, id.y, pos)];
 	float d2 = cachedPropDensities[uint3(id.x, id.y, pos + 1)];
-	float p1 = PropSegmentToWorld(uint3(id.x, id.y, pos)).y;
-	float p2 = PropSegmentToWorld(uint3(id.x, id.y, pos + 1)).y;
+	float3 p1 = PropSegmentToWorld(float3(id.x, id.y, pos));
+
+	float newDensity;
+	uint mat;
+	VoxelAt(p1 * (1 / voxelSize) * float3(1, 0, 1), newDensity, mat);
+	positionIntersections[id] = float4(-newDensity, 0, 0, 0);
+	return;
+
+	float3 p2 = PropSegmentToWorld(float3(id.x / 4.0, id.y / 4.0, pos + 1));
 
 	if ((d1 < 0) && (d2 > 0)) {
-		float lerpedPos = lerp(p1, p2, invLerp(d1, d2, 0));
-		float density = -d1;
-		positionIntersections[id] = float4(lerpedPos, 0, 0, 0);
+		//float density = -d1;
+		float base = p1.y;
+		/*
+		float3 lastPosition = base;
+		float3 newPosition = base;
+		float lastDensity = -1;
+		float newDensity = 1;
+		uint mat = 0;
+		for (float i = 0; i < 1.0; i+=0.02)
+		{
+			newPosition = lerp(p1, p2, i);
+			VoxelAt(newPosition * (1 / voxelSize), newDensity, mat);
+
+			if (newDensity > 0 && lastDensity < 0) {
+				float inv = invLerp(lastDensity,newDensity, 0);
+				float3 newTest2 = lerp(lastPosition, newPosition, inv);
+				//float newPos = lerp(p1, p2, i).y;
+				positionIntersections[id] = float4(newTest2.y+0.0, 0, 0, 0);
+				return;
+			}
+
+			lastPosition = newPosition;
+			lastDensity = newDensity;
+		}
+
+		positionIntersections[id] = float4(100000, 100000, 100000, 100000);
+		*/
+
 	}
 	else {
 		positionIntersections[id] = float4(100000, 100000, 100000, 100000);

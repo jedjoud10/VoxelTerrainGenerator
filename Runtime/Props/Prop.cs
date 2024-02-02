@@ -23,6 +23,7 @@ public class Prop : ScriptableObject {
     public float billboardCaptureCameraScale = 10.0f;
     public int billboardTextureWidth = 256;
     public int billboardTextureHeight = 256;
+    public FilterMode billboardTextureFilterMode = FilterMode.Bilinear;
     public Vector3 billboardCaptureRotation = Vector3.zero;
     public Vector3 billboardCapturePosition = new Vector3(10, 0, 0);
 
@@ -32,7 +33,6 @@ public class Prop : ScriptableObject {
     public Vector3 billboardOffset;
     public bool billboardRestrictRotationY = false;
     public bool billboardCastShadows = false;
-    public float billboardAlphaClipThreshold = 0.5f;
 
     // Will this prop be generated as a prefab
     public bool WillSpawnPrefab => propSpawnBehavior.HasFlag(PropSpawnBehavior.SpawnPrefabs);

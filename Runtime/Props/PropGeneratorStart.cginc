@@ -52,7 +52,7 @@ float GetDensity(float3 position) {
 }
 
 // Check if a ray hits the surface in a specific axis, and returns the hit position
-void CheckRay(float3 baseWorldPosition, out float position) {
+void CheckRay(uint3 baseWorldPosition, out float position) {
 
 
 
@@ -68,17 +68,22 @@ void CheckRay(float3 baseWorldPosition, out float position) {
 	float total = abs(diff) + abs(diff2);
 	*/
 	
+	/*
 	float2 localPos = WorldToPropSegment(baseWorldPosition).xy;
 
 	bool test1 = any(localPos < float2(0, 0));
 	bool test2 = any(localPos > float2(1, 1));
+	*/
 
+	/*
 	if (test1 || test2) {
 		position = 100000;
+		return;
 	}
+	*/
 
-	float4 baseTest = _PositionIntersections.SampleLevel(sampler_PositionIntersections, float3(localPos, 0), 0);
-	
+	//float4 baseTest = _PositionIntersections.SampleLevel(sampler_PositionIntersections, float3(localPos, 0), 0);
+	float4 baseTest = _PositionIntersections[uint3(baseWorldPosition.x, baseWorldPosition.y, 0)];
 
 	if (baseTest.x < 10000) {
 		position = baseTest.x;

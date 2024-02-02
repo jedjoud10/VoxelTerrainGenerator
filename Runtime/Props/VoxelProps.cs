@@ -233,6 +233,7 @@ public class VoxelProps : VoxelBehaviour {
             obj.transform.SetParent(transform);
             propOwners[i] = obj;
             Prop propType = props[i];
+            obj.name = $"'{propType.name}' Props GameObjects";
 
             // We do a considerable amount of trolling
             propSectionOffsets[i] = last;
@@ -245,10 +246,10 @@ public class VoxelProps : VoxelBehaviour {
         }
 
         // Used to create our textures
-        RenderTexture CreateRayCastTexture(GraphicsFormat format) {
-            RenderTexture texture = new RenderTexture(propSegmentResolution, propSegmentResolution, propSegmentResolution, format);
-            texture.height = propSegmentResolution;
-            texture.width = propSegmentResolution;
+        RenderTexture CreateRayCastTexture(int size, GraphicsFormat format) {
+            RenderTexture texture = new RenderTexture(size, size, 3, format);
+            texture.height = size;
+            texture.width = size;
             texture.depth = 0;
             texture.volumeDepth = 3;
             texture.dimension = TextureDimension.Tex2DArray;
@@ -258,8 +259,8 @@ public class VoxelProps : VoxelBehaviour {
         }
 
         // Create textures used for intersection tests and GPU raycasting
-        broadPhaseIntersectingTexture = CreateRayCastTexture(GraphicsFormat.R32_UInt);
-        positionIntersectingTexture = CreateRayCastTexture(GraphicsFormat.R16G16B16A16_SFloat);
+        broadPhaseIntersectingTexture = CreateRayCastTexture(propSegmentResolution, GraphicsFormat.R32_UInt);
+        positionIntersectingTexture = CreateRayCastTexture(propSegmentResolution, GraphicsFormat.R16G16B16A16_SFloat);
 
         // Update static settings and capture the billboards
         propSectionOffsetsBuffer.SetData(propSectionOffsets);
@@ -300,6 +301,8 @@ public class VoxelProps : VoxelBehaviour {
         // Create the output texture 2Ds
         Texture2D albedoTextureOut = new Texture2D(width, height, TextureFormat.ARGB32, false);
         Texture2D normalTextureOut = new Texture2D(width, height, TextureFormat.ARGB32, false);
+        albedoTextureOut.filterMode = prop.billboardTextureFilterMode;
+        normalTextureOut.filterMode = prop.billboardTextureFilterMode;
 
         // Create a prop fake game object and render the camera
         GameObject faker = Instantiate(prop.prefab);
@@ -613,7 +616,7 @@ public class VoxelProps : VoxelBehaviour {
         mat.SetBuffer("_BlittablePropBuffer", culledPropBuffer);
         mat.SetTexture("_Albedo", extraData.billboardAlbedoTexture);
         mat.SetTexture("_Normal_Map", extraData.billboardNormalTexture);
-        mat.SetFloat("_Alpha_Clip_Threshold", prop.billboardAlphaClipThreshold);
+        mat.SetFloat("_Alpha_Clip_Threshold", 0.5f);
         mat.SetVector("_BillboardSize", prop.billboardSize);
         mat.SetVector("_BillboardOffset", prop.billboardOffset);
         mat.SetInt("_RECEIVE_SHADOWS_OFF", prop.billboardCastShadows ? 0 : 1);
