@@ -3,14 +3,14 @@
 StructuredBuffer<int> tempCounters;
 RWStructuredBuffer<uint> tempIndices;
 StructuredBuffer<uint> usedBitmask;
-StructuredBuffer<int> propSectionPermOffsets;
+StructuredBuffer<int3> propSectionOffsets;
 uint enabledProps;
 
 // Finds a free index we can use to copy the temp memory to perm memory
 [numthreads(32, 1, 1)]
 void CSFreeBlockSearch(uint3 id : SV_DispatchThreadID)
 {
-	uint baseIndex = id.x + propSectionPermOffsets[id.y];
+	uint baseIndex = id.x + propSectionOffsets[id.y].y;
 	uint count = tempCounters[id.y];
 
 	if (count == 0 || ((enabledProps >> id.y) & 1) == 0) {

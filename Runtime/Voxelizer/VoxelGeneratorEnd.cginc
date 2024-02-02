@@ -33,13 +33,21 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 [numthreads(4, 4, 4)]
 void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 {
-	/*
 	// TODO: Optimize in its own pass
 	if (id.z == 0) {
 		int test;
-		//InterlockedExchange(minAxiiY[id.xy], 0, test);
+		InterlockedExchange(broadPhaseIntersections[uint3(id.xy, 0)], 0, test);
 	}
-	*/
+
+	if (id.y == 0) {
+		int test;
+		InterlockedExchange(broadPhaseIntersections[uint3(id.xz, 1)], 0, test);
+	}
+
+	if (id.x == 0) {
+		int test;
+		InterlockedExchange(broadPhaseIntersections[uint3(id.zy, 2)], 0, test);
+	}
 
 	float3 position = PropSegmentToWorld(id);
 	
@@ -51,35 +59,35 @@ void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 	VoxelAt(position, density, material);
 	cachedPropDensities[id.xyz] = density;
 
-	/*
 	if (density < 0.0) {
-		InterlockedMax(minAxiiY[uint3(id.xy, 0)], id.z+1);
+		InterlockedMax(broadPhaseIntersections[uint3(id.xy, 0)], id.z + 1);
+		InterlockedMax(broadPhaseIntersections[uint3(id.xz, 1)], id.y + 1);
+		InterlockedMax(broadPhaseIntersections[uint3(id.yz, 1)], id.x + 1);
 	}
-	*/
 }
 
 // Raycasts to get the position of the surface in a specific axis
 [numthreads(4, 4, 1)]
-void CSPropRaycaster(uint2 id : SV_DispatchThreadID)
+void CSPropRaycaster(uint3 id : SV_DispatchThreadID)
 {
-	/*
-	uint pos = minAxiiY[id.xy]-1;
+	uint pos = broadPhaseIntersections[id]-1;
 
 	if (pos > ((uint)propSegmentResolution)) {
-		minAxiiYTest[id.xy] = float2(asfloat(0xffffffff), -10000);
+		positionIntersections[id] = float4(100000, 100000, 100000, 100000);
 		return;
 	}
-
+	
 	float d1 = cachedPropDensities[uint3(id.x, id.y, pos)];
 	float d2 = cachedPropDensities[uint3(id.x, id.y, pos + 1)];
 	float p1 = PropSegmentToWorld(uint3(id.x, id.y, pos)).y;
 	float p2 = PropSegmentToWorld(uint3(id.x, id.y, pos + 1)).y;
 
 	if ((d1 < 0) && (d2 > 0)) {
-		minAxiiYTest[id.xy] = float2(lerp(p1, p2, invLerp(d1, d2, 0)), -d1);
+		float lerpedPos = lerp(p1, p2, invLerp(d1, d2, 0));
+		float density = -d1;
+		positionIntersections[id] = float4(lerpedPos, 0, 0, 0);
 	}
 	else {
-		minAxiiYTest[id.xy] = float2(asfloat(0xffffffff), -10000);
+		positionIntersections[id] = float4(100000, 100000, 100000, 100000);
 	}
-	*/
 }

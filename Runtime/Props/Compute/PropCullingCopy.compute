@@ -9,8 +9,7 @@ StructuredBuffer<uint4> permProps;
 RWStructuredBuffer<uint4> culledProps;
 StructuredBuffer<uint> usedBitmask;
 
-StructuredBuffer<int> propSectionPermOffsets;
-StructuredBuffer<int> propSectionVisibleOffsets;
+StructuredBuffer<int3> propSectionOffsets;
 
 float3 cameraForward;
 float3 cameraPosition;
@@ -19,8 +18,8 @@ float3 cameraPosition;
 [numthreads(32, 1, 1)]
 void CSPropCullingCopy(uint3 id : SV_DispatchThreadID)
 {
-	uint permOffset = propSectionPermOffsets[id.y];
-	uint visibleOffset = propSectionVisibleOffsets[id.y];
+	uint permOffset = propSectionOffsets[id.y].y;
+	uint visibleOffset = propSectionOffsets[id.y].z;
 	uint inputIndex = id.x + permOffset;
 
 	float4 positionScale = UnpackPositionAndScale(permProps[inputIndex].xy);
@@ -28,10 +27,10 @@ void CSPropCullingCopy(uint3 id : SV_DispatchThreadID)
 	uint block = inputIndex / 32;
 	uint local = inputIndex % 32;
 	bool valid = ((usedBitmask[block] >> local) & 1) == 1;
-	valid = true;
+	//valid = true;
 
 	bool visible = dot(normalize(cameraPosition - positionScale.xyz), cameraForward) < 0;
-	visible = true;
+	//visible = true;
 
 	if (visible && valid) {
 		int index;

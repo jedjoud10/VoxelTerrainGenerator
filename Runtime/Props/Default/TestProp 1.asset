@@ -17,13 +17,13 @@ MonoBehaviour:
   maxPropsPerSegment: 4096
   maxPropsInTotal: 262144
   maxVisibleProps: 262144
-  billboardCaptureCameraScale: 2
+  billboardCaptureCameraScale: 0.8
   billboardTextureWidth: 64
   billboardTextureHeight: 64
-  billboardCaptureRotation: {x: 0, y: 0, z: 0}
+  billboardCaptureRotation: {x: 45, y: 45, z: 45}
   billboardCapturePosition: {x: 0, y: 0, z: 5}
-  billboardSize: {x: 8, y: 8}
+  billboardSize: {x: 1.8, y: 1.8}
   billboardOffset: {x: 0, y: 0, z: 0}
   billboardRestrictRotationY: 1
-  billboardCastShadows: 1
+  billboardCastShadows: 0
   billboardAlphaClipThreshold: 0.8

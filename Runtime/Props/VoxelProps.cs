@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -8,8 +7,6 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using System.Linq;
-using static UnityEditor.MaterialProperty;
-using static UnityEditor.Experimental.AssetDatabaseExperimental.AssetDatabaseCounters;
 
 // Responsible for generating the voxel props on the terrain
 // For this, we must force voxel generation to happen on the CPU so we can execute
@@ -53,55 +50,26 @@ public class VoxelProps : VoxelBehaviour {
     public ComputeShader propCullingApply;
     public ComputeShader removePropSegments;
 
-    // Section offsets buffer to compress temp props into a single buffer
-    private ComputeBuffer propSectionTempOffsetsBuffer;
-    private int[] propSectionTempOffsets;
+    // Buffer containing the temp offset, perm offset, and culled offset for all prop types
+    private ComputeBuffer propSectionOffsetsBuffer;
+    private int3[] propSectionOffsets;
 
-    // Section offsets buffer to compress perm props into a single buffer
-    private ComputeBuffer propSectionPermOffsetsBuffer;
-    private int[] propSectionPermOffsets;
-
-    // Section offsets buffer to compress culled props into a single buffer
-    private ComputeBuffer propSectionVisibleOffsetsBuffer;
-    private int[] propSectionVisibleOffsets;
-
-    // Buffer telling us what places in the perm buffer are currently in use
-    // Each element is a 32 bit uint where each valid bit depicts a used memory block
-    // Each "block" consists of 256 props
-    // Stored in sections as well (uses the propSectionPermOffsetsBuffer)
-    private ComputeBuffer permBitmaskBuffer;
-
-    // Permanent prop buffer that will contain copied prop values
-    private ComputeBuffer permPropBuffer;
-
-    // Culled prop buffer that will contain the prop values for visible props
-    private ComputeBuffer culledPropBuffer;
-
-    // Temporary prop buffer that will contain generated prop values
     private ComputeBuffer tempPropBuffer;
-
-    // Counters used by the temp generator to put prop values in their respective place
     private ComputeBuffer tempCountBuffer;
-
-    // Index buffer we use for finding free prop blocks we can use
     private ComputeBuffer tempIndexBuffer;
-
-    // Count buffer containing counts of culled prop types
+    
+    private ComputeBuffer permBitmaskBuffer;
+    private ComputeBuffer permPropBuffer;
+    
+    private ComputeBuffer culledPropBuffer;
     private ComputeBuffer culledCountBuffer;
-
-    // Buffer containing IDs of segments that we must remove
-    private ComputeBuffer segmentsToRemoveBuffer;
-
-    // Buffer that contains the (index, count) for each segment
-    private ComputeBuffer segmentIndexCountBuffer;
-
-    private int maxTestino;
-
-    // Draw args buffer
     private GraphicsBuffer drawArgsBuffer;
 
-    // Bit array containing the lookup index ranges that we can use
+    private ComputeBuffer segmentsToRemoveBuffer;
+    private ComputeBuffer segmentIndexCountBuffer;
     private NativeBitArray unusedSegmentLookupIndices;
+
+    private int maxTestino;
 
     // Prop segment management and diffing
     private NativeHashSet<int4> propSegments;
@@ -139,10 +107,11 @@ public class VoxelProps : VoxelBehaviour {
     // Used for collision and GPU based raycasting (supports up to 4 intersections within a ray)
     RenderTexture propSegmentDensityVoxels;
 
-    // 3 R textures where each byte represents density voxel near the surface
-    // 4 bytes => 4 possible intersections
-    RenderTexture[] intersectingTextures;
-    RenderTexture minAxiiPos;
+    // 3 R textures (4 bytes) where each byte represents density voxel near the surface
+    RenderTexture broadPhaseIntersectingTexture;
+
+    // 3 R textures (FLOAT4) that contain the position data for the respective intersection
+    RenderTexture positionIntersectingTexture;
 
     private bool mustUpdate = false;
     int bruhCounter = 0;
@@ -183,7 +152,7 @@ public class VoxelProps : VoxelBehaviour {
         // Set temp buffers used for basic generation
         propShader.SetBuffer(0, "tempProps", tempPropBuffer);
         propShader.SetBuffer(0, "tempCounters", tempCountBuffer);
-        propShader.SetBuffer(0, "propSectionTempOffsets", propSectionTempOffsetsBuffer);
+        propShader.SetBuffer(0, "propSectionOffsets", propSectionOffsetsBuffer);
 
         // Set generation/world settings
         voxelShader.SetFloat("propSegmentWorldSize", VoxelUtils.PropSegmentSize);
@@ -197,8 +166,14 @@ public class VoxelProps : VoxelBehaviour {
 
         // Set shared voxel shader and ray-tracing shader
         propShader.SetTexture(0, "_Voxels", propSegmentDensityVoxels);
+
+        // It's GPU raytracing time!!!!
         voxelShader.SetTexture(1, "cachedPropDensities", propSegmentDensityVoxels);
         voxelShader.SetTexture(2, "cachedPropDensities", propSegmentDensityVoxels);
+        voxelShader.SetTexture(1, "broadPhaseIntersections", broadPhaseIntersectingTexture);
+        voxelShader.SetTexture(2, "broadPhaseIntersections", broadPhaseIntersectingTexture);
+        voxelShader.SetTexture(2, "positionIntersections", positionIntersectingTexture);
+        propShader.SetTexture(0, "_PositionIntersections", positionIntersectingTexture);
     }
 
     // Create captures of the props, and register main settings
@@ -206,85 +181,89 @@ public class VoxelProps : VoxelBehaviour {
         VoxelUtils.PropSegmentResolution = propSegmentResolution;
         VoxelUtils.ChunksPerPropSegment = voxelChunksInPropSegment;
 
-        onPropSegmentLoaded += OnPropSegmentLoad;
-        onPropSegmentUnloaded += OnPropSegmentUnload;
-        pendingSegments = new Queue<PropSegment>();
-
-
+        // Pooling game object stuff
         segmentsAwaitingRemoval = false;
         pooledPropGameObjects = new List<GameObject>[props.Count];
         propOwners = new GameObject[props.Count];
-                
-        culledCountBuffer = new ComputeBuffer(props.Count, sizeof(int));
 
-        tempCountBuffer = new ComputeBuffer(props.Count, sizeof(int), ComputeBufferType.Raw);
-        tempIndexBuffer = new ComputeBuffer(props.Count, sizeof(int), ComputeBufferType.Raw);
-        propSectionTempOffsetsBuffer = new ComputeBuffer(props.Count, sizeof(int));
-        propSectionPermOffsetsBuffer = new ComputeBuffer(props.Count, sizeof(int));
-        propSectionVisibleOffsetsBuffer = new ComputeBuffer(props.Count, sizeof(int));
-
-
+        // Temp buffers used for first step in prop generation
         int tempSum = props.Select(x => x.maxPropsPerSegment).Sum();
+        tempCountBuffer = new ComputeBuffer(props.Count, sizeof(int), ComputeBufferType.Raw);
         tempPropBuffer = new ComputeBuffer(tempSum, BlittableProp.size, ComputeBufferType.Structured);
 
+        // Secondary buffers used for temp -> perm data copy
+        tempIndexBuffer = new ComputeBuffer(props.Count, sizeof(int), ComputeBufferType.Raw);
         int permSum = props.Select(x => x.maxPropsInTotal).Sum();
         int permMax = props.Select(x => x.maxPropsInTotal).Max();
         maxTestino = permMax;
         permPropBuffer = new ComputeBuffer(permSum, BlittableProp.size, ComputeBufferType.Structured);
-
         permBitmaskBuffer = new ComputeBuffer(permMax, sizeof(uint), ComputeBufferType.Structured);
 
+        // Tertiary buffers used for culling
+        culledCountBuffer = new ComputeBuffer(props.Count, sizeof(int));
         drawArgsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, props.Count, GraphicsBuffer.IndirectDrawIndexedArgs.size);
-
-
-
-        propSegmentDensityVoxels = VoxelUtils.Create3DRenderTexture(propSegmentResolution, GraphicsFormat.R32_SFloat);
-        UpdateStaticComputeFields();
-
         int visibleSum = props.Select(x => x.maxVisibleProps).Sum();
         culledPropBuffer = new ComputeBuffer(visibleSum, BlittableProp.size);
 
+        // Other stuff (still related to prop gen and GPU alloc)
+        propSectionOffsetsBuffer = new ComputeBuffer(props.Count, sizeof(int) * 3);
+        propSectionOffsets = new int3[props.Count];
         segmentIndexCountBuffer = new ComputeBuffer(4096 * props.Count, sizeof(uint) * 2, ComputeBufferType.Structured);
-
-        //minAxii = VoxelUtils.Create2DRenderTexture(propSegmentResolution, GraphicsFormat.R32_UInt);
-        //minAxiiPos = VoxelUtils.Create2DRenderTexture(propSegmentResolution, GraphicsFormat.R16G16_SFloat);
-
-        propSectionTempOffsets = new int[props.Count];
-        propSectionPermOffsets = new int[props.Count];
-        propSectionVisibleOffsets = new int[props.Count];
-        int tempCur = 0;
-        int permCur = 0;
-        int visibleCur = 0;
-        for (int i = 0; i < props.Count; i++) {
-            pooledPropGameObjects[i] = new List<GameObject>();
-            var obj = new GameObject();
-            obj.transform.SetParent(transform);
-            propOwners[i] = obj;
-
-            Prop propType = props[i];
-
-            propSectionTempOffsets[i] = tempCur;
-            propSectionPermOffsets[i] = permCur;
-            propSectionVisibleOffsets[i] = visibleCur;
-            tempCur += propType.maxPropsPerSegment;
-            permCur += propType.maxPropsInTotal;
-            visibleCur += propType.maxVisibleProps;
-        }
-
-        propSectionTempOffsetsBuffer.SetData(propSectionTempOffsets);
-        propSectionPermOffsetsBuffer.SetData(propSectionPermOffsets);
-        propSectionVisibleOffsetsBuffer.SetData(propSectionVisibleOffsets);
-
+        propSegmentDensityVoxels = VoxelUtils.Create3DRenderTexture(propSegmentResolution, GraphicsFormat.R32_SFloat);
         unusedSegmentLookupIndices = new NativeBitArray(4096, Allocator.Persistent);
         unusedSegmentLookupIndices.Clear();
-
         segmentsToRemoveBuffer = new ComputeBuffer(4096, sizeof(int));
+
+        // Stuff used for management and addition/removal detection of segments
         propSegmentsDict = new Dictionary<int4, PropSegment>();
         propSegments = new NativeHashSet<int4>(0, Allocator.Persistent);
         oldPropSegments = new NativeHashSet<int4>(0, Allocator.Persistent);
         addedSegments = new NativeList<int4>(Allocator.Persistent);
         removedSegments = new NativeList<int4>(Allocator.Persistent);
+        onPropSegmentLoaded += OnPropSegmentLoad;
+        onPropSegmentUnloaded += OnPropSegmentUnload;
+        pendingSegments = new Queue<PropSegment>();
 
+        // Fetch the temp offset, perm offset, visible culled offset
+        // Also spawns the object prop type owners and attaches them to the terrain
+        int3 last = int3.zero;
+        for (int i = 0; i < props.Count; i++) {
+            pooledPropGameObjects[i] = new List<GameObject>();
+            var obj = new GameObject();
+            obj.transform.SetParent(transform);
+            propOwners[i] = obj;
+            Prop propType = props[i];
+
+            // We do a considerable amount of trolling
+            propSectionOffsets[i] = last;
+            var offset = new int3(
+                propType.maxPropsPerSegment,
+                propType.maxPropsInTotal,
+                propType.maxVisibleProps
+            );
+            last += offset;
+        }
+
+        // Used to create our textures
+        RenderTexture CreateRayCastTexture(GraphicsFormat format) {
+            RenderTexture texture = new RenderTexture(propSegmentResolution, propSegmentResolution, propSegmentResolution, format);
+            texture.height = propSegmentResolution;
+            texture.width = propSegmentResolution;
+            texture.depth = 0;
+            texture.volumeDepth = 3;
+            texture.dimension = TextureDimension.Tex2DArray;
+            texture.enableRandomWrite = true;
+            texture.Create();
+            return texture;
+        }
+
+        // Create textures used for intersection tests and GPU raycasting
+        broadPhaseIntersectingTexture = CreateRayCastTexture(GraphicsFormat.R32_UInt);
+        positionIntersectingTexture = CreateRayCastTexture(GraphicsFormat.R16G16B16A16_SFloat);
+
+        // Update static settings and capture the billboards
+        propSectionOffsetsBuffer.SetData(propSectionOffsets);
+        UpdateStaticComputeFields();
         CapturePropsBillboards();
     }
 
@@ -367,15 +346,10 @@ public class VoxelProps : VoxelBehaviour {
         int _count = VoxelUtils.PropSegmentResolution / 4;
         var voxelShader = terrain.VoxelGenerator.voxelShader;
         voxelShader.SetVector("propChunkOffset", segment.worldPosition);
-        //voxelShader.SetTexture(1, "minAxiiY", minAxii);
         voxelShader.Dispatch(1, _count, _count, _count);
 
-        /*
-        // Execute the ray casting shader that will store thickness and position of the rays
-        voxelShader.SetTexture(2, "minAxiiY", minAxii);
-        voxelShader.SetTexture(2, "minAxiiYTest", minAxiiPos);
-        voxelShader.Dispatch(2, _count, _count, 1);
-        */
+        // Execute the ray casting shader that will store the position of the rays
+        voxelShader.Dispatch(2, _count, _count, 3);
 
         // Set compute properties and run the compute shader
         tempCountBuffer.SetData(new int[props.Count]);
@@ -412,7 +386,7 @@ public class VoxelProps : VoxelBehaviour {
 
                     for (int i = 0; i < props.Count; i++) {
                         Prop propType = props[i];
-                        int offset = propSectionTempOffsets[i];
+                        int offset = propSectionOffsets[i].x;
 
                         if (!propType.WillSpawnPrefab)
                             continue;
@@ -457,14 +431,14 @@ public class VoxelProps : VoxelBehaviour {
         propFreeBlockSearch.SetInt("enabledProps", billboardMask);
         propFreeBlockSearch.SetBuffer(0, "tempCounters", tempCountBuffer);
         propFreeBlockSearch.SetBuffer(0, "tempIndices", tempIndexBuffer);
-        propFreeBlockSearch.SetBuffer(0, "propSectionPermOffsets", propSectionPermOffsetsBuffer);
+        propFreeBlockSearch.SetBuffer(0, "propSectionOffsets", propSectionOffsetsBuffer);
         propFreeBlockSearch.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
         int count = Mathf.CeilToInt((float)permBitmaskBuffer.count / (32.0f));
         propFreeBlockSearch.Dispatch(0, count, props.Count, 1);
 
         // Copy the generated prop data to the perm data using a single compute dispatch
         propFreeBlockCopy.SetInt("propCount", props.Count);
-        propFreeBlockCopy.SetBuffer(0, "propSectionTempOffsets", propSectionTempOffsetsBuffer);
+        propFreeBlockCopy.SetBuffer(0, "propSectionOffsets", propSectionOffsetsBuffer);
         propFreeBlockCopy.SetInt("segmentLookup", segment.indexRangeLookup);
         propFreeBlockCopy.SetBuffer(0, "segmentIndexCount", segmentIndexCountBuffer);
         propFreeBlockCopy.SetBuffer(0, "tempCounters", tempCountBuffer);
@@ -597,8 +571,7 @@ public class VoxelProps : VoxelBehaviour {
 
         // Cull the props all in one dispatch call
         culledCountBuffer.SetData(new int[props.Count]);
-        propCullingCopy.SetBuffer(0, "propSectionPermOffsets", propSectionPermOffsetsBuffer);
-        propCullingCopy.SetBuffer(0, "propSectionVisibleOffsets", propSectionVisibleOffsetsBuffer);
+        propCullingCopy.SetBuffer(0, "propSectionOffsets", propSectionOffsetsBuffer);
 
         int count = Mathf.CeilToInt((float)maxTestino / 32.0f);
         propCullingCopy.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
@@ -610,7 +583,6 @@ public class VoxelProps : VoxelBehaviour {
         propCullingCopy.Dispatch(0, count, props.Count, 1);
 
         // Apply culling counts to the indirect draw args
-        propCullingApply.SetBuffer(0, "propSectionVisibleOffsets", propSectionVisibleOffsetsBuffer);
         propCullingApply.SetBuffer(0, "culledCount", culledCountBuffer);
         propCullingApply.SetBuffer(0, "drawArgs", drawArgsBuffer);
         propCullingApply.SetInt("propCount", props.Count);
@@ -637,7 +609,7 @@ public class VoxelProps : VoxelBehaviour {
         var mat = new MaterialPropertyBlock();
         renderParams.matProps = mat;
         mat.SetFloat("_PropType", (float)i);
-        mat.SetBuffer("_PropSectionVisibleOffsets", propSectionVisibleOffsetsBuffer);
+        mat.SetBuffer("_PropSectionOffsets", propSectionOffsetsBuffer);
         mat.SetBuffer("_BlittablePropBuffer", culledPropBuffer);
         mat.SetTexture("_Albedo", extraData.billboardAlbedoTexture);
         mat.SetTexture("_Normal_Map", extraData.billboardNormalTexture);
@@ -679,7 +651,7 @@ public class VoxelProps : VoxelBehaviour {
         tempCountBuffer.Dispose();
         tempIndexBuffer.Dispose();
         tempPropBuffer.Dispose();
-        propSectionTempOffsetsBuffer.Dispose();
+        propSectionOffsetsBuffer.Dispose();
         unusedSegmentLookupIndices.Dispose();
     }
 }

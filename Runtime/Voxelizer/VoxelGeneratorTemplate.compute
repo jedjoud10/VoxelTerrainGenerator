@@ -6,16 +6,15 @@
 
 // Called for each voxel in the chunk to check the density and material at a specific position
 void VoxelAt(float3 position, out float density, out uint material) {
-	float box = sdBox(position, float3(20, 20, 20));
-
+	/*
+	float box = sdBox(position, float3(20, 50, 20));
 	float temp = position.y + -fbm(position.xz * 0.003, 7, 0.4, 2.3).x * 10;
 	density = min(box, temp);
 	material = box < 0;
-	
-	
-	/*
+	*/
+
 	// Density value for biome 1
-	float density1 = -fbm(position.xz * 0.004, 6, 0.50, 2.1).x * 10 - 50;
+	float density1 = -fbm(position.xz * 0.004, 8, 0.50, 2.1).x * 10 - 50;
 	//density1 = snoise(position.xz * 0.003 * float2(0, 1)) * 30;
 
 	// Density value for biome 2
@@ -26,9 +25,7 @@ void VoxelAt(float3 position, out float density, out uint material) {
 	mixer = smoothstep(0, 1, saturate(2 * (mixer - 0.5) + 0.5));
 
 	density = position.y + lerp(density1, density2, mixer);
-	//density = position.y + 15;
 	material = 0;
-	*/
 }
 
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Voxelizer/VoxelGeneratorEnd.cginc"

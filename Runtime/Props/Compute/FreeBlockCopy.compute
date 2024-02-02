@@ -12,7 +12,7 @@ StructuredBuffer<uint4> tempProps;
 RWStructuredBuffer<uint4> permProps;
 RWStructuredBuffer<uint> usedBitmask;
 
-StructuredBuffer<int> propSectionTempOffsets;
+StructuredBuffer<int3> propSectionOffsets;
 
 // Copy the temporary prop buffer to the permanent prop buffer
 [numthreads(32, 1, 1)]
@@ -39,7 +39,7 @@ void CSFreeBlockCopy(uint3 id : SV_DispatchThreadID)
 	}
 
 	// copy data to perm spot
-	permProps[id.x + baseFreeIndex] = tempProps[id.x + propSectionTempOffsets[id.y]];
+	permProps[id.x + baseFreeIndex] = tempProps[id.x + propSectionOffsets[id.y].x];
 
 	// also update the bitmask whilst we're at it
 	uint bitmaskIndex = id.x + baseFreeIndex;

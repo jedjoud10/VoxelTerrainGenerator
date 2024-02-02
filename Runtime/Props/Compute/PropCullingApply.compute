@@ -5,7 +5,6 @@
 int propCount;
 RWStructuredBuffer<uint> culledCount;
 RWStructuredBuffer<UNITY_INDIRECT_DRAW_ARGS> drawArgs;
-StructuredBuffer<int> propSectionVisibleOffsets;
 
 // Do some culling on the props and save them to the culled props buffer
 [numthreads(32, 1, 1)]
