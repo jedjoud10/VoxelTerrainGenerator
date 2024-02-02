@@ -149,7 +149,7 @@ MonoBehaviour:
   materialMipBias: 0
   m_RenderingPathCustomFrameSettings:
     bitDatas:
-      data1: 72127415174303813
+      data1: 72127415174303845
       data2: 4539628425194700800
     lodBias: 1
     lodBiasMode: 0

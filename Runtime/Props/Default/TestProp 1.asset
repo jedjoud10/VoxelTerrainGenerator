@@ -16,10 +16,10 @@ MonoBehaviour:
   propSpawnBehavior: 3
   maxPropsPerSegment: 4096
   maxPropsInTotal: 262144
-  maxVisibleProps: 65536
-  billboardCaptureCameraScale: 6.5
+  maxVisibleProps: 262144
+  billboardCaptureCameraScale: 2
   billboardTextureWidth: 64
-  billboardTextureHeight: 256
+  billboardTextureHeight: 64
   billboardCaptureRotation: {x: 0, y: 0, z: 0}
   billboardCapturePosition: {x: 0, y: 0, z: 5}
   billboardSize: {x: 8, y: 8}

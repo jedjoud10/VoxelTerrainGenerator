@@ -15,14 +15,18 @@ void CSPropCullingApply(uint3 id : SV_DispatchThreadID)
 		IndirectDrawIndexedArgs args;
 		args.indexCountPerInstance = 6;
 		args.instanceCount = culledCount[id.x];
-
-		if (id.x > 0) {
-			args.instanceCount = 0;
+		
+		if (id.x == 1) {
+			//args.instanceCount = 0;
 		}
 
 		args.startIndex = 0;
 		args.baseVertexIndex = 0;
-		//args.startInstance = propSectionVisibleOffsets[id.x];
+		
+		// normally I'd have the visibility offset applied here but it seems to not work
+		// so I'm manually adding it in the fucking shader graph custom func
+		// Unity why do you have to be so FUCKING annoying sometimes?
+		// Can't have shit mate
 		args.startInstance = 0;
 		drawArgs[id.x] = args;
 	}

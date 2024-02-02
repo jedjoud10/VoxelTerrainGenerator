@@ -299,25 +299,24 @@ public class VoxelProps : VoxelBehaviour {
 
         // Capture all props
         foreach (var prop in props) {
-            (Texture2D albedo, Texture2D normal, Material mat) = CaptureBillboard(cam, prop);
-
-            extraPropData.Add(new IndirectExtraPropData {
-                billboardAlbedoTexture = albedo,
-                billboardNormalTexture = normal,
-                billboardMaterial = mat,
-            });
+            extraPropData.Add(CaptureBillboard(cam, prop));
         }
 
         Destroy(captureGo);
     }
 
     // Capture the albedo, normal, and mask maps from billboarding a prop by spawning it temporarily
-    public (Texture2D, Texture2D, Material) CaptureBillboard(Camera camera, Prop prop) {
+    public IndirectExtraPropData CaptureBillboard(Camera camera, Prop prop) {
         int width = prop.billboardTextureWidth;
         int height = prop.billboardTextureHeight;
         var temp = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32);
         camera.orthographicSize = prop.billboardCaptureCameraScale;
         camera.targetTexture = temp;
+        
+        RenderTexture rt = RenderTexture.active;
+        RenderTexture.active = temp;
+        GL.Clear(true, true, Color.clear);
+        RenderTexture.active = rt;
 
         // Create the output texture 2Ds
         Texture2D albedoTextureOut = new Texture2D(width, height, TextureFormat.ARGB32, false);
@@ -344,13 +343,15 @@ public class VoxelProps : VoxelBehaviour {
         camera.Render();
         Graphics.CopyTexture(temp, normalTextureOut);
 
-        // Create a material used for billboard rendering
-        // All the params will be set using the RenderParams struct
-        Material mat = new Material(billboardMaterialBase);
-        Destroy(faker);
+        DestroyImmediate(faker);
+        temp.DiscardContents(true, true);
         temp.Release();
+        camera.targetTexture = null;
 
-        return (albedoTextureOut, normalTextureOut, mat);
+        return new IndirectExtraPropData {
+            billboardAlbedoTexture = albedoTextureOut,
+            billboardNormalTexture = normalTextureOut,
+        };
     }
 
     // Called when a new prop segment is loaded and should be generated
@@ -626,7 +627,7 @@ public class VoxelProps : VoxelBehaviour {
     // Render the billboards for a specific type of prop type
     private void RenderBillboardsOfType(int i, IndirectExtraPropData extraData, Prop prop) {
         ShadowCastingMode shadowCastingMode = prop.billboardCastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
-        RenderParams renderParams = new RenderParams(extraData.billboardMaterial);
+        RenderParams renderParams = new RenderParams(billboardMaterialBase);
         renderParams.shadowCastingMode = shadowCastingMode;
         renderParams.worldBounds = new Bounds {
             min = -Vector3.one * VoxelUtils.PropSegmentSize * 100000,
@@ -635,8 +636,9 @@ public class VoxelProps : VoxelBehaviour {
 
         var mat = new MaterialPropertyBlock();
         renderParams.matProps = mat;
+        mat.SetFloat("_PropType", (float)i);
+        mat.SetBuffer("_PropSectionVisibleOffsets", propSectionVisibleOffsetsBuffer);
         mat.SetBuffer("_BlittablePropBuffer", culledPropBuffer);
-        mat.SetVector("_BoundsOffset", renderParams.worldBounds.center);
         mat.SetTexture("_Albedo", extraData.billboardAlbedoTexture);
         mat.SetTexture("_Normal_Map", extraData.billboardNormalTexture);
         mat.SetFloat("_Alpha_Clip_Threshold", prop.billboardAlphaClipThreshold);

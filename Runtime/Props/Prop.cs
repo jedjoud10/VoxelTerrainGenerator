@@ -60,7 +60,6 @@ public enum PropSpawnBehavior {
 public class IndirectExtraPropData {
     public Texture2D billboardAlbedoTexture;
     public Texture2D billboardNormalTexture;
-    public Material billboardMaterial;
 }
 
 
