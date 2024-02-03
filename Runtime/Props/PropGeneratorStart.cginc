@@ -52,43 +52,41 @@ float GetDensity(float3 position) {
 }
 
 // Check if a ray hits the surface in a specific axis, and returns the hit position
-void CheckRay(uint3 baseWorldPosition, out float position) {
-
+void CheckRay(float3 baseWorldPosition, out float position) {
+	position = 100000;
 
 
 	//float4 baseTest = _PositionIntersections.SampleLevel(sampler_PositionIntersections, float3(test3.xy, 0), 0);
 	/*
-	float4 baseTest2 = _MinAxii.Gather(sampler_MinAxii, test3.xy, 0);
 
-	// z direction
-	float diff = -(baseTest2.x - baseTest2.z);
-
-	// x direction
-	float diff2 = -(baseTest2.x - baseTest2.y);
-	float total = abs(diff) + abs(diff2);
 	*/
 	
 	/*
 	float2 localPos = WorldToPropSegment(baseWorldPosition).xy;
 
+	*/
+
+	float2 localPos = WorldToPropSegment(baseWorldPosition).xy + (0.5f / 32.0f);
+
+	// No ray if we're outside the bounds of the segment
 	bool test1 = any(localPos < float2(0, 0));
 	bool test2 = any(localPos > float2(1, 1));
-	*/
-
-	/*
 	if (test1 || test2) {
-		position = 100000;
 		return;
 	}
-	*/
 
-	//float4 baseTest = _PositionIntersections.SampleLevel(sampler_PositionIntersections, float3(localPos, 0), 0);
-	float4 baseTest = _PositionIntersections[uint3(baseWorldPosition.x, baseWorldPosition.y, 0)];
+	// Check normal
+	float4 normals = _PositionIntersections.Gather(sampler_PositionIntersections, float3(localPos, 0), 0);
 
+	float zNormal = -(normals.x - normals.z);
+	float xNormal = -(normals.x - normals.y);
+	if (abs(zNormal) + abs(xNormal) > 10.0) {
+		return;
+	}
+
+	// Check the ray dist by sampling the texture
+	float4 baseTest = _PositionIntersections.SampleLevel(sampler_PositionIntersections, float3(localPos, 0), 0);
 	if (baseTest.x < 10000) {
 		position = baseTest.x;
-	}
-	else {
-		position = 10000;
 	}
 }

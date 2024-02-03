@@ -11,35 +11,23 @@ void PropsAt(uint3 id, float3 position) {
 	float mixer = snoise(position.xz * 0.0003) * 0.5 + 0.5;
 	mixer = smoothstep(0, 1, mixer - 0.4) * 1;
 
-	if (mixer > 0.05) {
-		return;
-	}
-
-	/*
-	float3 randomOffset = (2 * hash33(position) - 1) * float3(10, 0, 10) * 0 + float3(4, 0, 4);
+	float3 randomOffset = (2 * hash33(position) - 1) * float3(10, 0, 10) * 8;
 	float3 treePos = position + randomOffset;
 	float distance;
 	CheckRay(treePos, distance);
 
-	//  && baseTest.y > 0.2 && total < 3.2
-	if (treePos.y > -1 && treePos.y < 1 && (hash13(treePos) < 0.2) && distance < 100) {
-		treePos += randomOffset;
-		float randomScaleOffset = (2 * hash13(treePos) - 1) * 1;
-		float3 randomRotation = (2 * hash33(treePos) - 1) * 180;
-
-		treePos.y = distance;
-		Spawn(treePos, 2.5 + randomScaleOffset * 0.1, float3(0, 0, 0), 0, 0, id);
+	if (treePos.y > -20 && treePos.y < 20 && (hash13(treePos) < 0.9) && distance < 100 && mixer < 0.02) {
+		Spawn(float3(treePos.x, distance, treePos.z), 1.0, float3(0, 0, 0), 0, 0, id);
 	}
-	*/
 
-	float3 randomOffset2 = (2 * hash33(position * 2 + 0.588456) - 1) * 0;
+
+	float3 randomOffset2 = (2 * hash33(position * 2 + 0.588456) - 1) * 8;
 	float3 rockPos = position + randomOffset2;
 	float distance2;
-	CheckRay(id, distance2);
+	CheckRay(rockPos, distance2);
 
-	if (rockPos.y > -10.0 && rockPos.y < 10 && distance2 < 100 && hash13(rockPos) < 0.6) {
-		rockPos.y = distance2;
-		Spawn(rockPos, 1.0, hash33(position) * 0, 1, 0, id);
+	if (treePos.y > -10 && treePos.y < 10 && hash13(rockPos) < 0.9 && distance < 100 && mixer > 0.5) {
+		Spawn(float3(rockPos.x, distance2, rockPos.z), 1.0 + hash13(position) * 6, hash33(position) * 180, 1, 0, id);
 	}
 }
 
