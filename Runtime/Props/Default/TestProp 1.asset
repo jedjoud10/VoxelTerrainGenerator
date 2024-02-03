@@ -23,7 +23,7 @@ MonoBehaviour:
   billboardTextureFilterMode: 0
   billboardCaptureRotation: {x: 0, y: 0, z: 0}
   billboardCapturePosition: {x: 0, y: 0, z: 5}
-  billboardSize: {x: 2.5, y: 2.5}
+  billboardSize: {x: 5, y: 5}
   billboardOffset: {x: 0, y: 3.68, z: 0}
   billboardRestrictRotationY: 0
-  billboardCastShadows: 0
+  billboardCastShadows: 1

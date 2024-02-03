@@ -4,10 +4,11 @@ using Unity.Mathematics;
 using Unity.Netcode;
 using UnityEngine;
 
-[assembly: RegisterGenericJobType(typeof(DynamicEditJob<CuboidWorldEdit>))]
-public struct CuboidWorldEdit : IDynamicEdit {
+[assembly: RegisterGenericJobType(typeof(DynamicEditJob<SphereDynamicEdit>))]
+
+public struct SphereDynamicEdit : IDynamicEdit {
     [ReadOnly] public float3 center;
-    [ReadOnly] public float3 halfExtents;
+    [ReadOnly] public float radius;
     [ReadOnly] public ushort material;
     [ReadOnly] public bool writeMaterial;
     public bool Enabled => true;
@@ -19,13 +20,12 @@ public struct CuboidWorldEdit : IDynamicEdit {
     public Bounds GetBounds() {
         return new Bounds {
             center = center,
-            extents = halfExtents * 2
+            extents = new Vector3(radius, radius, radius) * 2.0F,
         };
     }
 
     public Voxel Modify(float3 position, Voxel voxel) {
-        float3 q = math.abs(position - center) - halfExtents;
-        float density = math.length(math.max(q, 0.0F)) + math.min(math.max(q.x, math.max(q.y, q.z)), 0.0F);
+        float density = math.length(position - center) - radius;
 
         if (density < 1.0 && writeMaterial) {
             voxel.material = material;
@@ -39,9 +39,7 @@ public struct CuboidWorldEdit : IDynamicEdit {
         serializer.SerializeValue(ref center.x);
         serializer.SerializeValue(ref center.y);
         serializer.SerializeValue(ref center.z);
-        serializer.SerializeValue(ref halfExtents.x);
-        serializer.SerializeValue(ref halfExtents.y);
-        serializer.SerializeValue(ref halfExtents.z);
+        serializer.SerializeValue(ref radius);
         serializer.SerializeValue(ref material);
         serializer.SerializeValue(ref writeMaterial);
     }

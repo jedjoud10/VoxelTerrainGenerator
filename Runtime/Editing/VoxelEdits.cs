@@ -51,8 +51,8 @@ public class VoxelEdits : VoxelBehaviour {
 
         // Register common dynamic edit types
         registerDynamicEditTypes += (SerializableRegistry registry) => {
-            registry.Register<SphereWorldEdit>();
-            registry.Register<CuboidWorldEdit>();
+            registry.Register<SphereDynamicEdit>();
+            registry.Register<CuboidDynamicEdit>();
         };
 
         // Register custom dynamic edit types

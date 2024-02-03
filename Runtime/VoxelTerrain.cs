@@ -85,6 +85,7 @@ public partial class VoxelTerrain : MonoBehaviour {
     public event ChunkAdded onChunkAdded;
     public bool Free { get; private set; } = true;
     internal bool started = false;
+    public bool FinishedInit { get; private set; } = false;
     private System.Diagnostics.Stopwatch timer;
 
     // Current reason why the terrain is generating
@@ -190,6 +191,7 @@ public partial class VoxelTerrain : MonoBehaviour {
                     timer.Stop();
                     Debug.Log($"Initial generation done. Took {timer.ElapsedMilliseconds}ms");
                     onInitialGenerationDone?.Invoke();
+                    FinishedInit = true;
                     break;
                 case GenerationReason.Deserialized:
                     onDeserializeFinish?.Invoke();
