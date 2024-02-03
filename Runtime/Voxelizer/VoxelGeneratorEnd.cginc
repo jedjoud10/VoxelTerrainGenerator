@@ -66,15 +66,16 @@ void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 	}
 }
 
+
 // Raycasts to get the position of the surface in a specific axis
 [numthreads(4, 4, 1)]
 void CSPropRaycaster(uint3 id : SV_DispatchThreadID)
 {
-	positionIntersections[id] = float4(100000, 100000, 100000, 100000);
+	float maxValue = 0.0f / 0.0f;
+	positionIntersections[id] = float4(maxValue, maxValue, maxValue, maxValue);
 	uint pos = broadPhaseIntersections[uint3(id.x, id.y, id.z)]-1;
 
 	if (pos > ((uint)propSegmentResolution)) {
-		positionIntersections[id] = float4(100000, 100000, 100000, 100000);
 		return;
 	}
 	
@@ -87,6 +88,7 @@ void CSPropRaycaster(uint3 id : SV_DispatchThreadID)
 		float inv = invLerp(d1, d2, 0);
 		float3 newTest2 = lerp(p1, p2, inv);
 		positionIntersections[id] = float4(newTest2.y, 0, 0, 0);
+		return;
 		
 		/*
 		//float density = -d1;
@@ -116,8 +118,5 @@ void CSPropRaycaster(uint3 id : SV_DispatchThreadID)
 
 		positionIntersections[id] = float4(100000, 100000, 100000, 100000);
 		*/
-	}
-	else {
-		positionIntersections[id] = float4(100000, 100000, 100000, 100000);
 	}
 }

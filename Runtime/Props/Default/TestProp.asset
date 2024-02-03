@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: TestProp
   m_EditorClassIdentifier: 
   prefab: {fileID: 900193227329173065, guid: 7b5625836e801c04fbb54c9225ac4663, type: 3}
-  propSpawnBehavior: 0
-  maxPropsPerSegment: 4096
-  maxPropsInTotal: 262144
-  maxVisibleProps: 262144
+  propSpawnBehavior: 3
+  maxPropsPerSegment: 2048
+  maxPropsInTotal: 524288
+  maxVisibleProps: 524288
   billboardCaptureCameraScale: 6.5
   billboardTextureWidth: 64
   billboardTextureHeight: 256
@@ -24,6 +24,6 @@ MonoBehaviour:
   billboardCaptureRotation: {x: 0, y: 35, z: 0}
   billboardCapturePosition: {x: 0, y: -7, z: 5}
   billboardSize: {x: 4.2, y: 14}
-  billboardOffset: {x: 0, y: 16, z: 0}
+  billboardOffset: {x: 0, y: 6.5, z: 0}
   billboardRestrictRotationY: 1
-  billboardCastShadows: 1
+  billboardCastShadows: 0

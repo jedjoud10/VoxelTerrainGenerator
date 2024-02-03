@@ -13,7 +13,7 @@ void VoxelAt(float3 position, out float density, out uint material) {
 	*/
 	
 	// Density value for biome 1
-	float density1 = -fbm(position.xz * 0.004, 8, 0.50, 2.1).x * 10 - 50;
+	float density1 = -fbm(position.xz * 0.004, 5, 0.50, 2.1).x * 4 - 50;
 	//density1 = snoise(position.xz * 0.003 * float2(0, 1)) * 30;
 
 	// Density value for biome 2

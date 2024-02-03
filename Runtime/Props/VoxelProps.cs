@@ -24,6 +24,14 @@ public class VoxelProps : VoxelBehaviour {
     [Range(1, 64)]
     public int voxelChunksInPropSegment = 8;
 
+    // Max number of active segments possible at any given time
+    [Min(128)]
+    public int maxSegments = 512;
+
+    // Max number of segments that we can unload / remove
+    [Min(128)]
+    public int maxSegmentsToRemove = 512;
+
     // List of props that we will generated based on their index
     [SerializeField]
     public List<Prop> props;
@@ -114,7 +122,7 @@ public class VoxelProps : VoxelBehaviour {
     RenderTexture positionIntersectingTexture;
 
     private bool mustUpdate = false;
-    int bruhCounter = 0;
+    int asyncRequestsInPocess = 0;
 
     // Checks if we completed prop generation
     public bool Free {
@@ -163,6 +171,7 @@ public class VoxelProps : VoxelBehaviour {
         propShader.SetInts("moduloSeed", new int[] { moduloSeed.x, moduloSeed.y, moduloSeed.z });
         propShader.SetFloat("propSegmentWorldSize", VoxelUtils.PropSegmentSize);
         propShader.SetFloat("propSegmentResolution", VoxelUtils.PropSegmentResolution);
+        propShader.SetInt("propCount", props.Count);
 
         // Set shared voxel shader and ray-tracing shader
         propShader.SetTexture(0, "_Voxels", propSegmentDensityVoxels);
@@ -178,6 +187,8 @@ public class VoxelProps : VoxelBehaviour {
 
     // Create captures of the props, and register main settings
     internal override void Init() {
+        propSegmentResolution = Mathf.ClosestPowerOfTwo(propSegmentResolution);
+        voxelChunksInPropSegment = Mathf.ClosestPowerOfTwo(voxelChunksInPropSegment);
         VoxelUtils.PropSegmentResolution = propSegmentResolution;
         VoxelUtils.ChunksPerPropSegment = voxelChunksInPropSegment;
 
@@ -208,11 +219,11 @@ public class VoxelProps : VoxelBehaviour {
         // Other stuff (still related to prop gen and GPU alloc)
         propSectionOffsetsBuffer = new ComputeBuffer(props.Count, sizeof(int) * 3);
         propSectionOffsets = new int3[props.Count];
-        segmentIndexCountBuffer = new ComputeBuffer(4096 * props.Count, sizeof(uint) * 2, ComputeBufferType.Structured);
+        segmentIndexCountBuffer = new ComputeBuffer(maxSegments * props.Count, sizeof(uint) * 2, ComputeBufferType.Structured);
         propSegmentDensityVoxels = VoxelUtils.Create3DRenderTexture(propSegmentResolution, GraphicsFormat.R32_SFloat);
         unusedSegmentLookupIndices = new NativeBitArray(4096, Allocator.Persistent);
         unusedSegmentLookupIndices.Clear();
-        segmentsToRemoveBuffer = new ComputeBuffer(4096, sizeof(int));
+        segmentsToRemoveBuffer = new ComputeBuffer(maxSegmentsToRemove, sizeof(int), ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
 
         // Stuff used for management and addition/removal detection of segments
         propSegmentsDict = new Dictionary<int4, PropSegment>();
@@ -367,7 +378,7 @@ public class VoxelProps : VoxelBehaviour {
                 }
             }
 
-            bruhCounter++;
+            asyncRequestsInPocess++;
 
             // TODO: Use this to eliminate reading back props that won't be spawned
             // must sort out the propSectionOffsets in order of "spawn" order first to do such a thing tho
@@ -409,7 +420,7 @@ public class VoxelProps : VoxelBehaviour {
                         }
                     }
 
-                    bruhCounter--;
+                    asyncRequestsInPocess--;
                 }
             );
         }
@@ -525,26 +536,24 @@ public class VoxelProps : VoxelBehaviour {
         }
 
         // When we finished generating all pending segments delete the ones that are pending removal
-        if (pendingSegments.Count == 0 && segmentsAwaitingRemoval && bruhCounter == 0) {
-            int[] arr = new int[4096];
-
-            for (int i = 0; i < 4096; i++) {
-                arr[i] = -1;
-            }
+        if (pendingSegments.Count == 0 && segmentsAwaitingRemoval && asyncRequestsInPocess == 0) {
+            NativeArray<int> indices = segmentsToRemoveBuffer.BeginWrite<int>(0, removedSegments.Length);
 
             for (int i = 0; i < removedSegments.Length; i++) {
                 var pos = removedSegments[i];
                 if (propSegmentsDict.Remove(pos, out PropSegment val)) {
-                    arr[i] = val.indexRangeLookup;
+                    indices[i] = val.indexRangeLookup;
                     onPropSegmentUnloaded.Invoke(val);
                 } else {
-                    arr[i] = -1;
+                    indices[i] = -1;
                 }
             }
 
+            segmentsToRemoveBuffer.EndWrite<int>(removedSegments.Length);
+
             // TODO: Test fluke? One time when tested (spaz) shit didn't work. DEBUG PLS
             if (removedSegments.Length > 0) {
-                segmentsToRemoveBuffer.SetData(arr);
+                removePropSegments.SetInt("segmentsToRemoveCount", removedSegments.Length);
                 removePropSegments.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
                 removePropSegments.SetBuffer(0, "segmentIndices", segmentsToRemoveBuffer);
                 removePropSegments.SetBuffer(0, "segmentIndexCount", segmentIndexCountBuffer);
@@ -558,7 +567,7 @@ public class VoxelProps : VoxelBehaviour {
         // Start generating the first pending segment we find
         PropSegment result;
         if (pendingSegments.TryPeek(out result)) {
-            if (bruhCounter == 0) {
+            if (asyncRequestsInPocess == 0) {
                 pendingSegments.Dequeue();
                 onPropSegmentLoaded.Invoke(result);
             }

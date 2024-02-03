@@ -1,6 +1,7 @@
 #pragma kernel CSRemoveSegments
 
 int propCount;
+int segmentsToRemoveCount;
 StructuredBuffer<int> segmentIndices;
 RWStructuredBuffer<uint2> segmentIndexCount;
 RWStructuredBuffer<uint> usedBitmask;
@@ -9,6 +10,10 @@ RWStructuredBuffer<uint> usedBitmask;
 [numthreads(32, 1, 1)]
 void CSRemoveSegments(uint3 id : SV_DispatchThreadID)
 {
+	if (id.x >= segmentsToRemoveCount) {
+		return;
+	}
+
 	int index = segmentIndices[id.x];
 
 	if (index == -1) {
