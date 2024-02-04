@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 2043187853528151876}
   - component: {fileID: 1909327891670507180}
   - component: {fileID: 2251748323115530740}
+  - component: {fileID: 3554982858761930659}
   m_Layer: 0
   m_Name: TestPropPrefab
   m_TagString: Untagged
@@ -108,3 +109,16 @@ CapsuleCollider:
   m_Height: 12.834382
   m_Direction: 1
   m_Center: {x: -0.06952393, y: 5.680927, z: -0.084340096}
+--- !u!114 &3554982858761930659
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900193227329173065}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df4cd5e81118b7548a938181bb880d04, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  data: 10

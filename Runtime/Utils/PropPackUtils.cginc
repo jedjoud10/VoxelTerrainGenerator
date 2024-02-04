@@ -18,12 +18,13 @@ uint NormalizeAndPackAngle(float angle) {
 	return (uint)((angle / 360.0) * 255.0);
 }
 
-uint2 PackRotationAndId(float3 rotation, uint3 id) {
+uint2 PackRotationAndVariantAndId(float3 rotation, uint propVariant, uint id) {
 	uint x = NormalizeAndPackAngle(rotation.x);
 	uint y = NormalizeAndPackAngle(rotation.y);
 	uint z = NormalizeAndPackAngle(rotation.z);
 	uint rots = x | (y << 8) | (z << 16);
-	return uint2(rots, 0);
+	uint theRest = id;
+	return uint2(rots, theRest);
 }
 
 float4 UnpackPositionAndScale(uint2 packed) {

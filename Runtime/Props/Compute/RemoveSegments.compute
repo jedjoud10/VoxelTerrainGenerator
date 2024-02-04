@@ -23,6 +23,12 @@ void CSRemoveSegments(uint3 id : SV_DispatchThreadID)
 	int tahiniIndex = index * propCount + id.y;
 	uint2 vals = segmentIndexCount[tahiniIndex];
 
+
+	// last hope to avoid dx11 driver crash
+	if (vals.y > 100000 || vals.x > 100000) {
+		return;
+	}
+
 	for (uint i = vals.x; i < (vals.x + vals.y); i++)
 	{
 		uint block = i / 32;

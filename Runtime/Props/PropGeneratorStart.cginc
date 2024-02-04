@@ -10,7 +10,7 @@ int3 moduloSeed;
 
 struct BlittableProp {
     uint2 packed_position_and_scale;
-    uint2 packed_euler_angles_padding;
+    uint2 packed_rotation_dispatch_index_prop_variant_padding;
 };
 
 // Used for async readback and GPU indirect rendering
@@ -28,13 +28,25 @@ SamplerState sampler_Voxels;
 Texture2DArray<float4> _PositionIntersections;
 SamplerState sampler_PositionIntersections;
 
+StructuredBuffer<uint> affectedPropsBitMask;
+
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/Noises.cginc"
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/SDF.cginc"
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/PropUtils.cginc"
 
 // Spawn a prop in the specified WORLD position (will scale down based on world scale/offset)
 void Spawn(float3 position, float scale, float3 rotation, uint propType, uint propVariant, uint3 id) {
-	if (propType > propCount) {
+	if (propType >= propCount) {
+		return;
+	}
+
+	int searchIndexBase = id.x + id.y * propSegmentResolution + id.z * propSegmentResolution * propSegmentResolution;
+	int searchIndexOffset = propSegmentResolution * propSegmentResolution * propSegmentResolution * propType;
+	int searchIndex = searchIndexBase + searchIndexOffset;
+	int block = searchIndex / 32;
+	int local = searchIndex % 32;
+
+	if (((affectedPropsBitMask[block] >> local) & 1) == 1) {
 		return;
 	}
 
@@ -42,7 +54,7 @@ void Spawn(float3 position, float scale, float3 rotation, uint propType, uint pr
 	BlittableProp prop;
 	position /= worldScale;
 	prop.packed_position_and_scale = PackPositionAndScale(position, scale);
-	prop.packed_euler_angles_padding = PackRotationAndId(rotation, id);
+	prop.packed_rotation_dispatch_index_prop_variant_padding = PackRotationAndVariantAndId(rotation, propVariant, searchIndexBase);
 	
 	int index = 0;
 	InterlockedAdd(tempCounters[propType], 1, index);

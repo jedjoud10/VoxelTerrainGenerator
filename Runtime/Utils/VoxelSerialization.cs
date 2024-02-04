@@ -28,7 +28,6 @@ public partial class VoxelTerrain {
         writer.WriteValueSafe(lookup.GetValueArray(Allocator.Temp));
         Debug.LogWarning($"Size after voxel edit meta-data: {writer.Position}");
 
-
         NativeList<uint> compressedMaterials = new NativeList<uint>(Allocator.TempJob);
         NativeList<byte> compressedDensities = new NativeList<byte>(Allocator.TempJob);
 
@@ -62,6 +61,25 @@ public partial class VoxelTerrain {
         for (int i = 0; i < arr.Length; i++) {
             if (arr[i] > 0) {
                 Debug.LogWarning($"LOD {i}, compressed size: {arr[i]} bytes");
+            }
+        }
+
+        foreach (var value in VoxelProps.propSegmentsDict) {
+            VoxelProps.SerializePropsOnSegmentUnload(value.Key);
+        }
+
+        NativeHashMap<int3, NativeBitArray> ignoredProps = VoxelProps.ignorePropsBitmasks;
+        writer.WriteValueSafe(ignoredProps.GetKeyArray(Allocator.Temp));
+
+        // TODO: Run RLE on this stuff to compress it (bitmask)
+        NativeArray<NativeBitArray> values = ignoredProps.GetValueArray(Allocator.Temp);
+
+        int count = VoxelProps.ignorePropBitmaskBuffer.count;
+        writer.TryBeginWrite(count * sizeof(uint) * values.Length);
+        foreach (var item in values) {
+            var bitmaskArr = item.AsNativeArray<uint>();
+            for (int i = 0; i < count; i++) {
+                writer.WriteValue(bitmaskArr[i]);
             }
         }
 
@@ -102,7 +120,7 @@ public partial class VoxelTerrain {
         reader.ReadValueSafeTemp(out NativeArray<int> keys2);
         reader.ReadValueSafeTemp(out NativeArray<int> values2);
 
-        for (int i = 0; i < keys.Length; i++) {
+        for (int i = 0; i < keys2.Length; i++) {
             lookup.Add(keys2[i], values2[i]);
         }
 
@@ -160,6 +178,29 @@ public partial class VoxelTerrain {
 
         compressedMaterials.Dispose();
         compressedDensities.Dispose();
+
+        NativeHashMap<int3, NativeBitArray> ignorePropsBitmask = VoxelProps.ignorePropsBitmasks;
+
+        foreach (var item in ignorePropsBitmask) {
+            item.Value.Dispose();
+        }
+        ignorePropsBitmask.Clear();
+        reader.ReadValueSafeTemp(out NativeArray<int3> keys3);
+
+        int bitmaskBufferElemCount = VoxelProps.ignorePropBitmaskBuffer.count;
+        reader.TryBeginRead(bitmaskBufferElemCount * sizeof(uint) * keys3.Length);
+        for (int i = 0; i < keys3.Length; i++) {
+            NativeBitArray outputBitArray = new NativeBitArray(bitmaskBufferElemCount * 32, Allocator.Persistent);
+            //var arr = outputBitArray.AsNativeArray<int>();
+
+            for (int k = 0; k < bitmaskBufferElemCount; k++) {
+                reader.ReadValue(out uint bitmaskElem);
+                outputBitArray.SetBits(k * 32, (ulong)bitmaskElem, 32);
+                //arr[k] = bitmaskElem;
+            }
+
+            ignorePropsBitmask.Add(keys3[i], outputBitArray);
+        }
 
         RequestAll(true, reason: GenerationReason.Deserialized);
         VoxelProps.RegenerateProps();

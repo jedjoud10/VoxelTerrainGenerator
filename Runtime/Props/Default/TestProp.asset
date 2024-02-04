@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: TestProp
   m_EditorClassIdentifier: 
   prefab: {fileID: 900193227329173065, guid: 7b5625836e801c04fbb54c9225ac4663, type: 3}
-  propSpawnBehavior: 3
+  propSpawnBehavior: -1
   maxPropsPerSegment: 2048
   maxPropsInTotal: 524288
   maxVisibleProps: 524288

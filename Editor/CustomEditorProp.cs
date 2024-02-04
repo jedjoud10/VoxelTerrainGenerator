@@ -1,6 +1,6 @@
 ﻿using UnityEditor;
 
-[CustomEditor(typeof(Prop))]
+[CustomEditor(typeof(PropType))]
 public class CustomEditorProp : Editor
 {
     public override void OnInspectorGUI()

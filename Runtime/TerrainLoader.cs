@@ -25,7 +25,6 @@ public class TerrainLoader : MonoBehaviour {
 
     private Vector3 last;
     private VoxelOctree octree;
-    private VoxelProps props;
     public Camera viewCamera;
 
     void Start() {
@@ -41,7 +40,7 @@ public class TerrainLoader : MonoBehaviour {
 
             // Initialize both octree and props
             bool bruhtonium = false;
-            if (octree == null && props == null) {
+            if (octree == null) {
                 octree = VoxelTerrain.Instance.VoxelOctree;
                 octree.targetsLookup.Add(this, octree.targets.Length);
                 octree.targets.Add(new TerrainLoaderTarget {

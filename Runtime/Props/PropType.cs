@@ -6,7 +6,7 @@ using UnityEngine;
 // Ray based method and density based method
 // At further away distances the voxel prop will be swapped out either for a billboard or an indirectly drawn mesh
 [CreateAssetMenu(menuName = "VoxelTerrain/New Voxel prop")]
-public class Prop : ScriptableObject {
+public class PropType : ScriptableObject {
     // Used for LOD0 prop segments; prefabs spawned in the world
     [Header("Behavior")]
     public GameObject prefab;
@@ -52,7 +52,7 @@ public enum PropSpawnBehavior {
     SpawnPrefabs = 1 << 1,
 
     // Swaps out everything for instanced meshes (useful for small rocks or stuff not to be interacted with)
-    OnlyRenderInstances = 1 << 2,
+    //OnlyRenderInstances = 1 << 2,
 }
 
 
@@ -73,8 +73,9 @@ public struct BlittableProp {
     public half4 packed_position_and_scale;
 
     // 3 bytes for rotation (x,y,z)
+    // 1 unused padding byte
     // 2 bytes for dispatch index
     // 1 byte for prop variant
-    // 2 unused padding bytes
+    // 1 unused padding bytes
     public half4 packed_rotation_dispatch_index_prop_variant_padding;
 }

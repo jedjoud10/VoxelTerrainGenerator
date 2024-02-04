@@ -25,6 +25,7 @@ void CSFreeBlockCopy(uint3 id : SV_DispatchThreadID)
 
 	// nothing to spawn
 	if (counter == 0 || baseFreeIndex == 0xffffffff) {
+		segmentIndexCount[segmentLookup * propCount + id.y] = uint2(0, 0);
 		return;
 	}
 

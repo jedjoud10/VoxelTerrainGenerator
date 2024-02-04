@@ -10,6 +10,9 @@ public class PlayerControllerScript : MonoBehaviour {
     private float sizeRadius = 1.0F;
     private byte[] savedBytes;
 
+    private void Start() {
+    }
+
     // Update is called once per frame
     void Update() {
         if (Physics.Raycast(head.transform.position, head.transform.forward * 2, out RaycastHit hit, 500.0F, LayerMask.NameToLayer("Player"))) {
@@ -21,7 +24,7 @@ public class PlayerControllerScript : MonoBehaviour {
                     center = math.float3(hit.point.x, hit.point.y, hit.point.z),
                     radius = sizeRadius,
                     writeMaterial = add,
-                    material = 0,
+                    material = 2,
                 };
 
                 VoxelTerrain.Instance.VoxelEdits.ApplyDynamicEdit(edit);
@@ -33,7 +36,7 @@ public class PlayerControllerScript : MonoBehaviour {
                     radius = sizeRadius,
                     strength = 10.0F * temp,
                     writeMaterial = true,
-                    material = 1,
+                    material = 2,
                 };
 
                 VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit);

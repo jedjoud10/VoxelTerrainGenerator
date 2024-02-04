@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Codice.Client.BaseCommands.BranchExplorer;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -69,6 +70,53 @@ public class SerializableRegistry {
     }
 }
 
+
+public class SerializableManualRegistry {
+    internal Dictionary<byte, IRegistryType> types;
+
+    public SerializableManualRegistry() {
+        types = new Dictionary<byte, IRegistryType>();
+    }
+
+    // Register a new type that we can use going forward
+    public void Register<T>(byte index) where T : struct, INetworkSerializable {
+        types.Add(index, new TypedThingy2<T> {
+            list = new List<T>()
+        });
+    }
+
+    // Add a new object to the registry
+    public int Add<T>(byte index, T val) where T : struct, INetworkSerializable {
+        List<T> list = (List<T>)types[index].List;
+        list.Add(val);
+        return list.Count - 1;
+    }
+
+    // Retrieve the edit at the specific index and specific type
+    public T Get<T>(byte typeIndex, int elementIndex) where T : struct, INetworkSerializable {
+        List<T> list = (List<T>)types[typeIndex].List;
+        return list[elementIndex];
+    }
+
+    public void Serialize(FastBufferWriter writer) {
+        Debug.Log($"Serializing {types.Count} manual registry types");
+        writer.WriteByteSafe((byte)types.Count);
+
+        foreach (var item in types) {
+            item.Value.Serialize(writer);
+        }
+    }
+
+    public void Deserialize(FastBufferReader reader) {
+        reader.ReadByteSafe(out byte count);
+        Debug.Log($"Deserializing {count} manual registry types");
+
+        for (int i = 0; i < count; i++) {
+            types[(byte)i].Deserialize(reader);
+        }
+    }
+}
+
 internal interface IRegistryType {
     public IList List { get; }
     public byte Index { get; }
@@ -97,7 +145,7 @@ struct TypedThingy2<T> : IRegistryType where T : struct, INetworkSerializable {
         reader.ReadByteSafe(out byte tempIndex);
 
         if (tempIndex != index) {
-            Debug.LogError("Mismatch in type!");
+            Debug.LogError("Mismatch in type! Backwards compat isn't implemented yet. Bruhtonium?");
         }
 
         reader.ReadValueSafe(out T[] temp);

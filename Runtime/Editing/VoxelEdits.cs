@@ -32,7 +32,7 @@ public class VoxelEdits : VoxelBehaviour {
 
     // Used to register custom dynamic edit types
     public delegate void RegisterDynamicEditType(SerializableRegistry registry);
-    public event RegisterDynamicEditType registerDynamicEditTypes;
+    public event RegisterDynamicEditType onRegisterDynamicEditTypes;
 
     // Tells us when we can apply edits
     bool applyEdits;
@@ -50,13 +50,13 @@ public class VoxelEdits : VoxelBehaviour {
         terrain.onInitialGenerationDone += () => { applyEdits = true; };
 
         // Register common dynamic edit types
-        registerDynamicEditTypes += (SerializableRegistry registry) => {
+        onRegisterDynamicEditTypes += (SerializableRegistry registry) => {
             registry.Register<SphereDynamicEdit>();
             registry.Register<CuboidDynamicEdit>();
         };
 
         // Register custom dynamic edit types
-        registerDynamicEditTypes?.Invoke(worldEditRegistry);
+        onRegisterDynamicEditTypes?.Invoke(worldEditRegistry);
     }
 
     // Dispose of any memory

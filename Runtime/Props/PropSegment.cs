@@ -14,7 +14,8 @@ public class PropSegment {
     public bool spawnPrefabs;
 
     // Props that are handled by this prop segment
-    public Dictionary<int, List<GameObject>> props;
+    // Assumes that there is a maximum of 1 variant per type per dispatch group
+    public Dictionary<int, (List<GameObject>, List<ushort>)> props;
 
     // Lookup index we use when destroying this prop segment and need to get rid of the billboards
     public int indexRangeLookup;

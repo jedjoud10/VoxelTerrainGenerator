@@ -47,11 +47,21 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs: []
+    m_TexEnvs:
+    - _BaseColorMap:
+        m_Texture: {fileID: 2800000, guid: 125de8a4cbd436a4da433e72c1fd73df, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 2800000, guid: 125de8a4cbd436a4da433e72c1fd73df, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _NormalScale: 0.88
-    - _Smoothness: 0.232
+    - _InvTilingScale: 1
+    - _Metallic: 0.4
+    - _NormalScale: 1
+    - _Smoothness: 0.4
     m_Colors:
     - _BaseColor: {r: 0.3679245, g: 0.3679245, b: 0.3679245, a: 1}
     - _Color: {r: 0.36792448, g: 0.36792448, b: 0.36792448, a: 1}

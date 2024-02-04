@@ -7,6 +7,9 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using System.Linq;
+using static UnityEngine.Rendering.HableCurve;
+using static VoxelEdits;
+using Unity.Netcode;
 
 // Responsible for generating the voxel props on the terrain
 // For this, we must force voxel generation to happen on the CPU so we can execute
@@ -34,7 +37,7 @@ public class VoxelProps : VoxelBehaviour {
 
     // List of props that we will generated based on their index
     [SerializeField]
-    public List<Prop> props;
+    public List<PropType> props;
 
     // Used for prop billboard captures
     [Header("Billboard Capture & Rendering")]
@@ -62,22 +65,27 @@ public class VoxelProps : VoxelBehaviour {
     private ComputeBuffer propSectionOffsetsBuffer;
     private int3[] propSectionOffsets;
 
+    // Temp generation
     private ComputeBuffer tempPropBuffer;
     private ComputeBuffer tempCountBuffer;
     private ComputeBuffer tempIndexBuffer;
     
+    // Perm copy
     private ComputeBuffer permBitmaskBuffer;
     private ComputeBuffer permPropBuffer;
     
+    // Culling and drawing
     private ComputeBuffer culledPropBuffer;
     private ComputeBuffer culledCountBuffer;
     private GraphicsBuffer drawArgsBuffer;
 
+    // Used for lookup and management
     private ComputeBuffer segmentsToRemoveBuffer;
     private ComputeBuffer segmentIndexCountBuffer;
     private NativeBitArray unusedSegmentLookupIndices;
 
-    private int maxTestino;
+    // Maximum value of the perm count of all prop types
+    private int maxPermPropCount;
 
     // Prop segment management and diffing
     private NativeHashSet<int4> propSegments;
@@ -86,8 +94,16 @@ public class VoxelProps : VoxelBehaviour {
     private NativeList<int4> removedSegments;
 
     // Prop segment classes bounded to their positions
-    private Dictionary<int4, PropSegment> propSegmentsDict;
+    internal Dictionary<int4, PropSegment> propSegmentsDict;
 
+    // Affected segment (those that contain modified props)
+    internal NativeHashMap<int3, NativeBitArray> ignorePropsBitmasks;
+    internal ComputeBuffer ignorePropBitmaskBuffer;
+
+    // Is this unoptimized as shit? Yes. But idc for now it works
+    // TODO: FIX PLS
+    internal Dictionary<int4, byte[]> bitmaskIndexToBytes;
+    
     // When we load in a prop segment
     public delegate void PropSegmentLoaded(PropSegment segment);
     public event PropSegmentLoaded onPropSegmentLoaded;
@@ -95,14 +111,6 @@ public class VoxelProps : VoxelBehaviour {
     // When we unload a prop segment
     public delegate void PropSegmentUnloaded(PropSegment segment);
     public event PropSegmentUnloaded onPropSegmentUnloaded;
-
-    // Called when a prop prefab gets spawned in (might be pooled)
-    public delegate void PropPrefabSpawned(Prop type, GameObject prop);
-    public event PropPrefabSpawned onPropPrefabSpawned;
-
-    // Called when a prop prefab gets pooled back (deactivated)
-    public delegate void PropPrefabPooled(Prop type, GameObject prop);
-    public event PropPrefabPooled onPropPrefabPooled;
 
     // Pooled props and prop owners
     private List<GameObject>[] pooledPropGameObjects;
@@ -122,12 +130,13 @@ public class VoxelProps : VoxelBehaviour {
     RenderTexture positionIntersectingTexture;
 
     private bool mustUpdate = false;
-    int asyncRequestsInPocess = 0;
+    private bool lastSegmentWasModified = false;
+    int asyncRequestsInProcess = 0;
 
     // Checks if we completed prop generation
     public bool Free {
         get {
-            return !mustUpdate && pendingSegments.Count == 0;
+            return !mustUpdate && pendingSegments.Count == 0 && asyncRequestsInProcess == 0;
         }
     }
 
@@ -161,6 +170,7 @@ public class VoxelProps : VoxelBehaviour {
         propShader.SetBuffer(0, "tempProps", tempPropBuffer);
         propShader.SetBuffer(0, "tempCounters", tempCountBuffer);
         propShader.SetBuffer(0, "propSectionOffsets", propSectionOffsetsBuffer);
+        propShader.SetBuffer(0, "affectedPropsBitMask", ignorePropBitmaskBuffer);
 
         // Set generation/world settings
         voxelShader.SetFloat("propSegmentWorldSize", VoxelUtils.PropSegmentSize);
@@ -206,7 +216,7 @@ public class VoxelProps : VoxelBehaviour {
         tempIndexBuffer = new ComputeBuffer(props.Count, sizeof(int), ComputeBufferType.Raw);
         int permSum = props.Select(x => x.maxPropsInTotal).Sum();
         int permMax = props.Select(x => x.maxPropsInTotal).Max();
-        maxTestino = permMax;
+        maxPermPropCount = permMax;
         permPropBuffer = new ComputeBuffer(permSum, BlittableProp.size, ComputeBufferType.Structured);
         permBitmaskBuffer = new ComputeBuffer(permMax, sizeof(uint), ComputeBufferType.Structured);
 
@@ -221,9 +231,9 @@ public class VoxelProps : VoxelBehaviour {
         propSectionOffsets = new int3[props.Count];
         segmentIndexCountBuffer = new ComputeBuffer(maxSegments * props.Count, sizeof(uint) * 2, ComputeBufferType.Structured);
         propSegmentDensityVoxels = VoxelUtils.Create3DRenderTexture(propSegmentResolution, GraphicsFormat.R32_SFloat);
-        unusedSegmentLookupIndices = new NativeBitArray(4096, Allocator.Persistent);
+        unusedSegmentLookupIndices = new NativeBitArray(maxSegments, Allocator.Persistent);
         unusedSegmentLookupIndices.Clear();
-        segmentsToRemoveBuffer = new ComputeBuffer(maxSegmentsToRemove, sizeof(int), ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
+        segmentsToRemoveBuffer = new ComputeBuffer(maxSegmentsToRemove, sizeof(int));
 
         // Stuff used for management and addition/removal detection of segments
         propSegmentsDict = new Dictionary<int4, PropSegment>();
@@ -235,6 +245,11 @@ public class VoxelProps : VoxelBehaviour {
         onPropSegmentUnloaded += OnPropSegmentUnload;
         pendingSegments = new Queue<PropSegment>();
 
+        // For now we are going to assume we will spawn only 1 variant of a prop type per segment
+        ignorePropsBitmasks = new NativeHashMap<int3, NativeBitArray>(0, Allocator.Persistent);
+        bitmaskIndexToBytes = new Dictionary<int4, byte[]>();
+        ignorePropBitmaskBuffer = new ComputeBuffer((propSegmentResolution * propSegmentResolution * propSegmentResolution * props.Count) / 32, sizeof(uint));
+
         // Fetch the temp offset, perm offset, visible culled offset
         // Also spawns the object prop type owners and attaches them to the terrain
         int3 last = int3.zero;
@@ -243,7 +258,7 @@ public class VoxelProps : VoxelBehaviour {
             var obj = new GameObject();
             obj.transform.SetParent(transform);
             propOwners[i] = obj;
-            Prop propType = props[i];
+            PropType propType = props[i];
             obj.name = $"'{propType.name}' Props GameObjects";
 
             // We do a considerable amount of trolling
@@ -297,7 +312,7 @@ public class VoxelProps : VoxelBehaviour {
     }
 
     // Capture the albedo, normal, and mask maps from billboarding a prop by spawning it temporarily
-    public IndirectExtraPropData CaptureBillboard(Camera camera, Prop prop) {
+    public IndirectExtraPropData CaptureBillboard(Camera camera, PropType prop) {
         int width = prop.billboardTextureWidth;
         int height = prop.billboardTextureHeight;
         var temp = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32);
@@ -317,6 +332,7 @@ public class VoxelProps : VoxelBehaviour {
 
         // Create a prop fake game object and render the camera
         GameObject faker = Instantiate(prop.prefab);
+        faker.GetComponent<SerializableProp>().OnSpawnCaptureFake();
         faker.layer = 31;
         foreach (Transform item in faker.transform) {
             item.gameObject.layer = 31;
@@ -336,6 +352,7 @@ public class VoxelProps : VoxelBehaviour {
         camera.Render();
         Graphics.CopyTexture(temp, normalTextureOut);
 
+        faker.GetComponent<SerializableProp>().OnDestroyCaptureFake();
         DestroyImmediate(faker);
         temp.DiscardContents(true, true);
         temp.Release();
@@ -349,13 +366,23 @@ public class VoxelProps : VoxelBehaviour {
 
     // Called when a new prop segment is loaded and should be generated
     private void OnPropSegmentLoad(PropSegment segment) {
-        segment.props = new Dictionary<int, List<GameObject>>();
+        segment.props = new Dictionary<int, (List<GameObject>, List<ushort>)>();
 
         // Quit early if we shouldn't do shit
         if (!props.Any(x => x.WillRenderBillboard | (x.WillSpawnPrefab && segment.spawnPrefabs))) {
             return;
         }
 
+        // Set the prop ignore bitmask buffer if needed
+        if (ignorePropsBitmasks.ContainsKey(segment.segmentPosition)) {
+            var bitmask = ignorePropsBitmasks[segment.segmentPosition];
+            lastSegmentWasModified = true;
+            ignorePropBitmaskBuffer.SetData(bitmask.AsNativeArray<int>());
+        } else if (lastSegmentWasModified) {
+            ignorePropBitmaskBuffer.SetData(new int[ignorePropBitmaskBuffer.count]);
+            lastSegmentWasModified = false;
+        }
+        
         // Execute the prop segment voxel cache compute shader
         int _count = VoxelUtils.PropSegmentResolution / 4;
         var voxelShader = terrain.VoxelGenerator.voxelShader;
@@ -374,11 +401,11 @@ public class VoxelProps : VoxelBehaviour {
         if (props.Any(x => x.WillSpawnPrefab) && segment.spawnPrefabs) {
             for (int i = 0; i < props.Count; i++) {
                 if (props[i].WillSpawnPrefab) {
-                    segment.props.Add(i, new List<GameObject>());
+                    segment.props.Add(i, (new List<GameObject>(), new List<ushort>()));
                 }
             }
 
-            asyncRequestsInPocess++;
+            asyncRequestsInProcess++;
 
             // TODO: Use this to eliminate reading back props that won't be spawned
             // must sort out the propSectionOffsets in order of "spawn" order first to do such a thing tho
@@ -398,29 +425,42 @@ public class VoxelProps : VoxelBehaviour {
 
                     NativeArray<BlittableProp> data = asyncRequest.GetData<BlittableProp>();
 
+                    // Spawn all the props for all types
                     for (int i = 0; i < props.Count; i++) {
-                        Prop propType = props[i];
+                        PropType propType = props[i];
                         int offset = propSectionOffsets[i].x;
 
                         if (!propType.WillSpawnPrefab)
                             continue;
 
+                        // Spawn all the props of this specific type
                         for (int k = 0; k < count[i]; k++) {
-                            var prop = data[k + offset];
-                            GameObject propGameObject = FetchPooledProp(i, propType);
-                            onPropPrefabSpawned?.Invoke(propType, propGameObject);
-                            propGameObject.transform.SetParent(propOwners[i].transform);
-                            float3 propPosition = prop.packed_position_and_scale.xyz;
+                            BlittableProp prop = data[k + offset];
 
-                            float propScale = prop.packed_position_and_scale.w;
-                            propGameObject.transform.position = propPosition;
-                            propGameObject.transform.localScale = Vector3.one * propScale;
-                            propGameObject.transform.eulerAngles = VoxelUtils.UncompressPropRotation(ref prop);
-                            segment.props[i].Add(propGameObject);
+                            // This will automatically handle deserialization for us
+                            ushort dispatchIndex = VoxelUtils.FetchPropDispatchGroupIndex(ref prop);
+                            GameObject propGameObject = FetchPooledProp(i, dispatchIndex, segment.segmentPosition, propType);
+                            propGameObject.transform.SetParent(propOwners[i].transform);
+
+                            // Call events
+                            SerializableProp serializableProp = propGameObject.GetComponent<SerializableProp>();
+                            serializableProp.OnPropSpawn(prop);
+
+                            // Uncompress GPU data
+                            float3 position = prop.packed_position_and_scale.xyz;
+                            float scale = prop.packed_position_and_scale.w;
+                            float3 rotation = VoxelUtils.UncompressPropRotation(ref prop);
+
+                            // Set data
+                            propGameObject.transform.position = position;
+                            propGameObject.transform.localScale = Vector3.one * scale;
+                            propGameObject.transform.eulerAngles = rotation;
+                            segment.props[i].Item1.Add(propGameObject);
+                            segment.props[i].Item2.Add(dispatchIndex);
                         }
                     }
 
-                    asyncRequestsInPocess--;
+                    asyncRequestsInProcess--;
                 }
             );
         }
@@ -464,16 +504,17 @@ public class VoxelProps : VoxelBehaviour {
         propFreeBlockCopy.SetBuffer(0, "permProps", permPropBuffer);
 
         int count2 = Mathf.CeilToInt((float)permBitmaskBuffer.count / 32.0f);
-        propFreeBlockCopy.Dispatch(0, maxTestino / 32, props.Count, 1);
+        propFreeBlockCopy.Dispatch(0, maxPermPropCount / 32, props.Count, 1);
     }
 
     // Called when an old prop segment is unloaded
     private void OnPropSegmentUnload(PropSegment segment) {
         foreach (var collection in segment.props) {
-            foreach (var item in collection.Value) {
-                item.SetActive(false);
-                onPropPrefabPooled?.Invoke(props[collection.Key], item);
-                pooledPropGameObjects[collection.Key].Add(item);
+            foreach (var item in collection.Value.Item1) {
+                if (item != null) {
+                    item.SetActive(false);
+                    pooledPropGameObjects[collection.Key].Add(item);
+                }
             }
         }
 
@@ -484,7 +525,8 @@ public class VoxelProps : VoxelBehaviour {
     }
 
     // Fetches a pooled prop, or creates a new one from scratch
-    GameObject FetchPooledProp(int i, Prop propType) {
+    // This will also handle *loading* in custom prop types from memory if there were modified
+    GameObject FetchPooledProp(int i, ushort dispatchIndex, int3 segment, PropType propType) {
         GameObject go;
 
         if (pooledPropGameObjects[i].Count == 0) {
@@ -494,6 +536,15 @@ public class VoxelProps : VoxelBehaviour {
         } else {
             go = pooledPropGameObjects[i][0];
             pooledPropGameObjects[i].RemoveAt(0);
+        }
+
+        // TODO: Cache this, for perf reasons
+        int index = VoxelUtils.FetchPropBitmaskIndex(i, dispatchIndex);
+        if (bitmaskIndexToBytes.TryGetValue(new int4(segment, index), out byte[] bytes)) {
+            // TODO: Make this fast. I can guess that this is slow as shit 
+            var val = go.GetComponent<SerializableProp>();
+            FastBufferReader reader = new FastBufferReader(bytes, Allocator.Temp, bytes.Length, 0);
+            reader.ReadNetworkSerializableInPlace(ref val);
         }
 
         go.SetActive(true);
@@ -533,12 +584,20 @@ public class VoxelProps : VoxelBehaviour {
 
             mustUpdate = false;
             segmentsAwaitingRemoval = removedSegments.Length > 0;
+
+            foreach (var removed in removedSegments) {
+                SerializePropsOnSegmentUnload(removed);
+            }
         }
 
         // When we finished generating all pending segments delete the ones that are pending removal
-        if (pendingSegments.Count == 0 && segmentsAwaitingRemoval && asyncRequestsInPocess == 0) {
-            NativeArray<int> indices = segmentsToRemoveBuffer.BeginWrite<int>(0, removedSegments.Length);
+        if (pendingSegments.Count == 0 && segmentsAwaitingRemoval && asyncRequestsInProcess == 0) {
+            segmentsAwaitingRemoval = false;
+            if (removedSegments.Length == 0) {
+                return;
+            }
 
+            int[] indices = Enumerable.Repeat(-1, maxSegmentsToRemove).ToArray();
             for (int i = 0; i < removedSegments.Length; i++) {
                 var pos = removedSegments[i];
                 if (propSegmentsDict.Remove(pos, out PropSegment val)) {
@@ -549,25 +608,21 @@ public class VoxelProps : VoxelBehaviour {
                 }
             }
 
-            segmentsToRemoveBuffer.EndWrite<int>(removedSegments.Length);
-
             // TODO: Test fluke? One time when tested (spaz) shit didn't work. DEBUG PLS
-            if (removedSegments.Length > 0) {
-                removePropSegments.SetInt("segmentsToRemoveCount", removedSegments.Length);
-                removePropSegments.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
-                removePropSegments.SetBuffer(0, "segmentIndices", segmentsToRemoveBuffer);
-                removePropSegments.SetBuffer(0, "segmentIndexCount", segmentIndexCountBuffer);
-                removePropSegments.SetInt("propCount", props.Count);
-                removePropSegments.Dispatch(0, Mathf.CeilToInt((float)removedSegments.Length / 32.0f), 1, 1);
-            }
-
-            segmentsAwaitingRemoval = false;
+            // Also figure out why this causes a dx11 driver crash lel
+            segmentsToRemoveBuffer.SetData(indices);
+            removePropSegments.SetInt("segmentsToRemoveCount", removedSegments.Length);
+            removePropSegments.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
+            removePropSegments.SetBuffer(0, "segmentIndices", segmentsToRemoveBuffer);
+            removePropSegments.SetBuffer(0, "segmentIndexCount", segmentIndexCountBuffer);
+            removePropSegments.SetInt("propCount", props.Count);
+            removePropSegments.Dispatch(0, Mathf.CeilToInt((float)removedSegments.Length / 32.0f), 1, 1);
         }
 
         // Start generating the first pending segment we find
         PropSegment result;
         if (pendingSegments.TryPeek(out result)) {
-            if (asyncRequestsInPocess == 0) {
+            if (asyncRequestsInProcess == 0) {
                 pendingSegments.Dequeue();
                 onPropSegmentLoaded.Invoke(result);
             }
@@ -585,7 +640,7 @@ public class VoxelProps : VoxelBehaviour {
         culledCountBuffer.SetData(new int[props.Count]);
         propCullingCopy.SetBuffer(0, "propSectionOffsets", propSectionOffsetsBuffer);
 
-        int count = Mathf.CeilToInt((float)maxTestino / 32.0f);
+        int count = Mathf.CeilToInt((float)maxPermPropCount / 32.0f);
         propCullingCopy.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
         propCullingCopy.SetBuffer(0, "permProps", permPropBuffer);
         propCullingCopy.SetBuffer(0, "culledProps", culledPropBuffer);
@@ -603,13 +658,60 @@ public class VoxelProps : VoxelBehaviour {
         // Render all billboarded/instanced prop types using a single command per type
         for (int i = 0; i < props.Count; i++) {
             IndirectExtraPropData extraData = extraPropData[i];
-            Prop prop = props[i];
+            PropType prop = props[i];
             RenderBillboardsOfType(i, extraData, prop);
         }
     }
 
+    // Called whenever we want to serialize the data for a prop and save it to memory/disk
+    // Is called automatically when we unload the segment, but also when we serialize the terrain
+    internal void SerializePropsOnSegmentUnload(int4 removed) {
+        if (propSegmentsDict.TryGetValue(removed, out PropSegment segment)) {
+            foreach (var collection in segment.props) {
+                for (int i = 0; i < collection.Value.Item1.Count; i++) {
+                    GameObject prop = collection.Value.Item1[i];
+                    ushort dispatchIndex = collection.Value.Item2[i];
+                    int index = VoxelUtils.FetchPropBitmaskIndex(collection.Key, dispatchIndex);
+
+                    // Set the prop as "destroyed"
+                    if (prop == null) {
+                        // Initialize this segment as a "modified" segment that will read from the prop ignore bitmask
+                        if (!ignorePropsBitmasks.ContainsKey(segment.segmentPosition)) {
+                            ignorePropsBitmasks.Add(segment.segmentPosition, new NativeBitArray(ignorePropBitmaskBuffer.count * 32, Allocator.Persistent));
+                        }
+
+                        // Write the affected bit to the buffer to tell the compute shader
+                        // to no longer spawn this prop
+                        NativeBitArray bitmask = ignorePropsBitmasks[segment.segmentPosition];
+                        bitmask.Set(index, true);
+                        bitmaskIndexToBytes.Remove(index);
+                    } else {
+                        // Check if the prop was "modified"
+                        var serializableProp = prop.GetComponent<SerializableProp>();
+                        if (serializableProp.wasModified) {
+                            FastBufferWriter writer = new FastBufferWriter(32, Allocator.Temp, 32);
+                            if (serializableProp.bitmaskIndex == -1) {
+                                serializableProp.bitmaskIndex = bitmaskIndexToBytes.Count;
+                            }
+
+                            writer.WriteNetworkSerializable(serializableProp);
+
+                            int4 indexer = new int4(segment.segmentPosition, index);
+                            byte[] bytes = writer.ToArray();
+                            if (bitmaskIndexToBytes.ContainsKey(indexer)) {
+                                bitmaskIndexToBytes[indexer] = bytes;
+                            } else {
+                                bitmaskIndexToBytes.Add(index, bytes);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Render the billboards for a specific type of prop type
-    private void RenderBillboardsOfType(int i, IndirectExtraPropData extraData, Prop prop) {
+    private void RenderBillboardsOfType(int i, IndirectExtraPropData extraData, PropType prop) {
         ShadowCastingMode shadowCastingMode = prop.billboardCastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
         RenderParams renderParams = new RenderParams(billboardMaterialBase);
         renderParams.shadowCastingMode = shadowCastingMode;
@@ -665,5 +767,12 @@ public class VoxelProps : VoxelBehaviour {
         tempPropBuffer.Dispose();
         propSectionOffsetsBuffer.Dispose();
         unusedSegmentLookupIndices.Dispose();
+        ignorePropBitmaskBuffer.Dispose();
+
+        foreach (var item in ignorePropsBitmasks) {
+            item.Value.Dispose();
+        }
+
+        ignorePropsBitmasks.Dispose();
     }
 }

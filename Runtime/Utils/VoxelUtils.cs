@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.CompilerServices;
 using Unity.Burst.CompilerServices;
 using Unity.Collections;
@@ -296,4 +297,13 @@ public static class VoxelUtils {
         return new Vector3(Single(xRot), Single(yRot), Single(zRot));
     }
 
+    // Fetch the dispatch group index from blittable prop
+    public static ushort FetchPropDispatchGroupIndex(ref BlittableProp prop) {
+        return prop.packed_rotation_dispatch_index_prop_variant_padding.z.value;
+    }
+
+    // Convert local prop type dispatch index to global per segment bitmask index
+    public static int FetchPropBitmaskIndex(int propType, ushort dispatchIndex) {
+        return dispatchIndex + (PropSegmentResolution * PropSegmentResolution * PropSegmentResolution * propType);
+    }
 }
