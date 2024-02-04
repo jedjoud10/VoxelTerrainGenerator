@@ -156,17 +156,6 @@ public class VoxelProps : VoxelBehaviour {
         }
     }
 
-    // Clear out all the props and regenerate them
-    public void RegenerateProps() {
-        if (mustUpdate)
-            return;
-
-        foreach (var item in propSegmentsDict) {
-            onPropSegmentUnloaded?.Invoke(item.Value);
-            pendingSegments.Enqueue(item.Value);
-        }
-    }
-
     // Update the static world generation fields (will also update the seed)
     public void UpdateStaticComputeFields() {
         var permutationSeed = terrain.VoxelGenerator.permutationSeed;
@@ -492,34 +481,41 @@ public class VoxelProps : VoxelBehaviour {
         }
 
         // Find a free index that we can for indirectly referencing ranges and count buffers
-        segment.indexRangeLookup = unusedSegmentLookupIndices.Find(0, 1);
-        unusedSegmentLookupIndices.Set(segment.indexRangeLookup, true);
+        int lookup = unusedSegmentLookupIndices.Find(0, 1);
 
-        // Run the "find" shader that will find free indices that we can copy our temp memory into
-        tempIndexBuffer.SetData(Enumerable.Repeat(uint.MaxValue, props.Count).ToArray());
-        propFreeBlockSearch.SetInt("enabledProps", billboardMask);
-        propFreeBlockSearch.SetBuffer(0, "tempCounters", tempCountBuffer);
-        propFreeBlockSearch.SetBuffer(0, "tempIndices", tempIndexBuffer);
-        propFreeBlockSearch.SetBuffer(0, "propSectionOffsets", propSectionOffsetsBuffer);
-        propFreeBlockSearch.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
-        int count = Mathf.CeilToInt((float)permBitmaskBuffer.count / (32.0f));
-        propFreeBlockSearch.Dispatch(0, count, props.Count, 1);
+        if (lookup < unusedSegmentLookupIndices.Length) {
+            segment.indexRangeLookup = lookup;
+            unusedSegmentLookupIndices.Set(segment.indexRangeLookup, true);
 
-        // Copy the generated prop data to the perm data using a single compute dispatch
-        propFreeBlockCopy.SetInt("propCount", props.Count);
-        propFreeBlockCopy.SetBuffer(0, "propSectionOffsets", propSectionOffsetsBuffer);
-        propFreeBlockCopy.SetInt("segmentLookup", segment.indexRangeLookup);
-        propFreeBlockCopy.SetBuffer(0, "segmentIndexCount", segmentIndexCountBuffer);
-        propFreeBlockCopy.SetBuffer(0, "tempCounters", tempCountBuffer);
+            // Run the "find" shader that will find free indices that we can copy our temp memory into
+            tempIndexBuffer.SetData(Enumerable.Repeat(uint.MaxValue, props.Count).ToArray());
+            propFreeBlockSearch.SetInt("enabledProps", billboardMask);
+            propFreeBlockSearch.SetBuffer(0, "tempCounters", tempCountBuffer);
+            propFreeBlockSearch.SetBuffer(0, "tempIndices", tempIndexBuffer);
+            propFreeBlockSearch.SetBuffer(0, "propSectionOffsets", propSectionOffsetsBuffer);
+            propFreeBlockSearch.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
+            int count = Mathf.CeilToInt((float)permBitmaskBuffer.count / (32.0f));
+            propFreeBlockSearch.Dispatch(0, count, props.Count, 1);
 
-        propFreeBlockCopy.SetBuffer(0, "tempIndices", tempIndexBuffer);
-        propFreeBlockCopy.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
+            // Copy the generated prop data to the perm data using a single compute dispatch
+            propFreeBlockCopy.SetInt("propCount", props.Count);
+            propFreeBlockCopy.SetBuffer(0, "propSectionOffsets", propSectionOffsetsBuffer);
+            propFreeBlockCopy.SetInt("segmentLookup", segment.indexRangeLookup);
+            propFreeBlockCopy.SetBuffer(0, "segmentIndexCount", segmentIndexCountBuffer);
+            propFreeBlockCopy.SetBuffer(0, "tempCounters", tempCountBuffer);
 
-        propFreeBlockCopy.SetBuffer(0, "tempProps", tempPropBuffer);
-        propFreeBlockCopy.SetBuffer(0, "permProps", permPropBuffer);
+            propFreeBlockCopy.SetBuffer(0, "tempIndices", tempIndexBuffer);
+            propFreeBlockCopy.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
 
-        int count2 = Mathf.CeilToInt((float)permBitmaskBuffer.count / 32.0f);
-        propFreeBlockCopy.Dispatch(0, maxPermPropCount / 32, props.Count, 1);
+            propFreeBlockCopy.SetBuffer(0, "tempProps", tempPropBuffer);
+            propFreeBlockCopy.SetBuffer(0, "permProps", permPropBuffer);
+
+            int count2 = Mathf.CeilToInt((float)permBitmaskBuffer.count / 32.0f);
+            propFreeBlockCopy.Dispatch(0, maxPermPropCount / 32, props.Count, 1);
+        } else {
+            segment.indexRangeLookup = -1;
+            Debug.LogWarning("Could not find a free bit, skipping segment gen");
+        }
     }
 
     // Called when an old prop segment is unloaded
@@ -536,6 +532,7 @@ public class VoxelProps : VoxelBehaviour {
         if (segment.indexRangeLookup != -1) {
             unusedSegmentLookupIndices.Set(segment.indexRangeLookup, false);
         }
+        segment.indexRangeLookup = -1;
         segment.props = null;
     }
 
@@ -555,16 +552,6 @@ public class VoxelProps : VoxelBehaviour {
 
         // TODO: Cache this, for perf reasons
         int index = VoxelUtils.FetchPropBitmaskIndex(i, dispatchIndex);
-
-        /*
-        if (bitmaskIndexToBytes.TryGetValue(new int4(segment, index), out byte[] bytes)) {
-            // TODO: Make this fast. I can guess that this is slow as shit 
-            var val = go.GetComponent<SerializableProp>();
-            FastBufferReader reader = new FastBufferReader(bytes, Allocator.Temp, bytes.Length, 0);
-            reader.ReadNetworkSerializableInPlace(ref val);
-        }
-        */
-
         if (globalBitmaskIndexToLookup.TryGetValue(new int4(segment, index), out int elementLookup)) {
             // TODO: Make this fast. I can guess that this is slow as shit 
             var val = go.GetComponent<SerializableProp>();
@@ -763,6 +750,36 @@ public class VoxelProps : VoxelBehaviour {
                     }
                 }
             }
+        }
+    }
+
+    // Clear out all the props and regenerate them
+    // This will reset all buffers, bitmasks, EVERYTHING
+    public void RegenerateProps() {
+        if (mustUpdate)
+            return;
+
+        // Secondary buffers used for temp -> perm data copy
+        tempIndexBuffer.SetData(new int[props.Count]);
+        int permSum = props.Select(x => x.maxPropsInTotal).Sum();
+        int permMax = props.Select(x => x.maxPropsInTotal).Max();
+        int visibleSum = props.Select(x => x.maxVisibleProps).Sum();
+
+        permPropBuffer.SetData(new BlittableProp[permSum]);
+        permBitmaskBuffer.SetData(new uint[permMax]);
+
+        // Tertiary buffers used for culling
+        culledCountBuffer.SetData(new int[props.Count]);
+        drawArgsBuffer.SetData(new GraphicsBuffer.IndirectDrawIndexedArgs[props.Count]);
+        culledPropBuffer.SetData(new BlittableProp[visibleSum]);
+
+        // Other stuff (still related to prop gen and GPU alloc)
+        segmentIndexCountBuffer.SetData(new uint[maxSegments * props.Count * 2]);
+        unusedSegmentLookupIndices.Clear();
+        
+        foreach (var item in propSegmentsDict) {
+            onPropSegmentUnloaded?.Invoke(item.Value);
+            pendingSegments.Enqueue(item.Value);
         }
     }
 

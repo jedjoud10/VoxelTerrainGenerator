@@ -18,8 +18,8 @@ MonoBehaviour:
   maxPropsInTotal: 524288
   maxVisibleProps: 524288
   billboardCaptureCameraScale: 6.5
-  billboardTextureWidth: 64
-  billboardTextureHeight: 256
+  billboardTextureWidth: 32
+  billboardTextureHeight: 128
   billboardTextureFilterMode: 0
   billboardCaptureRotation: {x: 0, y: 35, z: 0}
   billboardCapturePosition: {x: 0, y: -7, z: 5}

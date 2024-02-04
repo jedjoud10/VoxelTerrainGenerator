@@ -243,6 +243,7 @@ public partial class VoxelTerrain {
         }
 
         RequestAll(true, reason: GenerationReason.Deserialized);
+        VoxelProps.UpdateStaticComputeFields();
         VoxelProps.RegenerateProps();
     }
 }
