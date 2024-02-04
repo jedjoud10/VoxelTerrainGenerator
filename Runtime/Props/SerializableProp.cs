@@ -12,8 +12,11 @@ public abstract class SerializableProp : MonoBehaviour, INetworkSerializable {
     // Set the prop as modified, forcing us to serialize it
     public bool wasModified = false;
 
-    // Dispatch group ID bitmask index used for loading and saving
-    public int bitmaskIndex = -1;
+    // Dispatch group ID bitmask index used for loading and saving 
+    public int ElementIndex { internal set; get; } = -1;
+
+    // Stride of the byte data we will be writing
+    public abstract int Stride { get; }
 
     // Called when the fake gameobject for capturing gets spawned
     public virtual void OnSpawnCaptureFake() { }

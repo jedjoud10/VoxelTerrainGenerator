@@ -4,6 +4,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Netcode;
 using UnityEngine;
+using static VoxelProps;
 
 // Extension of the main voxel terrain to load / read from fast buffer writer / reader
 public partial class VoxelTerrain {
@@ -79,6 +80,22 @@ public partial class VoxelTerrain {
         foreach (var item in values) {
             var bitmaskArr = item.AsNativeArray<uint>();
             for (int i = 0; i < count; i++) {
+                writer.WriteValue(bitmaskArr[i]);
+            }
+        }
+
+        NativeHashMap<int4, int> globalBitmaskIndexToLookup = VoxelProps.globalBitmaskIndexToLookup;
+        writer.WriteValueSafe(globalBitmaskIndexToLookup.GetKeyArray(Allocator.Temp));
+        writer.WriteValueSafe(globalBitmaskIndexToLookup.GetValueArray(Allocator.Temp));
+
+        foreach (var data in VoxelProps.propTypeSerializedData) {
+            writer.WriteValueSafe(data.rawBytes.AsArray());
+
+            var bitmaskArr = data.set.AsNativeArray<uint>();
+
+            // TODO: This div won't do well with non 32 aligned per segment max limits
+            writer.TryBeginWrite(bitmaskArr.Length * sizeof(uint));
+            for (int i = 0; i < bitmaskArr.Length; i++) {
                 writer.WriteValue(bitmaskArr[i]);
             }
         }
@@ -196,10 +213,34 @@ public partial class VoxelTerrain {
             for (int k = 0; k < bitmaskBufferElemCount; k++) {
                 reader.ReadValue(out uint bitmaskElem);
                 outputBitArray.SetBits(k * 32, (ulong)bitmaskElem, 32);
-                //arr[k] = bitmaskElem;
             }
 
             ignorePropsBitmask.Add(keys3[i], outputBitArray);
+        }
+
+        NativeHashMap<int4, int> globalBitmaskIndexToLookup = VoxelProps.globalBitmaskIndexToLookup;
+        globalBitmaskIndexToLookup.Clear();
+
+        reader.ReadValueSafeTemp(out NativeArray<int4> globalBitmaskIndexToLookupKeys);
+        reader.ReadValueSafeTemp(out NativeArray<int> globalBitmaskIndexToLookupValues);
+
+        for (int i = 0; i < globalBitmaskIndexToLookupKeys.Length; i++) {
+            globalBitmaskIndexToLookup.Add(globalBitmaskIndexToLookupKeys[i], globalBitmaskIndexToLookupValues[i]);
+        }
+
+        for (int i = 0; i < VoxelProps.props.Count; i++) {
+            PropTypeSerializedData data = VoxelProps.propTypeSerializedData[i];
+
+            reader.ReadValueSafeTemp(out NativeArray<byte> tempArray);
+            data.rawBytes.AddRange(tempArray);
+
+            // TODO: This div won't do well with non 32 aligned per segment max limits
+            int uintCount = data.set.Length / 32;
+            reader.TryBeginRead(uintCount * sizeof(uint));
+            for (int k = 0; k < uintCount; k++) {
+                reader.ReadValue(out uint bitmaskElem);
+                data.set.SetBits(k * 32, (ulong)bitmaskElem, 32);
+            }
         }
 
         RequestAll(true, reason: GenerationReason.Deserialized);

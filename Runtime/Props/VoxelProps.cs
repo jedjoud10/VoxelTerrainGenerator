@@ -99,10 +99,17 @@ public class VoxelProps : VoxelBehaviour {
     // Affected segment (those that contain modified props)
     internal NativeHashMap<int3, NativeBitArray> ignorePropsBitmasks;
     internal ComputeBuffer ignorePropBitmaskBuffer;
+        
+    // Lookup used for storing and referncing modified but not deleted props
+    internal NativeHashMap<int4, int> globalBitmaskIndexToLookup;
 
-    // Is this unoptimized as shit? Yes. But idc for now it works
-    // TODO: FIX PLS
-    internal Dictionary<int4, byte[]> bitmaskIndexToBytes;
+    // Actual data that will be stored per prop type
+    internal struct PropTypeSerializedData {
+        public NativeList<byte> rawBytes;
+        public int stride;
+        public NativeBitArray set;
+    }
+    internal NativeArray<PropTypeSerializedData> propTypeSerializedData; 
     
     // When we load in a prop segment
     public delegate void PropSegmentLoaded(PropSegment segment);
@@ -247,8 +254,9 @@ public class VoxelProps : VoxelBehaviour {
 
         // For now we are going to assume we will spawn only 1 variant of a prop type per segment
         ignorePropsBitmasks = new NativeHashMap<int3, NativeBitArray>(0, Allocator.Persistent);
-        bitmaskIndexToBytes = new Dictionary<int4, byte[]>();
         ignorePropBitmaskBuffer = new ComputeBuffer((propSegmentResolution * propSegmentResolution * propSegmentResolution * props.Count) / 32, sizeof(uint));
+        globalBitmaskIndexToLookup = new NativeHashMap<int4, int>(0, Allocator.Persistent);
+        propTypeSerializedData = new NativeArray<PropTypeSerializedData>(props.Count, Allocator.Persistent);
 
         // Fetch the temp offset, perm offset, visible culled offset
         // Also spawns the object prop type owners and attaches them to the terrain
@@ -269,6 +277,13 @@ public class VoxelProps : VoxelBehaviour {
                 propType.maxVisibleProps
             );
             last += offset;
+
+            int stride = propType.prefab.GetComponent<SerializableProp>().Stride;
+            propTypeSerializedData[i] = new PropTypeSerializedData {
+                rawBytes = new NativeList<byte>(Allocator.Persistent),
+                set = new NativeBitArray(offset.x, Allocator.Persistent),
+                stride = stride,
+            };
         }
 
         // Used to create our textures
@@ -540,11 +555,24 @@ public class VoxelProps : VoxelBehaviour {
 
         // TODO: Cache this, for perf reasons
         int index = VoxelUtils.FetchPropBitmaskIndex(i, dispatchIndex);
+
+        /*
         if (bitmaskIndexToBytes.TryGetValue(new int4(segment, index), out byte[] bytes)) {
             // TODO: Make this fast. I can guess that this is slow as shit 
             var val = go.GetComponent<SerializableProp>();
             FastBufferReader reader = new FastBufferReader(bytes, Allocator.Temp, bytes.Length, 0);
             reader.ReadNetworkSerializableInPlace(ref val);
+        }
+        */
+
+        if (globalBitmaskIndexToLookup.TryGetValue(new int4(segment, index), out int elementLookup)) {
+            // TODO: Make this fast. I can guess that this is slow as shit 
+            var val = go.GetComponent<SerializableProp>();
+            var data = propTypeSerializedData[i];
+            FastBufferReader reader = new FastBufferReader(data.rawBytes.AsArray(), Allocator.Temp, data.stride, data.stride * elementLookup);
+            reader.ReadNetworkSerializableInPlace(ref val);
+            reader.Dispose();
+            val.ElementIndex = elementLookup;
         }
 
         go.SetActive(true);
@@ -668,10 +696,16 @@ public class VoxelProps : VoxelBehaviour {
     internal void SerializePropsOnSegmentUnload(int4 removed) {
         if (propSegmentsDict.TryGetValue(removed, out PropSegment segment)) {
             foreach (var collection in segment.props) {
+                var propData = propTypeSerializedData[collection.Key];
+                int stride = propData.stride;
+                NativeList<byte> rawBytes = propData.rawBytes;
+                NativeBitArray free = propData.set;
+
                 for (int i = 0; i < collection.Value.Item1.Count; i++) {
                     GameObject prop = collection.Value.Item1[i];
                     ushort dispatchIndex = collection.Value.Item2[i];
                     int index = VoxelUtils.FetchPropBitmaskIndex(collection.Key, dispatchIndex);
+                    int4 indexer = new int4(segment.segmentPosition, index);
 
                     // Set the prop as "destroyed"
                     if (prop == null) {
@@ -684,26 +718,48 @@ public class VoxelProps : VoxelBehaviour {
                         // to no longer spawn this prop
                         NativeBitArray bitmask = ignorePropsBitmasks[segment.segmentPosition];
                         bitmask.Set(index, true);
-                        bitmaskIndexToBytes.Remove(index);
+
+                        // Set the bit back to "free" since we're deleting the prop
+                        if (globalBitmaskIndexToLookup.TryGetValue(index, out int lookup)) {
+                            free.Set(lookup, false);
+                        }
+
+                        globalBitmaskIndexToLookup.Remove(indexer);
                     } else {
                         // Check if the prop was "modified"
                         var serializableProp = prop.GetComponent<SerializableProp>();
+
                         if (serializableProp.wasModified) {
                             FastBufferWriter writer = new FastBufferWriter(32, Allocator.Temp, 32);
-                            if (serializableProp.bitmaskIndex == -1) {
-                                serializableProp.bitmaskIndex = bitmaskIndexToBytes.Count;
+
+                            // If we don't have an index, find a free one using the bitmask
+                            if (serializableProp.ElementIndex == -1) {
+                                serializableProp.ElementIndex = free.Find(0, 1);
+                                free.Set(serializableProp.ElementIndex, true);
                             }
 
+                            // Write the prop data
                             writer.WriteNetworkSerializable(serializableProp);
+                            NativeArray<byte> tempBytes = new NativeArray<byte>(writer.ToArray(), Allocator.Temp);
 
-                            int4 indexer = new int4(segment.segmentPosition, index);
-                            byte[] bytes = writer.ToArray();
-                            if (bitmaskIndexToBytes.ContainsKey(indexer)) {
-                                bitmaskIndexToBytes[indexer] = bytes;
+                            // Either copy the memory (update) or add it
+                            int currentElementCount = rawBytes.Length / stride;
+                            int currentByteOffset = serializableProp.ElementIndex * stride;
+                            if (serializableProp.ElementIndex >= currentElementCount) {
+                                rawBytes.AddRange(tempBytes);
                             } else {
-                                bitmaskIndexToBytes.Add(index, bytes);
+                                // TODO: Change this for a proper memcpy
+                                for (int j = 0; j < stride; j++) {
+                                    rawBytes[j + currentByteOffset] = tempBytes[j];
+                                }
                             }
+
+                            writer.Dispose();
+
+                            globalBitmaskIndexToLookup.TryAdd(indexer, serializableProp.ElementIndex);
                         }
+
+                        serializableProp.wasModified = false;
                     }
                 }
             }
@@ -774,5 +830,12 @@ public class VoxelProps : VoxelBehaviour {
         }
 
         ignorePropsBitmasks.Dispose();
+        globalBitmaskIndexToLookup.Dispose();
+
+        foreach (var item in propTypeSerializedData) {
+            item.rawBytes.Dispose();
+            item.set.Dispose();
+        }
+        propTypeSerializedData.Dispose();
     }
 }
