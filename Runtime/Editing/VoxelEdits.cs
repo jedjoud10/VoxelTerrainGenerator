@@ -125,11 +125,11 @@ public class VoxelEdits : VoxelBehaviour {
                 position = node.position,
                 scalingFactor = node.scalingFactor,
                 densities = new NativeArray<half>(VoxelUtils.Volume, Allocator.Persistent),
-                materials = new NativeArray<ushort>(VoxelUtils.Volume, Allocator.Persistent),
+                materials = new NativeArray<byte>(VoxelUtils.Volume, Allocator.Persistent),
             };
 
             for (int i = 0; i < VoxelUtils.Volume; i++) {
-                data.materials[i] = ushort.MaxValue;
+                data.materials[i] = byte.MaxValue;
             }
 
             sparseVoxelData.Add(data);

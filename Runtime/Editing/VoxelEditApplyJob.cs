@@ -10,10 +10,10 @@ public struct VoxelEditApplyJob : IJobParallelFor {
 
     public void Execute(int index) {
         half deltaDensity = data.densities[index];
-        ushort deltaMaterial = data.materials[index];
+        byte deltaMaterial = data.materials[index];
         Voxel cur = voxels[index];
 
-        if (deltaMaterial != ushort.MaxValue) {
+        if (deltaMaterial != byte.MaxValue) {
             cur.material = deltaMaterial;
         }
 

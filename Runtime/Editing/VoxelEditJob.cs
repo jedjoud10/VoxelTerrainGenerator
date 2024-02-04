@@ -17,7 +17,7 @@ struct VoxelEditJob<T> : IJobParallelFor
 
     public T edit;
     public NativeArray<half> densities;
-    public NativeArray<ushort> materials;
+    public NativeArray<byte> materials;
 
     public void Execute(int index) {
         uint3 id = VoxelUtils.IndexToPos(index);
@@ -36,7 +36,7 @@ struct VoxelEditJob<T> : IJobParallelFor
         //position += math.float3((chunkOffset - (scalingFactor * size / (size - 3.0f)) * 0.5f));
 
         // Read, modify, write
-        ushort material = materials[index];
+        byte material = materials[index];
         half density = VoxelUtils.NormalizeHalf(densities[index]);
         Voxel output = edit.Modify(position, new Voxel { material = material, density = density });
         materials[index] = output.material;

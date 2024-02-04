@@ -6,32 +6,13 @@ using UnityEngine;
 
 // Decompression job that we will apply over each voxel chunk to decompress its data for loading
 [BurstCompile(CompileSynchronously = true)]
-internal struct DecompressionJob : IJob {
+internal struct VoxelDecompressionJob : IJob {
     [WriteOnly]
     public NativeArray<half> densitiesOut;
-    [WriteOnly]
-    public NativeArray<ushort> materialsOut;
-
-    [ReadOnly]
-    public NativeList<uint> materialsIn;
     [ReadOnly]
     public NativeList<byte> densitiesIn;
 
-
-
     public void Execute() {
-        int materialOffset = 0;
-        for (int j = 0; j < materialsIn.Length; j++) {
-            uint packed = materialsIn[j];
-            (int targetCount, ushort material) = VoxelUtils.UnpackMaterialRle(packed);
-
-            for (int k = 0; k < targetCount; k++) {
-                materialsOut[k + materialOffset] = material;
-            }
-
-            materialOffset += targetCount;
-        }
-
         int densityOffset = 0;
         int i = 0;
         ushort newDensity = ushort.MaxValue;

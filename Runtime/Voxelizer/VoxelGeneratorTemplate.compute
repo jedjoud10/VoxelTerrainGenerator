@@ -24,7 +24,7 @@ void VoxelAt(float3 position, out float density, out uint material) {
 	mixer = smoothstep(0, 1, saturate(2 * (mixer - 0.5) + 0.5));
 
 	density = position.y + lerp(density1, density2, mixer);
-	material = 0;
+	material = sdBox(position, float3(10, 500, 10)) < 0 ? 1 : 0;
 }
 
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Voxelizer/VoxelGeneratorEnd.cginc"

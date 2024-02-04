@@ -5,31 +5,13 @@ using Unity.Mathematics;
 
 // Compression job that we will apply over each voxel chunk to compress its data for serialization
 [BurstCompile(CompileSynchronously = true)]
-internal struct CompressionJob : IJob {
+internal struct VoxelCompressionJob : IJob {
     [ReadOnly]
     public NativeArray<half> densitiesIn;
-    [ReadOnly]
-    public NativeArray<ushort> materialsIn;
-
-    [WriteOnly]
-    public NativeList<uint> materialsOut;
     [WriteOnly]
     public NativeList<byte> densitiesOut;
 
     public void Execute() {
-        ushort lastMaterial = materialsIn[0];
-        int materialCount = 0;
-        for (int i = 0; i < materialsIn.Length; i++) {
-            ushort cur = materialsIn[i];
-            if (cur == lastMaterial) {
-                materialCount++;
-            } else {
-                materialsOut.Add(VoxelUtils.PackMaterialRle(materialCount, lastMaterial));
-                lastMaterial = cur;
-                materialCount = 1;
-            }
-        }
-
         ushort lastDensity = VoxelUtils.AsUshort(densitiesIn[0]);
         int densityCount = 0;
         bool rlePerfect = true;

@@ -8,7 +8,7 @@ public struct SphereVoxelEdit : IVoxelEdit {
     [ReadOnly] public float3 center;
     [ReadOnly] public float radius;
     [ReadOnly] public float strength;
-    [ReadOnly] public ushort material;
+    [ReadOnly] public byte material;
     [ReadOnly] public bool writeMaterial;
 
     public JobHandle Apply(SparseVoxelDeltaData data) {

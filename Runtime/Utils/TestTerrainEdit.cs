@@ -16,7 +16,7 @@ public class TestTerrainEdit : MonoBehaviour {
     private bool isApplied = false;
     public bool writeMaterial;
     public float strength;
-    public ushort material;
+    public byte material;
 
     private void Update() {
         if (!isApplied && VoxelTerrain.Instance != null && VoxelTerrain.Instance.Free && VoxelTerrain.Instance.FinishedInit) {

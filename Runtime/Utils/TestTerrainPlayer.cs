@@ -1,4 +1,5 @@
-﻿using Unity.Collections;
+﻿using System.IO;
+using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Netcode;
 using UnityEngine;
@@ -8,7 +9,6 @@ public class PlayerControllerScript : MonoBehaviour {
     public GameObject head;
     public GameObject indicator;
     private float sizeRadius = 1.0F;
-    private byte[] savedBytes;
 
     private void Start() {
     }
@@ -52,13 +52,18 @@ public class PlayerControllerScript : MonoBehaviour {
         sizeRadius += Input.mouseScrollDelta.y * Time.deltaTime * 45.0F;
         sizeRadius = Mathf.Clamp(sizeRadius, 0, 500);
 
+        string path = Application.persistentDataPath + "/terrain.world";
         if (Input.GetKeyDown(KeyCode.V)) {
             FastBufferWriter writer = new FastBufferWriter(1024 * 1024 * 5, Allocator.Persistent);
             VoxelTerrain.Instance.Serialize(ref writer);
-            savedBytes = writer.ToArray();
+            byte[] bytes = writer.ToArray();
+
+            File.WriteAllBytes(path, bytes);
+            Debug.Log("Saved the file to path: " + path);
             writer.Dispose();
         } else if (Input.GetKeyDown(KeyCode.B)) {
-            FastBufferReader reader = new FastBufferReader(savedBytes, Allocator.Persistent);
+            byte[] bytes = File.ReadAllBytes(path);
+            FastBufferReader reader = new FastBufferReader(bytes, Allocator.Persistent);
             VoxelTerrain.Instance.Deserialize(ref reader);
             reader.Dispose();
         }

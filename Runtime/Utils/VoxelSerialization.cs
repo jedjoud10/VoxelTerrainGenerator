@@ -36,14 +36,18 @@ public partial class VoxelTerrain {
 
         writer.WriteValueSafe(VoxelEdits.sparseVoxelData.Count);
         foreach (var data in VoxelEdits.sparseVoxelData) {
-            CompressionJob encode = new CompressionJob {
-                materialsOut = compressedMaterials,
+            VoxelCompressionJob voxelEncode = new VoxelCompressionJob {
                 densitiesOut = compressedDensities,
-                materialsIn = data.materials,
                 densitiesIn = data.densities,
             };
 
-            encode.Schedule().Complete();
+            RleCompressionJob rleEncode = new RleCompressionJob {
+                bytesIn = data.materials,
+                uintsOut = compressedMaterials,
+            };
+
+            rleEncode.Schedule().Complete();
+            voxelEncode.Schedule().Complete();
 
             int compressedBytes = compressedDensities.Length + compressedMaterials.Length * 4;
             arr[(int)Math.Log(data.scalingFactor, 2.0f)] = compressedBytes;
@@ -92,12 +96,7 @@ public partial class VoxelTerrain {
             writer.WriteValueSafe(data.rawBytes.AsArray());
 
             var bitmaskArr = data.set.AsNativeArray<uint>();
-
-            // TODO: This div won't do well with non 32 aligned per segment max limits
-            writer.TryBeginWrite(bitmaskArr.Length * sizeof(uint));
-            for (int i = 0; i < bitmaskArr.Length; i++) {
-                writer.WriteValue(bitmaskArr[i]);
-            }
+            writer.WriteValueSafe(bitmaskArr);
         }
 
         Debug.LogWarning($"Finished serializing the terrain! Final size: {writer.Position} bytes");
@@ -149,7 +148,7 @@ public partial class VoxelTerrain {
         for (int i = 0; i < Mathf.Max(missing, 0); i++) {
             sparse.Add(new SparseVoxelDeltaData {
                 densities = new NativeArray<half>(VoxelUtils.Volume, Allocator.Persistent),
-                materials = new NativeArray<ushort>(VoxelUtils.Volume, Allocator.Persistent),
+                materials = new NativeArray<byte>(VoxelUtils.Volume, Allocator.Persistent),
             });
         }
 
@@ -182,14 +181,19 @@ public partial class VoxelTerrain {
             compressedDensities.AddRange(compDensArr);
             compressedMaterials.AddRange(compMatArr);
 
-            DecompressionJob decode = new DecompressionJob {
+            VoxelDecompressionJob decode = new VoxelDecompressionJob {
                 densitiesIn = compressedDensities,
-                materialsIn = compressedMaterials,
                 densitiesOut = data.densities,
-                materialsOut = data.materials,
+            };
+
+            RleDecompressionJob rleDecode = new RleDecompressionJob {
+                defaultValue = byte.MaxValue,
+                bytesOut = data.materials,
+                uintsIn = compressedMaterials,
             };
 
             decode.Schedule().Complete();
+            rleDecode.Schedule().Complete();
             sparse[i] = data;
         }
 
@@ -234,13 +238,8 @@ public partial class VoxelTerrain {
             reader.ReadValueSafeTemp(out NativeArray<byte> tempArray);
             data.rawBytes.AddRange(tempArray);
 
-            // TODO: This div won't do well with non 32 aligned per segment max limits
-            int uintCount = data.set.Length / 32;
-            reader.TryBeginRead(uintCount * sizeof(uint));
-            for (int k = 0; k < uintCount; k++) {
-                reader.ReadValue(out uint bitmaskElem);
-                data.set.SetBits(k * 32, (ulong)bitmaskElem, 32);
-            }
+            reader.ReadValueSafeTemp(out NativeArray<uint> temp);
+            data.set.AsNativeArray<uint>().CopyFrom(temp);
         }
 
         RequestAll(true, reason: GenerationReason.Deserialized);

@@ -11,12 +11,16 @@ public struct Voxel {
     public half density;
 
     // Material of the voxel that depicts its color and other parameters
-    public ushort material;
+    public byte material;
+
+    // Free padding byte yeaaa
+    public byte _padding;
 
     // Empty voxel with the empty material
     public readonly static Voxel Empty = new Voxel {
         density = half.zero,
-        material = ushort.MaxValue
+        material = byte.MaxValue,
+        _padding = 0,
     };
 }
 
@@ -36,9 +40,9 @@ public struct SparseVoxelDeltaData {
     // Densities that we will compress using a lossless compression algorithm
     public NativeArray<half> densities;
 
-    // Ushorts that we will compress using RLE
-    // ushort.max represents a value that the user has not modified yet
-    public NativeArray<ushort> materials;
+    // Byte that we will compress using RLE
+    // byte.max represents a value that the user has not modified yet
+    public NativeArray<byte> materials;
 
     // Job handle for the "apply" task for this sparse voxel data
     public JobHandle applyJobHandle;

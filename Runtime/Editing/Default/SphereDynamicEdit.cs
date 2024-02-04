@@ -9,7 +9,7 @@ using UnityEngine;
 public struct SphereDynamicEdit : IDynamicEdit {
     [ReadOnly] public float3 center;
     [ReadOnly] public float radius;
-    [ReadOnly] public ushort material;
+    [ReadOnly] public byte material;
     [ReadOnly] public bool writeMaterial;
     public bool Enabled => true;
 

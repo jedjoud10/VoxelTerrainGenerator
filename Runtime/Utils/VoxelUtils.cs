@@ -210,25 +210,6 @@ public static class VoxelUtils {
         return (half)mixed6;
     }
 
-    // Pack an RLE ushort into it's compressed form
-    public static uint PackMaterialRle(int count, ushort value) {
-        uint newVal = (uint)math.clamp(value, 0, byte.MaxValue);
-
-        return (uint)count << 8 | newVal;
-    }
-    
-    // Unpack an RLE struct into it's tuple data
-    public static (int, ushort) UnpackMaterialRle(uint data) {
-        int count = (int)(data & ~0xFF) >> 8;
-        ushort value = (byte)(data & 0xFF);
-
-        if (value == byte.MaxValue) {
-            value = ushort.MaxValue;
-        }
-
-        return (count, value);
-    }
-
     // Check if we can use delta compression using the current and last densities
     // Basically checks if the 9 bit MSBs are equal
     public static bool CouldDelta(ushort last, ushort current) {
