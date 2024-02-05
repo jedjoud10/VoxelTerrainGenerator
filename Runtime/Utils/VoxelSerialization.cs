@@ -14,6 +14,8 @@ public partial class VoxelTerrain {
             return;
         }
 
+        System.Diagnostics.Stopwatch sw = new();
+        sw.Start();
         onSerializeStart?.Invoke();
         Debug.LogWarning("Serializing terrain using FastBufferWriter...");
         writer.WriteValueSafe(VoxelGenerator.seed);
@@ -80,26 +82,35 @@ public partial class VoxelTerrain {
         NativeArray<NativeBitArray> values = ignoredProps.GetValueArray(Allocator.Temp);
 
         int count = VoxelProps.ignorePropBitmaskBuffer.count;
-        writer.TryBeginWrite(count * sizeof(uint) * values.Length);
         foreach (var item in values) {
             var bitmaskArr = item.AsNativeArray<uint>();
-            for (int i = 0; i < count; i++) {
-                writer.WriteValue(bitmaskArr[i]);
-            }
+            writer.WriteValueSafe(bitmaskArr);
         }
 
         NativeHashMap<int4, int> globalBitmaskIndexToLookup = VoxelProps.globalBitmaskIndexToLookup;
         writer.WriteValueSafe(globalBitmaskIndexToLookup.GetKeyArray(Allocator.Temp));
         writer.WriteValueSafe(globalBitmaskIndexToLookup.GetValueArray(Allocator.Temp));
 
+        NativeList<uint> compressedBitmask = new NativeList<uint>(Allocator.TempJob);
+
         foreach (var data in VoxelProps.propTypeSerializedData) {
             writer.WriteValueSafe(data.rawBytes.AsArray());
 
-            var bitmaskArr = data.set.AsNativeArray<uint>();
-            writer.WriteValueSafe(bitmaskArr);
-        }
+            var bitmaskArr = data.set.AsNativeArray<byte>();
 
-        Debug.LogWarning($"Finished serializing the terrain! Final size: {writer.Position} bytes");
+            compressedBitmask.Clear();
+            RleCompressionJob rleEncodeJob = new RleCompressionJob {
+                bytesIn = bitmaskArr,
+                uintsOut = compressedBitmask,
+            };
+
+            rleEncodeJob.Schedule().Complete();
+            
+            writer.WriteValueSafe(compressedBitmask.AsArray());
+        }
+        compressedBitmask.Dispose();
+
+        Debug.LogWarning($"Finished serializing the terrain! Final size: {writer.Position} bytes, took {sw.ElapsedMilliseconds}ms");
         onSerializeFinish?.Invoke();
     }
 
@@ -109,6 +120,8 @@ public partial class VoxelTerrain {
             return;
         }
 
+        System.Diagnostics.Stopwatch sw = new();
+        sw.Start();
         onDeserializeStart?.Invoke();
         Debug.LogWarning("Deserializing terrain using FastBufferReader...");
         reader.ReadValueSafe(out VoxelGenerator.seed);
@@ -121,6 +134,7 @@ public partial class VoxelTerrain {
         reader.ReadValueSafeTemp(out NativeArray<VoxelEditOctreeNode> nodes);
         VoxelEdits.nodes.Clear();
         VoxelEdits.nodes.AddRange(nodes);
+        nodes.Dispose();
 
         NativeHashMap<VoxelEditOctreeNode.RawNode, int> chunkLookup = VoxelEdits.chunkLookup;
         chunkLookup.Clear();
@@ -130,6 +144,8 @@ public partial class VoxelTerrain {
         for (int i = 0; i < keys.Length; i++) {
             chunkLookup.Add(keys[i], values[i]);
         }
+        keys.Dispose();
+        values.Dispose();
 
         NativeHashMap<int, int> lookup = VoxelEdits.lookup;
         lookup.Clear();
@@ -139,6 +155,8 @@ public partial class VoxelTerrain {
         for (int i = 0; i < keys2.Length; i++) {
             lookup.Add(keys2[i], values2[i]);
         }
+        keys2.Dispose();
+        values2.Dispose();
 
         reader.ReadValueSafe(out int sparseVoxelDataCount);
 
@@ -161,9 +179,6 @@ public partial class VoxelTerrain {
 
         int count = sparse.Count;
 
-        NativeList<byte> compressedDensities = new NativeList<byte>(Allocator.TempJob);
-        NativeList<uint> compressedMaterials = new NativeList<uint>(Allocator.TempJob);
-
         for (int i = 0; i < count; i++) {
             SparseVoxelDeltaData data = sparse[i];
 
@@ -174,12 +189,8 @@ public partial class VoxelTerrain {
 
             reader.ReadValueSafe(out data.scalingFactor);
 
-            compressedDensities.Clear();
-            compressedMaterials.Clear();
-            reader.ReadValueSafeTemp(out NativeArray<byte> compDensArr);
-            reader.ReadValueSafeTemp(out NativeArray<uint> compMatArr);
-            compressedDensities.AddRange(compDensArr);
-            compressedMaterials.AddRange(compMatArr);
+            reader.ReadValueSafe(out NativeArray<byte> compressedDensities, Allocator.TempJob);
+            reader.ReadValueSafe(out NativeArray<uint> compressedMaterials, Allocator.TempJob);
 
             VoxelDecompressionJob decode = new VoxelDecompressionJob {
                 densitiesIn = compressedDensities,
@@ -195,10 +206,9 @@ public partial class VoxelTerrain {
             decode.Schedule().Complete();
             rleDecode.Schedule().Complete();
             sparse[i] = data;
+            compressedDensities.Dispose();
+            compressedMaterials.Dispose();
         }
-
-        compressedMaterials.Dispose();
-        compressedDensities.Dispose();
 
         NativeHashMap<int3, NativeBitArray> ignorePropsBitmask = VoxelProps.ignorePropsBitmasks;
 
@@ -209,15 +219,12 @@ public partial class VoxelTerrain {
         reader.ReadValueSafeTemp(out NativeArray<int3> keys3);
 
         int bitmaskBufferElemCount = VoxelProps.ignorePropBitmaskBuffer.count;
-        reader.TryBeginRead(bitmaskBufferElemCount * sizeof(uint) * keys3.Length);
         for (int i = 0; i < keys3.Length; i++) {
             NativeBitArray outputBitArray = new NativeBitArray(bitmaskBufferElemCount * 32, Allocator.Persistent);
-            //var arr = outputBitArray.AsNativeArray<int>();
 
-            for (int k = 0; k < bitmaskBufferElemCount; k++) {
-                reader.ReadValue(out uint bitmaskElem);
-                outputBitArray.SetBits(k * 32, (ulong)bitmaskElem, 32);
-            }
+            reader.ReadValueSafeTemp(out NativeArray<uint> temp);
+            outputBitArray.AsNativeArrayExt<uint>().CopyFrom(temp);
+            temp.Dispose();
 
             ignorePropsBitmask.Add(keys3[i], outputBitArray);
         }
@@ -234,14 +241,23 @@ public partial class VoxelTerrain {
 
         for (int i = 0; i < VoxelProps.props.Count; i++) {
             PropTypeSerializedData data = VoxelProps.propTypeSerializedData[i];
+            data.rawBytes.Clear();
 
             reader.ReadValueSafeTemp(out NativeArray<byte> tempArray);
             data.rawBytes.AddRange(tempArray);
+            tempArray.Dispose();
 
-            reader.ReadValueSafeTemp(out NativeArray<uint> temp);
-            data.set.AsNativeArray<uint>().CopyFrom(temp);
+            reader.ReadValueSafe(out NativeArray<uint> uintIn, Allocator.TempJob);
+            RleDecompressionJob rleDecodeJob = new RleDecompressionJob {
+                uintsIn = uintIn,
+                bytesOut = data.set.AsNativeArrayExt<byte>(),
+            };
+
+            rleDecodeJob.Schedule().Complete();
+            uintIn.Dispose();
         }
 
+        Debug.LogWarning($"Finished loading terrain, took, {sw.ElapsedMilliseconds}ms");
         RequestAll(true, reason: GenerationReason.Deserialized);
         VoxelProps.UpdateStaticComputeFields();
         VoxelProps.RegenerateProps();

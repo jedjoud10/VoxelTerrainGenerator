@@ -381,7 +381,7 @@ public class VoxelProps : VoxelBehaviour {
         if (ignorePropsBitmasks.ContainsKey(segment.segmentPosition)) {
             var bitmask = ignorePropsBitmasks[segment.segmentPosition];
             lastSegmentWasModified = true;
-            ignorePropBitmaskBuffer.SetData(bitmask.AsNativeArray<int>());
+            ignorePropBitmaskBuffer.SetData(bitmask.AsNativeArrayExt<int>());
         } else if (lastSegmentWasModified) {
             ignorePropBitmaskBuffer.SetData(new int[ignorePropBitmaskBuffer.count]);
             lastSegmentWasModified = false;
@@ -777,6 +777,8 @@ public class VoxelProps : VoxelBehaviour {
         segmentIndexCountBuffer.SetData(new uint[maxSegments * props.Count * 2]);
         unusedSegmentLookupIndices.Clear();
         
+        // WARNING: This causes GC.Collect spikes since we set a bunch of stuff null so it collects them automatically
+        // what we should do instead is only regenerate the chunks that have been modified instead
         foreach (var item in propSegmentsDict) {
             onPropSegmentUnloaded?.Invoke(item.Value);
             pendingSegments.Enqueue(item.Value);

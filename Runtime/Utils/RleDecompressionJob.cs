@@ -8,7 +8,7 @@ internal struct RleDecompressionJob : IJob {
     [WriteOnly]
     public NativeArray<byte> bytesOut;
     [ReadOnly]
-    public NativeList<uint> uintsIn;
+    public NativeArray<uint> uintsIn;
 
     // 1 BYTES FOR DATA, 3 BYTES FOR COUNT
     // MAX COUNT: 16 MIL

@@ -10,7 +10,7 @@ internal struct VoxelDecompressionJob : IJob {
     [WriteOnly]
     public NativeArray<half> densitiesOut;
     [ReadOnly]
-    public NativeList<byte> densitiesIn;
+    public NativeArray<byte> densitiesIn;
 
     public void Execute() {
         int densityOffset = 0;
