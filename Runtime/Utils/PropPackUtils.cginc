@@ -41,5 +41,5 @@ float4 UnpackPositionAndScale(uint2 packed) {
 }
 
 uint UnpackVariant(uint2 packed) {
-	return packed.y >> 24;
+	return packed.y >> 16;
 }

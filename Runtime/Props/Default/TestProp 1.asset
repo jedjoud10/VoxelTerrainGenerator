@@ -25,7 +25,7 @@ MonoBehaviour:
   billboardTextureWidth: 64
   billboardTextureHeight: 64
   billboardTextureFilterMode: 0
-  billboardSize: {x: 2.5, y: 2.5}
-  billboardOffset: {x: 0, y: 0, z: 0}
+  billboardSize: {x: 20, y: 20}
+  billboardOffset: {x: 0, y: 4.18, z: 0}
   billboardRestrictRotationY: 0
   billboardCastShadows: 1

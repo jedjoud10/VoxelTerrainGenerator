@@ -27,7 +27,7 @@ MonoBehaviour:
   maxVisibleProps: 524288
   billboardTextureWidth: 64
   billboardTextureHeight: 256
-  billboardTextureFilterMode: 1
+  billboardTextureFilterMode: 0
   billboardSize: {x: 4.2, y: 14}
   billboardOffset: {x: 0, y: 6.5, z: 0}
   billboardRestrictRotationY: 1

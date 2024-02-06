@@ -52,8 +52,8 @@ public class PlayerControllerScript : MonoBehaviour {
         sizeRadius += Input.mouseScrollDelta.y * Time.deltaTime * 45.0F;
         sizeRadius = Mathf.Clamp(sizeRadius, 0, 500);
 
-        string path = Application.persistentDataPath + "/terrain.world";
         if (Input.GetKeyDown(KeyCode.V)) {
+            string path = Application.persistentDataPath + "/terrain.world";
             FastBufferWriter writer = new FastBufferWriter(1024 * 1024 * 5, Allocator.Persistent);
             VoxelTerrain.Instance.Serialize(ref writer);
             byte[] bytes = writer.ToArray();
@@ -62,6 +62,7 @@ public class PlayerControllerScript : MonoBehaviour {
             Debug.Log("Saved the file to path: " + path);
             writer.Dispose();
         } else if (Input.GetKeyDown(KeyCode.B)) {
+            string path = Application.persistentDataPath + "/terrain.world";
             byte[] bytes = File.ReadAllBytes(path);
             FastBufferReader reader = new FastBufferReader(bytes, Allocator.Persistent);
             VoxelTerrain.Instance.Deserialize(ref reader);

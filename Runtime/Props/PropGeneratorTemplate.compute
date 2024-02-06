@@ -11,6 +11,7 @@ void PropsAt(uint3 id, float3 position) {
 	float mixer = snoise(position.xz * 0.0003) * 0.5 + 0.5;
 	mixer = smoothstep(0, 1, mixer - 0.4) * 1;
 
+	/*
 	float3 randomOffset = (2 * hash33(position) - 1) * float3(10, 0, 10);
 	float3 treePos = position + randomOffset;
 	HitRay hit1 = CheckRay(treePos);
@@ -18,14 +19,14 @@ void PropsAt(uint3 id, float3 position) {
 	if (treePos.y > -50 && treePos.y < 50 && (hash13(treePos) < 0.2) && hit1.hit && mixer < 0.005 && dot(float3(0, 1, 0), hit1.normals) > 0.4) {
 		Spawn(hit1.position, 1.0, float3(0, 0, 0), 0, round(hash13(treePos * 3.123 - 15.694)), id);
 	}
-
+	*/
 
 	float3 randomOffset2 = (2 * hash33(position * 2 + 0.588456) - 1) * 8;
 	float3 rockPos = position + randomOffset2;
 	HitRay hit2 = CheckRay(rockPos);
 
 	if (rockPos.y > -10 && rockPos.y < 600 && hash13(rockPos) < 0.002 && hit2.hit && mixer > 0.02) {
-		Spawn(hit2.position, 1.0 + hash13(position) * 6, hash33(position) * 180, 1, 0, id);
+		Spawn(hit2.position, 8, hash33(position) * 180, 1, 0, id);
 	}
 }
 

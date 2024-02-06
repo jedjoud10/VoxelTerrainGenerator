@@ -125,7 +125,7 @@ public class VoxelProps : VoxelBehaviour {
     // Pooled props and prop owners
     // TODO: Optimize
     private List<List<GameObject>>[] pooledPropGameObjects;
-    private GameObject[] propOwners;
+    private GameObject propOwner;
 
     // Pending prop segment to generated and to be deleted
     internal Queue<PropSegment> pendingSegments;
@@ -205,7 +205,8 @@ public class VoxelProps : VoxelBehaviour {
         // Pooling game object stuff
         segmentsAwaitingRemoval = false;
         pooledPropGameObjects = new List<List<GameObject>>[props.Count];
-        propOwners = new GameObject[props.Count];
+        propOwner = new GameObject("Props Owner GameObject");
+        propOwner.transform.SetParent(transform);
 
         // Temp buffers used for first step in prop generation
         int tempSum = props.Select(x => x.maxPropsPerSegment).Sum();
@@ -256,15 +257,10 @@ public class VoxelProps : VoxelBehaviour {
         int3 last = int3.zero;
         for (int i = 0; i < props.Count; i++) {
             pooledPropGameObjects[i] = new List<List<GameObject>>();
-            for (int j = 0; j < props[i].variants.Count; j++) {
+            PropType propType = props[i];
+            for (int j = 0; j < propType.variants.Count; j++) {
                 pooledPropGameObjects[i].Add(new List<GameObject>());
             }
-
-            var obj = new GameObject();
-            obj.transform.SetParent(transform);
-            propOwners[i] = obj;
-            PropType propType = props[i];
-            obj.name = $"'{propType.name}' Props GameObjects";
 
             // We do a considerable amount of trolling
             propSectionOffsets[i] = last;
@@ -455,11 +451,20 @@ public class VoxelProps : VoxelBehaviour {
                             // This will automatically handle deserialization for us
                             ushort dispatchIndex = prop.dispatchIndex;
                             byte variant = prop.variant;
-                            GameObject propGameObject = FetchPooledProp(i, variant, dispatchIndex, segment.segmentPosition, propType);
-                            propGameObject.transform.SetParent(propOwners[i].transform);
+                            GameObject propGameObject = FetchPooledProp(i, variant, propType);
 
-                            // Call events
+                            // TODO: Cache this, for perf reasons
                             SerializableProp serializableProp = propGameObject.GetComponent<SerializableProp>();
+                            int index = VoxelUtils.FetchPropBitmaskIndex(i, dispatchIndex);
+                            if (globalBitmaskIndexToLookup.TryGetValue(new int4(segment.segmentPosition, index), out int elementLookup)) {
+                                serializableProp.Variant = variant;
+                                var serializedData = propTypeSerializedData[i];
+                                FastBufferReader reader = new FastBufferReader(serializedData.rawBytes.AsArray(), Allocator.Temp, serializedData.stride, serializedData.stride * elementLookup);
+                                reader.ReadNetworkSerializableInPlace(ref serializableProp);
+                                reader.Dispose();
+                                serializableProp.ElementIndex = elementLookup;
+                            }
+
                             serializableProp.OnPropSpawn(prop);
 
                             // Uncompress GPU data
@@ -552,29 +557,16 @@ public class VoxelProps : VoxelBehaviour {
 
     // Fetches a pooled prop, or creates a new one from scratch
     // This will also handle *loading* in custom prop types from memory if there were modified
-    GameObject FetchPooledProp(int i, int variant, ushort dispatchIndex, int3 segment, PropType propType) {
+    GameObject FetchPooledProp(int i, int variant, PropType propType) {
         GameObject go;
 
         if (pooledPropGameObjects[i][variant].Count == 0) {
             GameObject obj = Instantiate(propType.variants[variant].prefab);
-            obj.transform.SetParent(transform, false);
+            obj.transform.SetParent(propOwner.transform, false);
             go = obj;
         } else {
             go = pooledPropGameObjects[i][variant][0];
             pooledPropGameObjects[i][variant].RemoveAt(0);
-        }
-
-        // TODO: Cache this, for perf reasons
-        int index = VoxelUtils.FetchPropBitmaskIndex(i, dispatchIndex);
-        if (globalBitmaskIndexToLookup.TryGetValue(new int4(segment, index), out int elementLookup)) {
-            // TODO: Make this fast. I can guess that this is slow as shit 
-            var val = go.GetComponent<SerializableProp>();
-            val.Variant = variant;
-            var data = propTypeSerializedData[i];
-            FastBufferReader reader = new FastBufferReader(data.rawBytes.AsArray(), Allocator.Temp, data.stride, data.stride * elementLookup);
-            reader.ReadNetworkSerializableInPlace(ref val);
-            reader.Dispose();
-            val.ElementIndex = elementLookup;
         }
 
         go.SetActive(true);
