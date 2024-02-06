@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -7,9 +9,16 @@ using UnityEngine;
 // At further away distances the voxel prop will be swapped out either for a billboard or an indirectly drawn mesh
 [CreateAssetMenu(menuName = "VoxelTerrain/New Voxel prop")]
 public class PropType : ScriptableObject {
-    // Used for LOD0 prop segments; prefabs spawned in the world
+    [Serializable]
+    public class PropVariantType {
+        public GameObject prefab;
+        public float billboardCaptureCameraScale = 10.0f;
+        public Vector3 billboardCaptureRotation = Vector3.zero;
+        public Vector3 billboardCapturePosition = new Vector3(10, 0, 0);
+    }
+
     [Header("Behavior")]
-    public GameObject prefab;
+    public List<PropVariantType> variants;
     public PropSpawnBehavior propSpawnBehavior = PropSpawnBehavior.RenderBillboards | PropSpawnBehavior.SpawnPrefabs;
 
     // Max number of props per segment and PER ALL segments
@@ -18,19 +27,16 @@ public class PropType : ScriptableObject {
     [Min(1)] public int maxPropsInTotal = 4096;
     [Min(1)] public int maxVisibleProps = 4096;
 
-    // Settings related to how we will generate the billboards
+    // Capture settings that apply for ALL variants
     [Header("Billboard Capture")]
-    public float billboardCaptureCameraScale = 10.0f;
     public int billboardTextureWidth = 256;
     public int billboardTextureHeight = 256;
     public FilterMode billboardTextureFilterMode = FilterMode.Bilinear;
-    public Vector3 billboardCaptureRotation = Vector3.zero;
-    public Vector3 billboardCapturePosition = new Vector3(10, 0, 0);
-
-    // How to show the billboard
-    [Header("Billboard Rendering")]
     public Vector2 billboardSize = Vector2.one * 10;
     public Vector3 billboardOffset;
+
+    // How to show the billboard that apply for ALL variants
+    [Header("Billboard Rendering")]
     public bool billboardRestrictRotationY = false;
     public bool billboardCastShadows = false;
 
@@ -57,25 +63,39 @@ public enum PropSpawnBehavior {
 
 
 // Extra data that tells us how to render billboarded/instanced props
+// Textures stored as arrays so we can have multiple variants
 public class IndirectExtraPropData {
-    public Texture2D billboardAlbedoTexture;
-    public Texture2D billboardNormalTexture;
+    public Texture2DArray billboardAlbedoTexture;
+    public Texture2DArray billboardNormalTexture;
 }
 
 
 // Blittable prop definition (that is also copied on the GPU compute shader)
 // World pos, world rot, world scale
+[StructLayout(LayoutKind.Sequential)]
 public struct BlittableProp {
     // Size in bytes of the blittable prop
-    public const int size = 16; 
+    public const int size = 16;
 
-    // 2 bytes for x,y,z and w (scale)
-    public half4 packed_position_and_scale;
+    public half pos_x;
+    public half pos_y;
+    public half pos_z;
+    public half scale;
 
     // 3 bytes for rotation (x,y,z)
+    public byte rot_x;
+    public byte rot_y;
+    public byte rot_z;
+    
     // 1 unused padding byte
+    public byte _padding;
+
     // 2 bytes for dispatch index
+    public ushort dispatchIndex;
+
     // 1 byte for prop variant
+    public byte variant;
+
     // 1 unused padding bytes
-    public half4 packed_rotation_dispatch_index_prop_variant_padding;
+    public byte _padding1;
 }

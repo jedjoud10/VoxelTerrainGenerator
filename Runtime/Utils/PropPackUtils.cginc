@@ -1,3 +1,7 @@
+// NOTE: For some fucking reason whenever we read the data on the CPU
+// endianess / byte order is fucked and the lowest byte is actually the highest idk
+// Will need to figure out why this happens later on but for now it works ok
+
 uint2 PackPositionAndScale(float3 position, float scale) {
 	uint x = f32tof16(position.x);
 	uint y = f32tof16(position.y);
@@ -23,8 +27,9 @@ uint2 PackRotationAndVariantAndId(float3 rotation, uint propVariant, uint id) {
 	uint y = NormalizeAndPackAngle(rotation.y);
 	uint z = NormalizeAndPackAngle(rotation.z);
 	uint rots = x | (y << 8) | (z << 16);
-	uint theRest = id;
-	return uint2(rots, theRest);
+	uint rest = id | (propVariant << 16);
+
+	return uint2(rots, rest);
 }
 
 float4 UnpackPositionAndScale(uint2 packed) {
@@ -35,6 +40,6 @@ float4 UnpackPositionAndScale(uint2 packed) {
 	return float4(x, y, z, w);
 }
 
-float3 UnpackRotation(uint2 packed) {
-	return float3(0, 0, 0);
+uint UnpackVariant(uint2 packed) {
+	return packed.y >> 24;
 }

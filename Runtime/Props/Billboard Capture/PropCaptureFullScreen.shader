@@ -62,7 +62,6 @@ Shader "FullScreen/NewFullScreenCustomPass"
         }
         
         float alpha = LOAD_TEXTURE2D_X(_GBufferTexture0, posInput.positionSS).a;
-        //color += LOAD_TEXTURE2D_X(_GBufferTexture2, posInput.positionSS) - 0.5;
 
         return float4(color, alpha);
     }

@@ -18,6 +18,9 @@ public abstract class SerializableProp : MonoBehaviour, INetworkSerializable {
     // Stride of the byte data we will be writing
     public abstract int Stride { get; }
 
+    // Variant of the prop type
+    public int Variant { get; internal set; }
+
     // Called when the fake gameobject for capturing gets spawned
     public virtual void OnSpawnCaptureFake() { }
 

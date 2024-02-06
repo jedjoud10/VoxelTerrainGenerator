@@ -79,6 +79,20 @@
         {
             "m_OutputSlot": {
                 "m_Node": {
+                    "m_Id": "6307140567f64de5a9a728f66c9d84fa"
+                },
+                "m_SlotId": 5
+            },
+            "m_InputSlot": {
+                "m_Node": {
+                    "m_Id": "c982b0fd2ef6442d92bdbf4c25f13867"
+                },
+                "m_SlotId": 4
+            }
+        },
+        {
+            "m_OutputSlot": {
+                "m_Node": {
                     "m_Id": "69fb53017fdd4c148e983247d9ec6e53"
                 },
                 "m_SlotId": 0
@@ -166,6 +180,21 @@
 }
 
 {
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
+    "m_ObjectId": "232cccfd03e1436fb7ebd5fe63e7ad5e",
+    "m_Id": 4,
+    "m_DisplayName": "variant",
+    "m_SlotType": 0,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "variant",
+    "m_StageCapability": 3,
+    "m_Value": 0.0,
+    "m_DefaultValue": 0.0,
+    "m_Labels": []
+}
+
+{
     "m_SGVersion": 1,
     "m_Type": "UnityEditor.ShaderGraph.CustomFunctionNode",
     "m_ObjectId": "6307140567f64de5a9a728f66c9d84fa",
@@ -189,6 +218,9 @@
         },
         {
             "m_Id": "6f773b7a87fe477499ffca18bed81c9c"
+        },
+        {
+            "m_Id": "a4d05ca6a0494628ad3d7d6ffb590786"
         },
         {
             "m_Id": "84229bd7f62a4838b57aac03b0783c75"
@@ -458,6 +490,21 @@
 {
     "m_SGVersion": 0,
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
+    "m_ObjectId": "a4d05ca6a0494628ad3d7d6ffb590786",
+    "m_Id": 5,
+    "m_DisplayName": "variant",
+    "m_SlotType": 1,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "variant",
+    "m_StageCapability": 3,
+    "m_Value": 0.0,
+    "m_DefaultValue": 0.0,
+    "m_Labels": []
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "b1f3727a3f29441e896ba104ddc30da4",
     "m_Id": 0,
     "m_DisplayName": "i",
@@ -489,6 +536,9 @@
         }
     },
     "m_Slots": [
+        {
+            "m_Id": "232cccfd03e1436fb7ebd5fe63e7ad5e"
+        },
         {
             "m_Id": "f955ded8bb3c4fc8875d48400b60d761"
         },

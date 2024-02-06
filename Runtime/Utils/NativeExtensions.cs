@@ -7,9 +7,13 @@ public static class NativeExtensions {
     // (all love no hate)
     // TODO: Submit bug report
     public static NativeArray<T> AsNativeArrayExt<T>(this NativeBitArray self) where T : unmanaged {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         AtomicSafetyHandle handle = NativeBitArrayUnsafeUtility.GetAtomicSafetyHandle(self);
+#endif
         var arr = self.AsNativeArray<T>();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         NativeBitArrayUnsafeUtility.SetAtomicSafetyHandle(ref self, handle);
+#endif
         return arr;
     }
 }

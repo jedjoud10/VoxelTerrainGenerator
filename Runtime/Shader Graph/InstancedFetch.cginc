@@ -12,12 +12,12 @@ StructuredBuffer<BlittableProp> _BlittablePropBuffer;
 
 StructuredBuffer<int3> _PropSectionOffsets;
 
-void MyFunctionA_float(float i, float propType, out float3 position, out float scale, out float3 rotation)
+void MyFunctionA_float(float i, float propType, out float variant, out float3 position, out float scale, out float3 rotation)
 {
     BlittableProp prop = _BlittablePropBuffer[(int)i + _PropSectionOffsets[(int)propType].z];
 
     float4 unpackedPosScale = UnpackPositionAndScale(prop.packed_position_and_scale);
-    //float4 unpackedRotation = UnpackRotationAndId(prop.packed_euler_angles_padding);
+    variant = UnpackVariant(prop.packed_euler_angles_id);
     position = unpackedPosScale.xyz;
     scale = unpackedPosScale.w;
     rotation = float3(0, 0, 0);

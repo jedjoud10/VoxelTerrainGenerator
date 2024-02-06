@@ -262,10 +262,7 @@ public static class VoxelUtils {
 
     // Uncompress the rotation of a blittable prop type
     public static Vector3 UncompressPropRotation(ref BlittableProp prop) {
-        half2 damn = prop.packed_rotation_dispatch_index_prop_variant_padding.xy;
-        uint rotationBytes = (uint)damn.x.value | ((uint)damn.y.value << 16);
-        (byte _, byte zRotByte, byte yRotByte, byte xRotByte) = VoxelUtils.UintToBytes(rotationBytes);
-        return UncompressPropRotationFromRaw(xRotByte, yRotByte, zRotByte);
+        return UncompressPropRotationFromRaw(prop.rot_x, prop.rot_y, prop.rot_z);
     }
 
     // Convert all compressed prop rotations to euler angles
@@ -276,11 +273,6 @@ public static class VoxelUtils {
         }
 
         return new Vector3(Single(xRot), Single(yRot), Single(zRot));
-    }
-
-    // Fetch the dispatch group index from blittable prop
-    public static ushort FetchPropDispatchGroupIndex(ref BlittableProp prop) {
-        return prop.packed_rotation_dispatch_index_prop_variant_padding.z.value;
     }
 
     // Convert local prop type dispatch index to global per segment bitmask index

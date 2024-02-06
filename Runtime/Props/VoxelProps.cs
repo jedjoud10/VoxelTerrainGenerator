@@ -10,6 +10,9 @@ using System.Linq;
 using static UnityEngine.Rendering.HableCurve;
 using static VoxelEdits;
 using Unity.Netcode;
+using static UnityEngine.Rendering.VirtualTexturing.Debugging;
+using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine.UIElements;
 
 // Responsible for generating the voxel props on the terrain
 // For this, we must force voxel generation to happen on the CPU so we can execute
@@ -120,7 +123,8 @@ public class VoxelProps : VoxelBehaviour {
     public event PropSegmentUnloaded onPropSegmentUnloaded;
 
     // Pooled props and prop owners
-    private List<GameObject>[] pooledPropGameObjects;
+    // TODO: Optimize
+    private List<List<GameObject>>[] pooledPropGameObjects;
     private GameObject[] propOwners;
 
     // Pending prop segment to generated and to be deleted
@@ -200,7 +204,7 @@ public class VoxelProps : VoxelBehaviour {
 
         // Pooling game object stuff
         segmentsAwaitingRemoval = false;
-        pooledPropGameObjects = new List<GameObject>[props.Count];
+        pooledPropGameObjects = new List<List<GameObject>>[props.Count];
         propOwners = new GameObject[props.Count];
 
         // Temp buffers used for first step in prop generation
@@ -251,7 +255,11 @@ public class VoxelProps : VoxelBehaviour {
         // Also spawns the object prop type owners and attaches them to the terrain
         int3 last = int3.zero;
         for (int i = 0; i < props.Count; i++) {
-            pooledPropGameObjects[i] = new List<GameObject>();
+            pooledPropGameObjects[i] = new List<List<GameObject>>();
+            for (int j = 0; j < props[i].variants.Count; j++) {
+                pooledPropGameObjects[i].Add(new List<GameObject>());
+            }
+
             var obj = new GameObject();
             obj.transform.SetParent(transform);
             propOwners[i] = obj;
@@ -267,11 +275,18 @@ public class VoxelProps : VoxelBehaviour {
             );
             last += offset;
 
-            int stride = propType.prefab.GetComponent<SerializableProp>().Stride;
+            // Make sure all the variants have the same stride
+            SerializableProp first = propType.variants[0].prefab.GetComponent<SerializableProp>();
+            Type type = first.GetType();
+            if (propType.variants.Any(x => x.prefab.GetComponent<SerializableProp>().GetType() != type)) {
+                Debug.LogError("Variants MUST have the same SerializableProp script!");
+            }
+
+            // Initialize the serialized prop data buffers
             propTypeSerializedData[i] = new PropTypeSerializedData {
                 rawBytes = new NativeList<byte>(Allocator.Persistent),
                 set = new NativeBitArray(offset.x, Allocator.Persistent),
-                stride = stride,
+                stride = first.Stride,
             };
         }
 
@@ -307,7 +322,7 @@ public class VoxelProps : VoxelBehaviour {
         captureGo.layer = 31;
         cam.cullingMask = 1 << 31;
 
-        // Capture all props
+        // Capture all props (including variant types)
         foreach (var prop in props) {
             extraPropData.Add(CaptureBillboard(cam, prop));
         }
@@ -315,52 +330,48 @@ public class VoxelProps : VoxelBehaviour {
         Destroy(captureGo);
     }
 
-    // Capture the albedo, normal, and mask maps from billboarding a prop by spawning it temporarily
+    // Capture the albedo and normal array textures by spawning its variants temporarily
     public IndirectExtraPropData CaptureBillboard(Camera camera, PropType prop) {
         int width = prop.billboardTextureWidth;
         int height = prop.billboardTextureHeight;
         var temp = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32);
-        camera.orthographicSize = prop.billboardCaptureCameraScale;
         camera.targetTexture = temp;
-        
-        RenderTexture rt = RenderTexture.active;
-        RenderTexture.active = temp;
-        GL.Clear(true, true, Color.clear);
-        RenderTexture.active = rt;
 
-        // Create the output texture 2Ds
-        Texture2D albedoTextureOut = new Texture2D(width, height, TextureFormat.ARGB32, false);
-        Texture2D normalTextureOut = new Texture2D(width, height, TextureFormat.ARGB32, false);
+        Texture2DArray albedoTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, false);
+        Texture2DArray normalTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, false);
         albedoTextureOut.filterMode = prop.billboardTextureFilterMode;
         normalTextureOut.filterMode = prop.billboardTextureFilterMode;
 
-        // Create a prop fake game object and render the camera
-        GameObject faker = Instantiate(prop.prefab);
-        faker.GetComponent<SerializableProp>().OnSpawnCaptureFake();
-        faker.layer = 31;
-        foreach (Transform item in faker.transform) {
-            item.gameObject.layer = 31;
+        for (int i = 0; i < prop.variants.Count; i++) {
+            PropType.PropVariantType variant = prop.variants[i];
+            camera.orthographicSize = variant.billboardCaptureCameraScale;
+
+            GameObject faker = Instantiate(variant.prefab);
+            faker.GetComponent<SerializableProp>().OnSpawnCaptureFake();
+            faker.layer = 31;
+            foreach (Transform item in faker.transform) {
+                item.gameObject.layer = 31;
+            }
+
+            // Move the prop to the appropriate position
+            faker.transform.position = variant.billboardCapturePosition;
+            faker.transform.eulerAngles = variant.billboardCaptureRotation;
+
+            // Render the albedo map only of the prefab
+            propCaptureFullscreenMaterial.SetInteger("_RenderAlbedo", 1);
+            camera.Render();
+            Graphics.CopyTexture(temp, 0, albedoTextureOut, i);
+
+            // Render the normal map only of the prefab
+            propCaptureFullscreenMaterial.SetInteger("_RenderAlbedo", 0);
+            camera.Render();
+            Graphics.CopyTexture(temp, 0, normalTextureOut, i);
+
+            faker.GetComponent<SerializableProp>().OnDestroyCaptureFake();
+            DestroyImmediate(faker);
+            temp.DiscardContents(true, true);
+            temp.Release();
         }
-
-        // Move the prop to the appropriate position
-        faker.transform.position = prop.billboardCapturePosition;
-        faker.transform.eulerAngles = prop.billboardCaptureRotation;
-
-        // Render the albedo map only of the prefab
-        propCaptureFullscreenMaterial.SetInteger("_RenderAlbedo", 1);
-        camera.Render();
-        Graphics.CopyTexture(temp, albedoTextureOut);
-
-        // Render the normal map only of the prefab
-        propCaptureFullscreenMaterial.SetInteger("_RenderAlbedo", 0);
-        camera.Render();
-        Graphics.CopyTexture(temp, normalTextureOut);
-
-        faker.GetComponent<SerializableProp>().OnDestroyCaptureFake();
-        DestroyImmediate(faker);
-        temp.DiscardContents(true, true);
-        temp.Release();
-        camera.targetTexture = null;
 
         return new IndirectExtraPropData {
             billboardAlbedoTexture = albedoTextureOut,
@@ -442,8 +453,9 @@ public class VoxelProps : VoxelBehaviour {
                             BlittableProp prop = data[k + offset];
 
                             // This will automatically handle deserialization for us
-                            ushort dispatchIndex = VoxelUtils.FetchPropDispatchGroupIndex(ref prop);
-                            GameObject propGameObject = FetchPooledProp(i, dispatchIndex, segment.segmentPosition, propType);
+                            ushort dispatchIndex = prop.dispatchIndex;
+                            byte variant = prop.variant;
+                            GameObject propGameObject = FetchPooledProp(i, variant, dispatchIndex, segment.segmentPosition, propType);
                             propGameObject.transform.SetParent(propOwners[i].transform);
 
                             // Call events
@@ -451,8 +463,8 @@ public class VoxelProps : VoxelBehaviour {
                             serializableProp.OnPropSpawn(prop);
 
                             // Uncompress GPU data
-                            float3 position = prop.packed_position_and_scale.xyz;
-                            float scale = prop.packed_position_and_scale.w;
+                            float3 position = new float3(prop.pos_x, prop.pos_y, prop.pos_z);
+                            float scale = prop.scale;
                             float3 rotation = VoxelUtils.UncompressPropRotation(ref prop);
 
                             // Set data
@@ -523,8 +535,10 @@ public class VoxelProps : VoxelBehaviour {
         foreach (var collection in segment.props) {
             foreach (var item in collection.Value.Item1) {
                 if (item != null) {
+                    // TODO: Optimize
+                    SerializableProp prop = item.GetComponent<SerializableProp>();
                     item.SetActive(false);
-                    pooledPropGameObjects[collection.Key].Add(item);
+                    pooledPropGameObjects[collection.Key][prop.Variant].Add(item);
                 }
             }
         }
@@ -538,16 +552,16 @@ public class VoxelProps : VoxelBehaviour {
 
     // Fetches a pooled prop, or creates a new one from scratch
     // This will also handle *loading* in custom prop types from memory if there were modified
-    GameObject FetchPooledProp(int i, ushort dispatchIndex, int3 segment, PropType propType) {
+    GameObject FetchPooledProp(int i, int variant, ushort dispatchIndex, int3 segment, PropType propType) {
         GameObject go;
 
-        if (pooledPropGameObjects[i].Count == 0) {
-            GameObject obj = Instantiate(propType.prefab);
+        if (pooledPropGameObjects[i][variant].Count == 0) {
+            GameObject obj = Instantiate(propType.variants[variant].prefab);
             obj.transform.SetParent(transform, false);
             go = obj;
         } else {
-            go = pooledPropGameObjects[i][0];
-            pooledPropGameObjects[i].RemoveAt(0);
+            go = pooledPropGameObjects[i][variant][0];
+            pooledPropGameObjects[i][variant].RemoveAt(0);
         }
 
         // TODO: Cache this, for perf reasons
@@ -555,6 +569,7 @@ public class VoxelProps : VoxelBehaviour {
         if (globalBitmaskIndexToLookup.TryGetValue(new int4(segment, index), out int elementLookup)) {
             // TODO: Make this fast. I can guess that this is slow as shit 
             var val = go.GetComponent<SerializableProp>();
+            val.Variant = variant;
             var data = propTypeSerializedData[i];
             FastBufferReader reader = new FastBufferReader(data.rawBytes.AsArray(), Allocator.Temp, data.stride, data.stride * elementLookup);
             reader.ReadNetworkSerializableInPlace(ref val);
@@ -688,6 +703,9 @@ public class VoxelProps : VoxelBehaviour {
                 NativeList<byte> rawBytes = propData.rawBytes;
                 NativeBitArray free = propData.set;
 
+                // Create a writer that we will reuse
+                FastBufferWriter writer = new FastBufferWriter(stride, Allocator.Temp);
+
                 for (int i = 0; i < collection.Value.Item1.Count; i++) {
                     GameObject prop = collection.Value.Item1[i];
                     ushort dispatchIndex = collection.Value.Item2[i];
@@ -717,8 +735,6 @@ public class VoxelProps : VoxelBehaviour {
                         var serializableProp = prop.GetComponent<SerializableProp>();
 
                         if (serializableProp.wasModified) {
-                            FastBufferWriter writer = new FastBufferWriter(32, Allocator.Temp, 32);
-
                             // If we don't have an index, find a free one using the bitmask
                             if (serializableProp.ElementIndex == -1) {
                                 serializableProp.ElementIndex = free.Find(0, 1);
@@ -727,28 +743,29 @@ public class VoxelProps : VoxelBehaviour {
 
                             // Write the prop data
                             writer.WriteNetworkSerializable(serializableProp);
-                            NativeArray<byte> tempBytes = new NativeArray<byte>(writer.ToArray(), Allocator.Temp);
 
                             // Either copy the memory (update) or add it
                             int currentElementCount = rawBytes.Length / stride;
                             int currentByteOffset = serializableProp.ElementIndex * stride;
-                            if (serializableProp.ElementIndex >= currentElementCount) {
-                                rawBytes.AddRange(tempBytes);
-                            } else {
-                                // TODO: Change this for a proper memcpy
-                                for (int j = 0; j < stride; j++) {
-                                    rawBytes[j + currentByteOffset] = tempBytes[j];
+
+                            // Unsafe needed for raw mem cpy
+                            unsafe {
+                                if (serializableProp.ElementIndex >= currentElementCount) {
+                                    rawBytes.AddRange(writer.GetUnsafePtr(), stride);
+                                } else {
+                                    UnsafeUtility.MemCpy((byte*)writer.GetUnsafePtr(), (byte*)rawBytes.GetUnsafePtr() + currentByteOffset, stride);
                                 }
                             }
 
-                            writer.Dispose();
-
+                            writer.Seek(0);
                             globalBitmaskIndexToLookup.TryAdd(indexer, serializableProp.ElementIndex);
                         }
 
                         serializableProp.wasModified = false;
                     }
                 }
+
+                writer.Dispose();
             }
         }
     }
@@ -800,8 +817,8 @@ public class VoxelProps : VoxelBehaviour {
         mat.SetFloat("_PropType", (float)i);
         mat.SetBuffer("_PropSectionOffsets", propSectionOffsetsBuffer);
         mat.SetBuffer("_BlittablePropBuffer", culledPropBuffer);
-        mat.SetTexture("_Albedo", extraData.billboardAlbedoTexture);
-        mat.SetTexture("_Normal_Map", extraData.billboardNormalTexture);
+        mat.SetTexture("_AlbedoArray", extraData.billboardAlbedoTexture);
+        mat.SetTexture("_NormalMapArray", extraData.billboardNormalTexture);
         mat.SetFloat("_Alpha_Clip_Threshold", 0.5f);
         mat.SetVector("_BillboardSize", prop.billboardSize);
         mat.SetVector("_BillboardOffset", prop.billboardOffset);
