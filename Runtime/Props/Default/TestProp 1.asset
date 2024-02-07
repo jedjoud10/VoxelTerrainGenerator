@@ -15,7 +15,7 @@ MonoBehaviour:
   variants:
   - prefab: {fileID: 7381158461132351974, guid: bb32b47df5c13e4489e0cfa645ef79ce,
       type: 3}
-    billboardCaptureCameraScale: 10
+    billboardCaptureCameraScale: 0.5
     billboardCaptureRotation: {x: 0, y: 0, z: 0}
     billboardCapturePosition: {x: 0, y: 0, z: 0}
   propSpawnBehavior: -1
@@ -25,7 +25,7 @@ MonoBehaviour:
   billboardTextureWidth: 64
   billboardTextureHeight: 64
   billboardTextureFilterMode: 0
-  billboardSize: {x: 20, y: 20}
-  billboardOffset: {x: 0, y: 4.18, z: 0}
+  billboardSize: {x: 1, y: 1}
+  billboardOffset: {x: 0, y: 3, z: 0}
   billboardRestrictRotationY: 0
   billboardCastShadows: 1
