@@ -41,6 +41,12 @@ public class VoxelGenerator : VoxelBehaviour {
     // Chunks that we must generate the voxels for
     internal Queue<VoxelChunk> pendingVoxelGenerationChunks;
 
+    // Custom delegate that can be used to send custom data to the shader when generating new chunks
+    public delegate void InitComputeCustom(ComputeShader shader);
+    public delegate void UpdateComputeCustom(ComputeShader shader, VoxelChunk chunk);
+    public event InitComputeCustom onInitComputeCustom;
+    public event UpdateComputeCustom onUpdateComputeCustom;
+
     // Checks if we completed voxel generation
     public bool Free {
         get {
@@ -92,6 +98,7 @@ public class VoxelGenerator : VoxelBehaviour {
         voxelShader.SetFloat("voxelSize", VoxelUtils.VoxelSizeFactor);
         voxelShader.SetFloat("vertexScaling", VoxelUtils.VertexScaling);
         voxelShader.SetTexture(0, "voxels", readbackTexture);
+        onInitComputeCustom?.Invoke(voxelShader);
     }
 
     // Add the given chunk inside the queue for voxel generation
@@ -112,6 +119,7 @@ public class VoxelGenerator : VoxelBehaviour {
                 // Set chunk only parameters
                 voxelShader.SetVector("chunkOffset", chunk.transform.position);
                 voxelShader.SetFloat("chunkScale", chunk.transform.localScale.x);
+                onUpdateComputeCustom?.Invoke(voxelShader, chunk);
 
                 // Generate the voxel data for the chunk
                 int count = VoxelUtils.Size / 4;

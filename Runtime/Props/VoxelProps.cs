@@ -7,12 +7,8 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using System.Linq;
-using static UnityEngine.Rendering.HableCurve;
-using static VoxelEdits;
 using Unity.Netcode;
-using static UnityEngine.Rendering.VirtualTexturing.Debugging;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine.UIElements;
 
 // Responsible for generating the voxel props on the terrain
 // For this, we must force voxel generation to happen on the CPU so we can execute
@@ -56,6 +52,12 @@ public class VoxelProps : VoxelBehaviour {
     [Header("Generation")]
     public ComputeShader propShader;
 
+    // Custom delegate that can be used to send custom data to the prop shader
+    public delegate void InitComputeCustom(ComputeShader shader);
+    public delegate void UpdateComputeCustom(ComputeShader shader, PropSegment segment);
+    public event InitComputeCustom onInitComputeCustom;
+    public event UpdateComputeCustom onUpdateComputeCustom;
+
     // Prop GPU copy, block search, and bitmask removal (basically a GPU allocator at this point lol)
     [Header("Prop GPU allocator and culler")]
     public ComputeShader propFreeBlockSearch;
@@ -66,7 +68,7 @@ public class VoxelProps : VoxelBehaviour {
 
     // Buffer containing the temp offset, perm offset, and culled offset for all prop types
     private ComputeBuffer propSectionOffsetsBuffer;
-    private int3[] propSectionOffsets;
+    private uint3[] propSectionOffsets;
 
     // Temp generation
     private ComputeBuffer tempPropBuffer;
@@ -193,6 +195,7 @@ public class VoxelProps : VoxelBehaviour {
         voxelShader.SetTexture(2, "broadPhaseIntersections", broadPhaseIntersectingTexture);
         voxelShader.SetTexture(2, "positionIntersections", positionIntersectingTexture);
         propShader.SetTexture(0, "_PositionIntersections", positionIntersectingTexture);
+        onInitComputeCustom?.Invoke(propShader);
     }
 
     // Create captures of the props, and register main settings
@@ -229,7 +232,7 @@ public class VoxelProps : VoxelBehaviour {
 
         // Other stuff (still related to prop gen and GPU alloc)
         propSectionOffsetsBuffer = new ComputeBuffer(props.Count, sizeof(int) * 3);
-        propSectionOffsets = new int3[props.Count];
+        propSectionOffsets = new uint3[props.Count];
         segmentIndexCountBuffer = new ComputeBuffer(maxSegments * props.Count, sizeof(uint) * 2, ComputeBufferType.Structured);
         propSegmentDensityVoxels = VoxelUtils.Create3DRenderTexture(propSegmentResolution, GraphicsFormat.R32_SFloat);
         unusedSegmentLookupIndices = new NativeBitArray(maxSegments, Allocator.Persistent);
@@ -254,7 +257,7 @@ public class VoxelProps : VoxelBehaviour {
 
         // Fetch the temp offset, perm offset, visible culled offset
         // Also spawns the object prop type owners and attaches them to the terrain
-        int3 last = int3.zero;
+        uint3 last = uint3.zero;
         for (int i = 0; i < props.Count; i++) {
             pooledPropGameObjects[i] = new List<List<GameObject>>();
             PropType propType = props[i];
@@ -264,10 +267,10 @@ public class VoxelProps : VoxelBehaviour {
 
             // We do a considerable amount of trolling
             propSectionOffsets[i] = last;
-            var offset = new int3(
-                propType.maxPropsPerSegment,
-                propType.maxPropsInTotal,
-                propType.maxVisibleProps
+            var offset = new uint3(
+                (uint)propType.maxPropsPerSegment,
+                (uint)propType.maxPropsInTotal,
+                (uint)propType.maxVisibleProps
             );
             last += offset;
 
@@ -281,7 +284,7 @@ public class VoxelProps : VoxelBehaviour {
             // Initialize the serialized prop data buffers
             propTypeSerializedData[i] = new PropTypeSerializedData {
                 rawBytes = new NativeList<byte>(Allocator.Persistent),
-                set = new NativeBitArray(offset.x, Allocator.Persistent),
+                set = new NativeBitArray((int)offset.x, Allocator.Persistent),
                 stride = first.Stride,
             };
         }
@@ -404,6 +407,7 @@ public class VoxelProps : VoxelBehaviour {
 
         // Set compute properties and run the compute shader
         tempCountBuffer.SetData(new int[props.Count]);
+        onUpdateComputeCustom?.Invoke(propShader, segment);
         propShader.SetVector("propChunkOffset", segment.worldPosition);
         propShader.Dispatch(0, _count, _count, _count);
 
@@ -438,7 +442,7 @@ public class VoxelProps : VoxelBehaviour {
                     // Spawn all the props for all types
                     for (int i = 0; i < props.Count; i++) {
                         PropType propType = props[i];
-                        int offset = propSectionOffsets[i].x;
+                        int offset = (int)propSectionOffsets[i].x;
 
                         if (!propType.WillSpawnPrefab)
                             continue;

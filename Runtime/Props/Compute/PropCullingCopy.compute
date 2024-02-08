@@ -9,7 +9,7 @@ StructuredBuffer<uint4> permProps;
 RWStructuredBuffer<uint4> culledProps;
 StructuredBuffer<uint> usedBitmask;
 
-StructuredBuffer<int3> propSectionOffsets;
+StructuredBuffer<uint3> propSectionOffsets;
 
 float3 cameraForward;
 float3 cameraPosition;

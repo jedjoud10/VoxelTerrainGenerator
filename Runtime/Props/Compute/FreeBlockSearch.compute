@@ -3,7 +3,7 @@
 StructuredBuffer<int> tempCounters;
 RWStructuredBuffer<uint> tempIndices;
 StructuredBuffer<uint> usedBitmask;
-StructuredBuffer<int3> propSectionOffsets;
+StructuredBuffer<uint3> propSectionOffsets;
 uint enabledProps;
 
 // Finds a free index we can use to copy the temp memory to perm memory

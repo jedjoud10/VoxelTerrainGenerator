@@ -12,7 +12,7 @@ StructuredBuffer<uint4> tempProps;
 RWStructuredBuffer<uint4> permProps;
 RWStructuredBuffer<uint> usedBitmask;
 
-StructuredBuffer<int3> propSectionOffsets;
+StructuredBuffer<uint3> propSectionOffsets;
 
 // Copy the temporary prop buffer to the permanent prop buffer
 [numthreads(32, 1, 1)]
@@ -21,7 +21,7 @@ void CSFreeBlockCopy(uint3 id : SV_DispatchThreadID)
 	int counter = tempCounters[id.y];
 
 	// already comes with the perm offset applied
-	int baseFreeIndex = tempIndices[id.y];
+	uint baseFreeIndex = tempIndices[id.y];
 
 	// nothing to spawn
 	if (counter == 0 || baseFreeIndex == 0xffffffff) {

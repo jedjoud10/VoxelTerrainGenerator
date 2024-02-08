@@ -19,7 +19,7 @@ struct BlittableProp {
 int propCount;
 RWStructuredBuffer<BlittableProp> tempProps;
 RWStructuredBuffer<int> tempCounters;
-StructuredBuffer<int3> propSectionOffsets;
+StructuredBuffer<uint3> propSectionOffsets;
 
 // Voxels texture that we pregenerated
 Texture3D<float> _Voxels;
@@ -36,15 +36,15 @@ StructuredBuffer<uint> affectedPropsBitMask;
 
 // Spawn a prop in the specified WORLD position (will scale down based on world scale/offset)
 void Spawn(float3 position, float scale, float3 rotation, uint propType, uint propVariant, uint3 id) {
-	if (propType >= propCount) {
+	if (propType >= (uint)propCount) {
 		return;
 	}
 
-	int searchIndexBase = id.x + id.y * propSegmentResolution + id.z * propSegmentResolution * propSegmentResolution;
-	int searchIndexOffset = propSegmentResolution * propSegmentResolution * propSegmentResolution * propType;
-	int searchIndex = searchIndexBase + searchIndexOffset;
-	int block = searchIndex / 32;
-	int local = searchIndex % 32;
+	uint searchIndexBase = id.x + id.y * propSegmentResolution + id.z * propSegmentResolution * propSegmentResolution;
+	uint searchIndexOffset = propSegmentResolution * propSegmentResolution * propSegmentResolution * propType;
+	uint searchIndex = searchIndexBase + searchIndexOffset;
+	uint block = searchIndex / 32;
+	uint local = searchIndex % 32;
 
 	if (((affectedPropsBitMask[block] >> local) & 1) == 1) {
 		return;
@@ -56,10 +56,10 @@ void Spawn(float3 position, float scale, float3 rotation, uint propType, uint pr
 	prop.packed_position_and_scale = PackPositionAndScale(position, scale);
 	prop.packed_rotation_dispatch_index_prop_variant_padding = PackRotationAndVariantAndId(rotation, propVariant, searchIndexBase);
 	
-	int index = 0;
+	uint index = 0;
 	InterlockedAdd(tempCounters[propType], 1, index);
 
-	if (index >= propSectionOffsets[propType + 1].x && propType < (propCount-1)) {
+	if (index >= propSectionOffsets[propType + 1].x && propType < ((uint)propCount-1)) {
 		InterlockedAdd(tempCounters[propType], -1, index);
 		return;
 	}

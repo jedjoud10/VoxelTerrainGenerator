@@ -10,7 +10,7 @@ RWStructuredBuffer<uint> usedBitmask;
 [numthreads(32, 1, 1)]
 void CSRemoveSegments(uint3 id : SV_DispatchThreadID)
 {
-	if (id.x >= segmentsToRemoveCount) {
+	if (id.x >= (uint)segmentsToRemoveCount) {
 		return;
 	}
 

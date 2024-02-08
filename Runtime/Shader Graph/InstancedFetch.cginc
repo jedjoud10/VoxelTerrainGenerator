@@ -10,7 +10,7 @@ struct BlittableProp {
 
 StructuredBuffer<BlittableProp> _BlittablePropBuffer;
 
-StructuredBuffer<int3> _PropSectionOffsets;
+StructuredBuffer<uint3> _PropSectionOffsets;
 
 void MyFunctionA_float(float i, float propType, out float variant, out float3 position, out float scale, out float3 rotation)
 {

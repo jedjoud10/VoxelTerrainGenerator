@@ -66,6 +66,7 @@ void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 	}
 }
 
+#pragma warning( disable: 4008 )
 
 // Raycasts to get the position of the surface in a specific axis
 [numthreads(4, 4, 1)]
