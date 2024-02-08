@@ -17,7 +17,9 @@ Shader "FullScreen/NewFullScreenCustomPass"
     #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/NormalBuffer.hlsl"
 
     TEXTURE2D_X(_GBufferTexture0);
+    TEXTURE2D_X(_GBufferTexture1);
     TEXTURE2D_X(_GBufferTexture2);
+    TEXTURE2D_X(_GBufferTexture3);
 
     // The PositionInputs struct allow you to retrieve a lot of useful information for your fullScreenShader:
     // struct PositionInputs
@@ -41,7 +43,7 @@ Shader "FullScreen/NewFullScreenCustomPass"
     // There are also a lot of utility function you can use inside Common.hlsl and Color.hlsl,
     // you can check them out in the source code of the core SRP package.
 
-    int _RenderAlbedo;
+    int _TextureType;
 
     float4 FullScreenPass(Varyings varyings) : SV_Target
     {
@@ -51,14 +53,18 @@ Shader "FullScreen/NewFullScreenCustomPass"
         
         float3 color = float3(0, 0, 0);
 
-        if (_RenderAlbedo == 1) {
+        NormalData normalData;
+        DecodeFromNormalBuffer(posInput.positionSS.xy, normalData);
+
+        if (_TextureType == 0) {
             color = LOAD_TEXTURE2D_X(_GBufferTexture0, posInput.positionSS).rgb;
         }
-        else {
-            NormalData normalData;
-            DecodeFromNormalBuffer(posInput.positionSS.xy, normalData);
+        else if (_TextureType == 1) {
             color = normalData.normalWS.xyz;
             color = (color + 1) / 2.0;
+        } else {
+            // contains roughness, metallic (HOW), maybe occlusion?
+            color = float3(1 - normalData.perceptualRoughness, 0, 0);
         }
         
         float alpha = LOAD_TEXTURE2D_X(_GBufferTexture0, posInput.positionSS).a;

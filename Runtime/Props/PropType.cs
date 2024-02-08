@@ -14,7 +14,7 @@ public class PropType : ScriptableObject {
         public GameObject prefab;
         public float billboardCaptureCameraScale = 10.0f;
         public Vector3 billboardCaptureRotation = Vector3.zero;
-        public Vector3 billboardCapturePosition = new Vector3(10, 0, 0);
+        public Vector3 billboardCapturePosition = new Vector3(0, 0, 5);
     }
 
     [Header("Behavior")]
@@ -67,6 +67,7 @@ public enum PropSpawnBehavior {
 public class IndirectExtraPropData {
     public Texture2DArray billboardAlbedoTexture;
     public Texture2DArray billboardNormalTexture;
+    public Texture2DArray billboardMaskTexture;
 }
 
 

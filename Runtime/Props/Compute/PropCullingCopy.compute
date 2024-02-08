@@ -29,7 +29,7 @@ void CSPropCullingCopy(uint3 id : SV_DispatchThreadID)
 	bool valid = ((usedBitmask[block] >> local) & 1) == 1;
 	//valid = true;
 
-	bool visible = dot(normalize(cameraPosition - positionScale.xyz), cameraForward) < 0;
+	bool visible = dot(normalize(cameraPosition - positionScale.xyz), cameraForward) < 0.0;
 	//visible = true;
 
 	if (visible && valid) {

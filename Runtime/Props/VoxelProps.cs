@@ -335,8 +335,8 @@ public class VoxelProps : VoxelBehaviour {
 
         Texture2DArray albedoTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, false);
         Texture2DArray normalTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, false);
-        albedoTextureOut.filterMode = prop.billboardTextureFilterMode;
-        normalTextureOut.filterMode = prop.billboardTextureFilterMode;
+        Texture2DArray maskTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, false);
+        Texture2DArray[] tempOut = new Texture2DArray[3] { albedoTextureOut, normalTextureOut, maskTextureOut };
 
         for (int i = 0; i < prop.variants.Count; i++) {
             PropType.PropVariantType variant = prop.variants[i];
@@ -353,15 +353,13 @@ public class VoxelProps : VoxelBehaviour {
             faker.transform.position = variant.billboardCapturePosition;
             faker.transform.eulerAngles = variant.billboardCaptureRotation;
 
-            // Render the albedo map only of the prefab
-            propCaptureFullscreenMaterial.SetInteger("_RenderAlbedo", 1);
-            camera.Render();
-            Graphics.CopyTexture(temp, 0, albedoTextureOut, i);
-
-            // Render the normal map only of the prefab
-            propCaptureFullscreenMaterial.SetInteger("_RenderAlbedo", 0);
-            camera.Render();
-            Graphics.CopyTexture(temp, 0, normalTextureOut, i);
+            // I love for looping inside a for loop inside a for loop inside a for loop yes yes yes
+            for (int j = 0; j < 3; j++) {
+                tempOut[j].filterMode = prop.billboardTextureFilterMode;
+                propCaptureFullscreenMaterial.SetInteger("_TextureType", j);
+                camera.Render();
+                Graphics.CopyTexture(temp, 0, tempOut[j], i);
+            }
 
             faker.GetComponent<SerializableProp>().OnDestroyCaptureFake();
             DestroyImmediate(faker);
@@ -372,6 +370,7 @@ public class VoxelProps : VoxelBehaviour {
         return new IndirectExtraPropData {
             billboardAlbedoTexture = albedoTextureOut,
             billboardNormalTexture = normalTextureOut,
+            billboardMaskTexture = maskTextureOut,
         };
     }
 
@@ -632,13 +631,14 @@ public class VoxelProps : VoxelBehaviour {
 
             // TODO: Test fluke? One time when tested (spaz) shit didn't work. DEBUG PLS
             // Also figure out why this causes a dx11 driver crash lel
+
             segmentsToRemoveBuffer.SetData(indices);
             removePropSegments.SetInt("segmentsToRemoveCount", removedSegments.Length);
             removePropSegments.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
             removePropSegments.SetBuffer(0, "segmentIndices", segmentsToRemoveBuffer);
             removePropSegments.SetBuffer(0, "segmentIndexCount", segmentIndexCountBuffer);
             removePropSegments.SetInt("propCount", props.Count);
-            removePropSegments.Dispatch(0, Mathf.CeilToInt((float)removedSegments.Length / 32.0f), 1, 1);
+            removePropSegments.Dispatch(0, Mathf.CeilToInt((float)removedSegments.Length / 32.0f), props.Count, 1);
         }
 
         // Start generating the first pending segment we find
@@ -811,7 +811,7 @@ public class VoxelProps : VoxelBehaviour {
         mat.SetBuffer("_BlittablePropBuffer", culledPropBuffer);
         mat.SetTexture("_AlbedoArray", extraData.billboardAlbedoTexture);
         mat.SetTexture("_NormalMapArray", extraData.billboardNormalTexture);
-        mat.SetFloat("_Alpha_Clip_Threshold", 0.5f);
+        mat.SetTexture("_MaskMapArray", extraData.billboardMaskTexture);
         mat.SetVector("_BillboardSize", prop.billboardSize);
         mat.SetVector("_BillboardOffset", prop.billboardOffset);
         mat.SetInt("_RECEIVE_SHADOWS_OFF", prop.billboardCastShadows ? 0 : 1);

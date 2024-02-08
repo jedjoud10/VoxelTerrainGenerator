@@ -25,7 +25,7 @@ void CSRemoveSegments(uint3 id : SV_DispatchThreadID)
 
 
 	// last hope to avoid dx11 driver crash
-	if (vals.y > 100000 || vals.x > 100000) {
+	if (vals.y > 1000000 || vals.x > 1000000) {
 		return;
 	}
 
