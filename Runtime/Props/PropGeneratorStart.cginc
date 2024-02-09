@@ -64,7 +64,7 @@ void Spawn(float3 position, float scale, float3 rotation, uint propType, uint pr
 		return;
 	}
 
-	int finalIndex = index + propSectionOffsets[propType].x;
+	uint finalIndex = index + propSectionOffsets[propType].x;
 	tempProps[finalIndex] = prop;
 }
 
@@ -115,13 +115,15 @@ HitRay CheckRay(float3 position, int dir) {
 
 	// Check the ray dist by sampling the texture
 	float4 baseTest = _PositionIntersections.SampleLevel(sampler_PositionIntersections, float3(localPos, dir), 0);
-	if (baseTest.x < 1000) {
+	float value = baseTest.x;
+	
+	if (value < 1000) {
 		if (dir == 0) {
-			ray.position = float3(position.x, baseTest.x, position.z);
+			ray.position = float3(position.x, value, position.z);
 		} else if (dir == 1) {
-			ray.position = float3(position.x, position.y, baseTest.x);
+			ray.position = float3(position.x, position.y, value);
 		} else {
-			ray.position = float3(baseTest.x, position.y, position.z);
+			ray.position = float3(value, position.y, position.z);
 		}
 
 		ray.hit = true;

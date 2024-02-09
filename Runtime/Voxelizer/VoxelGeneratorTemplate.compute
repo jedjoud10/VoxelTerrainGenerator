@@ -1,12 +1,16 @@
 #pragma kernel CSVoxelizer
 #pragma kernel CSPropVoxelizer
 #pragma kernel CSPropRaycaster
+#pragma kernel CSClearRayCastData
 
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Voxelizer/VoxelGeneratorStart.cginc"
 
 // Called for each voxel in the chunk to check the density and material at a specific position
 void VoxelAt(float3 position, out float density, out uint material) {
-	density = -min(position.y, -position.y + 20);
+	density = position.y - snoise(position * 0.005) * 15 - 30;
+	density = min(density, sdBox(position - float3(0, 100, 0), float3(300, 5, 300)));
+	density = min(density, sdBox(position - float3(0, 160, 0), float3(300, 5, 300)));
+
 	material = 0;
 	return;
 	

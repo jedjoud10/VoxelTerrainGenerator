@@ -33,22 +33,6 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 [numthreads(4, 4, 4)]
 void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 {
-	// TODO: Optimize in its own pass
-	if (id.z == 0) {
-		int test;
-		InterlockedExchange(broadPhaseIntersections[uint3(id.xy, 0)], 0, test);
-	}
-
-	if (id.y == 0) {
-		int test;
-		InterlockedExchange(broadPhaseIntersections[uint3(id.xz, 1)], 0, test);
-	}
-
-	if (id.x == 0) {
-		int test;
-		InterlockedExchange(broadPhaseIntersections[uint3(id.yz, 2)], 0, test);
-	}
-
 	float3 position = PropSegmentToWorld(id);
 	
 	// TODO: Understand why we need this
@@ -58,47 +42,63 @@ void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 	uint material = 0;
 	VoxelAt(position, density, material);
 	cachedPropDensities[id.xyz] = density;
-
-	if (density < 0.0) {
-		InterlockedMax(broadPhaseIntersections[uint3(id.xy, 0)], id.z + 1);
-		InterlockedMax(broadPhaseIntersections[uint3(id.xz, 1)], id.y + 1);
-		InterlockedMax(broadPhaseIntersections[uint3(id.yz, 2)], id.x + 1);
-	}
 }
 
-#pragma warning( disable: 4008 )
+groupshared float yMinValue[32][32][4];
 
 // Raycasts to get the position of the surface in a specific axis
-[numthreads(4, 4, 1)]
+// xy
+// xz
+// yx
+[numthreads(4, 4, 4)]
 void CSPropRaycaster(uint3 id : SV_DispatchThreadID)
 {
 	float maxValue = 0.0f / 0.0f;
-	positionIntersections[id] = float4(maxValue, maxValue, maxValue, maxValue);
-	uint pos = broadPhaseIntersections[uint3(id.x, id.y, id.z)]-1;
+	yMinValue[id.x][id.y][0] = maxValue;
+	yMinValue[id.x][id.y][1] = maxValue;
+	yMinValue[id.x][id.y][2] = maxValue;
+	yMinValue[id.x][id.y][3] = maxValue;
+	AllMemoryBarrier();
 
-	if (pos > ((uint)propSegmentResolution)) {
-		return;
+	float d0 = cachedPropDensities[id];
+	float3 p0 = PropSegmentToWorld(id);
+
+	float d1 = cachedPropDensities[id + uint3(1, 0, 0)];
+	float3 p1 = PropSegmentToWorld(id + uint3(1, 0, 0));
+
+	float d2 = cachedPropDensities[id + uint3(0, 1, 0)];
+	float3 p2 = PropSegmentToWorld(id + uint3(0, 1, 0));
+
+	float d3 = cachedPropDensities[id + uint3(0, 0, 1)];
+	float3 p3 = PropSegmentToWorld(id + uint3(0, 0, 1));
+
+	if (d0 < 0 && d1 > 0) {
+		float inv = invLerp(d0, d3, 0);
+		float3 finalPosition = lerp(p0, p3, inv);
+		positionIntersections[uint3(id.xy, 0)] = finalPosition.y;
 	}
-	
-	float d1, d2;
-	float3 p1, p2;
+
+	/*
+	//yMinValue[id.x][id.y][id.z / 8] = finalPosition.y;
+	//positionIntersections[uint3(id.xy, 0)] = float4(maxValue, maxValue, maxValue, maxValue);
+
+	AllMemoryBarrierWithGroupSync();
 	if (id.z == 0) {
-		d1 = cachedPropDensities[uint3(id.x, id.y, pos)];
-		d2 = cachedPropDensities[uint3(id.x, id.y, pos + 1)];
-		p1 = PropSegmentToWorld(float3(id.x, id.y, pos));
-		p2 = PropSegmentToWorld(float3(id.x, id.y, pos + 1));
-	} else if (id.z == 1) {
-		d1 = cachedPropDensities[uint3(id.x, pos, id.y)];
-		d2 = cachedPropDensities[uint3(id.x, pos + 1, id.y)];
-		p1 = PropSegmentToWorld(float3(id.x, pos, id.y));
-		p2 = PropSegmentToWorld(float3(id.x, pos + 1, id.y));
-	} else {
-		d1 = cachedPropDensities[uint3(pos, id.y, id.x)];
-		d2 = cachedPropDensities[uint3(pos + 1, id.y, id.x)];
-		p1 = PropSegmentToWorld(float3(pos, id.y, id.x));
-		p2 = PropSegmentToWorld(float3(pos + 1, id.y, id.x));
+		float4 finalValueTest = float4(maxValue, maxValue, maxValue, maxValue);
+		
+		[unroll]
+		for (int i = 0; i < 4; i++) {
+			float value = yMinValue[id.x][id.y][i];
+			if (value < 1000) {
+				finalValueTest[i] = value;
+			}
+		}
+		
+		//positionIntersections[uint3(id.xy, 0)] = finalValueTest;
 	}
+	*/
 
+	/*
 	if ((d1 < 0) && (d2 > 0)) {
 		float inv = invLerp(d1, d2, 0);
 		float3 newTest2 = lerp(p1, p2, inv);
@@ -115,4 +115,15 @@ void CSPropRaycaster(uint3 id : SV_DispatchThreadID)
 		positionIntersections[id] = float4(value, 0, 0, 0);
 		return;
 	}
+	*/
+}
+
+#pragma warning( disable: 4008 )
+
+// Clears the textures
+[numthreads(4, 4, 1)]
+void CSClearRayCastData(uint3 id : SV_DispatchThreadID)
+{
+	float maxValue = 0.0f / 0.0f;
+	positionIntersections[id] = float4(maxValue, maxValue, maxValue, maxValue);
 }

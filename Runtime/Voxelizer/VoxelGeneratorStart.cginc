@@ -24,7 +24,6 @@ float propSegmentResolution;
 float3 propChunkOffset;
 RWTexture3D<float> cachedPropDensities;
 
-RWTexture2DArray<uint> broadPhaseIntersections;
 RWTexture2DArray<float4> positionIntersections;
 
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/Noises.cginc"

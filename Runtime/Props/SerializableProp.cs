@@ -22,7 +22,7 @@ public abstract class SerializableProp : MonoBehaviour, INetworkSerializable {
     public int Variant { get; internal set; }
 
     // Called when the fake gameobject for capturing gets spawned
-    public virtual void OnSpawnCaptureFake() { }
+    public virtual void OnSpawnCaptureFake(Camera camnera, Texture2DArray[] renderedTextures, int variant) { }
 
     // Called when the fake gameobject for capturing gets destroyed
     public virtual void OnDestroyCaptureFake() { }

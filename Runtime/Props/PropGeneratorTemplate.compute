@@ -15,7 +15,8 @@ void PropsAt(uint3 id, float3 position) {
 	float3 treePos = position + randomOffset;
 	HitRay hit1 = CheckRay(treePos, 0);
 
-	if (treePos.y > -50 && treePos.y < 50 && (hash13(treePos) < 0.2) && hit1.hit && mixer < 0.005 && dot(float3(0, 1, 0), hit1.normals) > 0.4) {
+	//  && dot(float3(0, 1, 0), hit1.normals) > 0.4
+	if (treePos.y > -50 && treePos.y < 50 && (hash13(treePos) < 0.3) && hit1.hit && mixer < 0.005 && dot(float3(0, 1, 0), hit1.normals) > 0.2) {
 		Spawn(hit1.position, 1.0, float3(0, 0, 0), 0, round(hash13(treePos * 3.123 - 15.694)), id);
 	}
 

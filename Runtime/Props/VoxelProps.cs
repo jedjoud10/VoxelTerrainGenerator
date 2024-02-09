@@ -136,9 +136,6 @@ public class VoxelProps : VoxelBehaviour {
     // Used for collision and GPU based raycasting (supports up to 4 intersections within a ray)
     RenderTexture propSegmentDensityVoxels;
 
-    // 3 R textures (4 bytes) where each byte represents density voxel near the surface
-    RenderTexture broadPhaseIntersectingTexture;
-
     // 3 R textures (FLOAT4) that contain the position data for the respective intersection
     RenderTexture positionIntersectingTexture;
 
@@ -191,9 +188,8 @@ public class VoxelProps : VoxelBehaviour {
         // It's GPU raytracing time!!!!
         voxelShader.SetTexture(1, "cachedPropDensities", propSegmentDensityVoxels);
         voxelShader.SetTexture(2, "cachedPropDensities", propSegmentDensityVoxels);
-        voxelShader.SetTexture(1, "broadPhaseIntersections", broadPhaseIntersectingTexture);
-        voxelShader.SetTexture(2, "broadPhaseIntersections", broadPhaseIntersectingTexture);
         voxelShader.SetTexture(2, "positionIntersections", positionIntersectingTexture);
+        voxelShader.SetTexture(3, "positionIntersections", positionIntersectingTexture);
         propShader.SetTexture(0, "_PositionIntersections", positionIntersectingTexture);
         onInitComputeCustom?.Invoke(propShader);
     }
@@ -303,7 +299,6 @@ public class VoxelProps : VoxelBehaviour {
         }
 
         // Create textures used for intersection tests and GPU raycasting
-        broadPhaseIntersectingTexture = CreateRayCastTexture(propSegmentResolution, GraphicsFormat.R32_UInt);
         positionIntersectingTexture = CreateRayCastTexture(propSegmentResolution, GraphicsFormat.R16G16B16A16_SFloat);
 
         // Update static settings and capture the billboards
@@ -346,7 +341,7 @@ public class VoxelProps : VoxelBehaviour {
             camera.orthographicSize = variant.billboardCaptureCameraScale;
 
             GameObject faker = Instantiate(variant.prefab);
-            faker.GetComponent<SerializableProp>().OnSpawnCaptureFake();
+            faker.GetComponent<SerializableProp>().OnSpawnCaptureFake(camera, tempOut, i);
             faker.layer = 31;
             foreach (Transform item in faker.transform) {
                 item.gameObject.layer = 31;
@@ -402,8 +397,9 @@ public class VoxelProps : VoxelBehaviour {
         voxelShader.SetVector("propChunkOffset", segment.worldPosition);
         voxelShader.Dispatch(1, _count, _count, _count);
 
-        // Execute the ray casting shader that will store the position of the rays
-        voxelShader.Dispatch(2, _count, _count, 3);
+        // Execute the ray casting shader that will store the position of the rays inside the textures
+        voxelShader.Dispatch(3, _count, _count, 3);
+        voxelShader.Dispatch(2, _count, _count, _count);
 
         // Set compute properties and run the compute shader
         tempCountBuffer.SetData(new int[props.Count]);
@@ -635,7 +631,6 @@ public class VoxelProps : VoxelBehaviour {
 
             // TODO: Test fluke? One time when tested (spaz) shit didn't work. DEBUG PLS
             // Also figure out why this causes a dx11 driver crash lel
-
             segmentsToRemoveBuffer.SetData(indices);
             removePropSegments.SetInt("segmentsToRemoveCount", removedSegments.Length);
             removePropSegments.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
