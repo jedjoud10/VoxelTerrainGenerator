@@ -26,6 +26,7 @@ public class PropType : ScriptableObject {
     [Min(1)] public int maxPropsPerSegment = 4096;
     [Min(1)] public int maxPropsInTotal = 4096;
     [Min(1)] public int maxVisibleProps = 4096;
+    [Min(1)] public float maxInstancingDistance = 1000;
 
     // Capture settings that apply for ALL variants
     [Header("Billboard Capture")]
@@ -57,7 +58,9 @@ public enum PropSpawnBehavior {
     // Enables/disables spawning in actual prefabs
     SpawnPrefabs = 1 << 1,
 
-    // Swaps out everything for instanced meshes (useful for small rocks or stuff not to be interacted with)
+    // Swaps out everything for instanced meshes
+    // (useful for small rocks or stuff not to be interacted with that we don't want as a gameobject)
+    // Only works when the given prefabs only contain ONE material that we can swap with
     //OnlyRenderInstances = 1 << 2,
 }
 

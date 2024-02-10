@@ -10,6 +10,7 @@ RWStructuredBuffer<uint4> culledProps;
 StructuredBuffer<uint> usedBitmask;
 
 StructuredBuffer<uint3> propSectionOffsets;
+StructuredBuffer<float> maxDistances;
 
 float3 cameraForward;
 float3 cameraPosition;
@@ -20,6 +21,7 @@ void CSPropCullingCopy(uint3 id : SV_DispatchThreadID)
 {
 	uint permOffset = propSectionOffsets[id.y].y;
 	uint visibleOffset = propSectionOffsets[id.y].z;
+	float maxDistance = maxDistances[id.y];
 	uint inputIndex = id.x + permOffset;
 
 	float4 positionScale = UnpackPositionAndScale(permProps[inputIndex].xy);
@@ -29,7 +31,11 @@ void CSPropCullingCopy(uint3 id : SV_DispatchThreadID)
 	bool valid = ((usedBitmask[block] >> local) & 1) == 1;
 	//valid = true;
 
-	bool visible = dot(normalize(cameraPosition - positionScale.xyz), cameraForward) < -0.2;
+	float3 diff = cameraPosition - positionScale.xyz;
+	float mag = length(diff);
+	diff = normalize(diff);
+
+	bool visible = dot(diff, cameraForward) < -0.2 && mag < maxDistance;
 	//visible = true;
 
 	if (visible && valid) {

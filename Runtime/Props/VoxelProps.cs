@@ -70,6 +70,10 @@ public class VoxelProps : VoxelBehaviour {
     private ComputeBuffer propSectionOffsetsBuffer;
     private uint3[] propSectionOffsets;
 
+    // Max distance clamping
+    private ComputeBuffer maxDistanceBuffer;
+    private float[] maxDistances;
+
     // Temp generation
     private ComputeBuffer tempPropBuffer;
     private ComputeBuffer tempCountBuffer;
@@ -225,6 +229,8 @@ public class VoxelProps : VoxelBehaviour {
         drawArgsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, props.Count, GraphicsBuffer.IndirectDrawIndexedArgs.size);
         int visibleSum = props.Select(x => x.maxVisibleProps).Sum();
         culledPropBuffer = new ComputeBuffer(visibleSum, BlittableProp.size);
+        maxDistances = new float[props.Count];
+        maxDistanceBuffer = new ComputeBuffer(props.Count, sizeof(float));
 
         // Other stuff (still related to prop gen and GPU alloc)
         propSectionOffsetsBuffer = new ComputeBuffer(props.Count, sizeof(int) * 3);
@@ -283,6 +289,7 @@ public class VoxelProps : VoxelBehaviour {
                 set = new NativeBitArray((int)offset.x, Allocator.Persistent),
                 stride = first.Stride,
             };
+            maxDistances[i] = propType.maxInstancingDistance;
         }
 
         // Used to create our textures
@@ -303,6 +310,7 @@ public class VoxelProps : VoxelBehaviour {
 
         // Update static settings and capture the billboards
         propSectionOffsetsBuffer.SetData(propSectionOffsets);
+        maxDistanceBuffer.SetData(maxDistances);
         UpdateStaticComputeFields();
         CapturePropsBillboards();
     }
@@ -664,6 +672,7 @@ public class VoxelProps : VoxelBehaviour {
         propCullingCopy.SetBuffer(0, "culledCount", culledCountBuffer);
         propCullingCopy.SetVector("cameraForward", camera.transform.forward);
         propCullingCopy.SetVector("cameraPosition", camera.transform.position);
+        propCullingCopy.SetBuffer(0, "maxDistances", maxDistanceBuffer);
         propCullingCopy.Dispatch(0, count, props.Count, 1);
 
         // Apply culling counts to the indirect draw args

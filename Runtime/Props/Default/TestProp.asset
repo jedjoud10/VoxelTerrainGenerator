@@ -29,6 +29,7 @@ MonoBehaviour:
   maxPropsPerSegment: 8192
   maxPropsInTotal: 524288
   maxVisibleProps: 524288
+  maxInstancingDistance: 10000
   billboardTextureWidth: 64
   billboardTextureHeight: 256
   billboardTextureFilterMode: 1
