@@ -5,6 +5,7 @@
 int propCount;
 RWStructuredBuffer<uint> culledCount;
 RWStructuredBuffer<UNITY_INDIRECT_DRAW_ARGS> drawArgs;
+StructuredBuffer<uint> meshIndexCountPerInstance;
 
 // Do some culling on the props and save them to the culled props buffer
 [numthreads(32, 1, 1)]
@@ -12,7 +13,7 @@ void CSPropCullingApply(uint3 id : SV_DispatchThreadID)
 {
 	if (id.x < (uint)propCount) {
 		IndirectDrawIndexedArgs args;
-		args.indexCountPerInstance = 6;
+		args.indexCountPerInstance = meshIndexCountPerInstance[id.x];
 		args.instanceCount = culledCount[id.x];
 		
 		if (id.x == 1) {

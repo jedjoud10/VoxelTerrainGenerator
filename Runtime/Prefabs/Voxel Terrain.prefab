@@ -103,13 +103,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 998d14371a252d844953b5096474c997, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  meshJobsPerFrame: 2
+  meshJobsPerFrame: 1
   minSkirtDensityThreshold: -15
   smoothing: 1
   skirts: 1
   voxelMaterials:
-  - {fileID: 2100000, guid: 05d1c9c5df2aebb4a8358c2343a838d5, type: 2}
-  - {fileID: 2100000, guid: 62cb0288a0a6372468fe6da7d4a84aa1, type: 2}
+  - {fileID: 2100000, guid: 44ba4b072f5232546b8e3481243824f3, type: 2}
+  - {fileID: 2100000, guid: ca1ae838cf2e7d645b7e97efe6deb252, type: 2}
+  - {fileID: 2100000, guid: 40d4a243869c25a48ab2f2de89d94dcd, type: 2}
   - {fileID: 2100000, guid: 62cb0288a0a6372468fe6da7d4a84aa1, type: 2}
 --- !u!114 &7541423554628836651
 MonoBehaviour:
@@ -152,10 +153,11 @@ MonoBehaviour:
   debugGizmos: 0
   propSegmentResolution: 32
   voxelChunksInPropSegment: 4
-  maxSegments: 0
-  maxSegmentsToRemove: 0
+  maxSegments: 2048
+  maxSegmentsToRemove: 2048
   props:
   - {fileID: 11400000, guid: 3ab5956d7784dc341b5dcb3cb8b0c70c, type: 2}
+  - {fileID: 11400000, guid: 9e91c229f071f1c4e9bdcc0ae525b3d4, type: 2}
   propCaptureCameraPrefab: {fileID: 507919951813536729, guid: b5f593c8c122c934ca1aef0d4969cb43,
     type: 3}
   propCaptureFullscreenMaterial: {fileID: 2100000, guid: 6a57ba25d9097ae498538688f424599b,
@@ -163,7 +165,7 @@ MonoBehaviour:
   quadBillboard: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
   billboardMaterialBase: {fileID: 2100000, guid: 646a06c2b757afa4d89f8ee6901875ec,
     type: 2}
-  propShader: {fileID: 0}
+  propShader: {fileID: 7200000, guid: a564b702928195d4a8a3350466841cf5, type: 3}
   propFreeBlockSearch: {fileID: 7200000, guid: fa5b04c4e2be05c4683ba659eb1c2bf5, type: 3}
   propFreeBlockCopy: {fileID: 7200000, guid: 328bf8d3e8bc49d4588683eb391693fe, type: 3}
   propCullingCopy: {fileID: 7200000, guid: 0fc248ebd7631a242afffc4ccdbe1b5e, type: 3}

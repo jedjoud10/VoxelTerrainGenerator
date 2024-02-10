@@ -74,6 +74,10 @@ public class VoxelProps : VoxelBehaviour {
     private ComputeBuffer maxDistanceBuffer;
     private float[] maxDistances;
 
+    // Mesh index count buffer
+    private ComputeBuffer meshIndexCountBuffer;
+    private uint[] meshIndexCount;
+
     // Temp generation
     private ComputeBuffer tempPropBuffer;
     private ComputeBuffer tempCountBuffer;
@@ -229,8 +233,12 @@ public class VoxelProps : VoxelBehaviour {
         drawArgsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, props.Count, GraphicsBuffer.IndirectDrawIndexedArgs.size);
         int visibleSum = props.Select(x => x.maxVisibleProps).Sum();
         culledPropBuffer = new ComputeBuffer(visibleSum, BlittableProp.size);
+
+        // More settings!!!
         maxDistances = new float[props.Count];
+        meshIndexCount = new uint[props.Count];
         maxDistanceBuffer = new ComputeBuffer(props.Count, sizeof(float));
+        meshIndexCountBuffer = new ComputeBuffer(props.Count, sizeof(uint));
 
         // Other stuff (still related to prop gen and GPU alloc)
         propSectionOffsetsBuffer = new ComputeBuffer(props.Count, sizeof(int) * 3);
@@ -277,18 +285,32 @@ public class VoxelProps : VoxelBehaviour {
             last += offset;
 
             // Make sure all the variants have the same stride
-            SerializableProp first = propType.variants[0].prefab.GetComponent<SerializableProp>();
-            Type type = first.GetType();
-            if (propType.variants.Any(x => x.prefab.GetComponent<SerializableProp>().GetType() != type)) {
-                Debug.LogError("Variants MUST have the same SerializableProp script!");
+            if (propType.variants.Count > 0) {
+                SerializableProp first = propType.variants[0].prefab.GetComponent<SerializableProp>();
+                Type type = first.GetType();
+                if (propType.variants.Any(x => x.prefab.GetComponent<SerializableProp>().GetType() != type)) {
+                    Debug.LogError("Variants MUST have the same SerializableProp script!");
+                }
+
+                // Initialize the serialized prop data buffers
+                propTypeSerializedData[i] = new PropTypeSerializedData {
+                    rawBytes = new NativeList<byte>(Allocator.Persistent),
+                    set = new NativeBitArray((int)offset.x, Allocator.Persistent),
+                    stride = first.Stride,
+                };
+            } else {
+                propTypeSerializedData[i] = new PropTypeSerializedData();
             }
 
-            // Initialize the serialized prop data buffers
-            propTypeSerializedData[i] = new PropTypeSerializedData {
-                rawBytes = new NativeList<byte>(Allocator.Persistent),
-                set = new NativeBitArray((int)offset.x, Allocator.Persistent),
-                stride = first.Stride,
-            };
+            // We do a considerable amount of trolling
+            uint indexCount;
+            if (propType.propSpawnBehavior.HasFlag(PropSpawnBehavior.SwapForInstancedMeshes) && propType.instancedMesh != null) {
+                indexCount = propType.instancedMesh.GetIndexCount(0);
+            } else {
+                indexCount = 6;
+            }
+
+            meshIndexCount[i] = indexCount;
             maxDistances[i] = propType.maxInstancingDistance;
         }
 
@@ -311,12 +333,13 @@ public class VoxelProps : VoxelBehaviour {
         // Update static settings and capture the billboards
         propSectionOffsetsBuffer.SetData(propSectionOffsets);
         maxDistanceBuffer.SetData(maxDistances);
+        meshIndexCountBuffer.SetData(meshIndexCount);
         UpdateStaticComputeFields();
-        CapturePropsBillboards();
+        CaptureBillboards();
     }
 
     // Capture the billboards of all props sequentially
-    private void CapturePropsBillboards() {
+    private void CaptureBillboards() {
         // Create a prop capture camera to 
         extraPropData = new List<IndirectExtraPropData>();
         GameObject captureGo = Instantiate(propCaptureCameraPrefab);
@@ -326,7 +349,13 @@ public class VoxelProps : VoxelBehaviour {
 
         // Capture all props (including variant types)
         foreach (var prop in props) {
-            extraPropData.Add(CaptureBillboard(cam, prop));
+            IndirectExtraPropData data = null;
+            
+            if (prop.WillRenderIndirectInstances && prop.variants.Count > 0) {
+                data = CaptureBillboard(cam, prop);
+            }
+            
+            extraPropData.Add(data);
         }
 
         Destroy(captureGo);
@@ -385,7 +414,7 @@ public class VoxelProps : VoxelBehaviour {
         segment.props = new Dictionary<int, (List<GameObject>, List<ushort>)>();
 
         // Quit early if we shouldn't do shit
-        if (!props.Any(x => x.WillRenderBillboard | (x.WillSpawnPrefab && segment.spawnPrefabs))) {
+        if (!props.Any(x => x.WillRenderIndirectInstances | (x.WillSpawnPrefab && segment.spawnPrefabs))) {
             return;
         }
 
@@ -398,6 +427,9 @@ public class VoxelProps : VoxelBehaviour {
             ignorePropBitmaskBuffer.SetData(new int[ignorePropBitmaskBuffer.count]);
             lastSegmentWasModified = false;
         }
+
+        // Fetch all the voxel prop spawners in this segment and apply them first
+        // TODO: Actually implement this
         
         // Execute the prop segment voxel cache compute shader
         int _count = VoxelUtils.PropSegmentResolution / 4;
@@ -414,7 +446,7 @@ public class VoxelProps : VoxelBehaviour {
         // Create an async callback if we have ANY prop that must be spawned as a game object
         if (props.Any(x => x.WillSpawnPrefab) && segment.spawnPrefabs) {
             for (int i = 0; i < props.Count; i++) {
-                if (props[i].WillSpawnPrefab) {
+                if (props[i].WillSpawnPrefab && !props[i].propSpawnBehavior.HasFlag(PropSpawnBehavior.SwapForInstancedMeshes)) {
                     segment.props.Add(i, (new List<GameObject>(), new List<ushort>()));
                 }
             }
@@ -494,7 +526,7 @@ public class VoxelProps : VoxelBehaviour {
 
         for (int i = 0; i < props.Count; i++) {
             bool prefabsSpawn = props[i].WillSpawnPrefab && segment.spawnPrefabs;
-            bool billboardRender = props[i].WillRenderBillboard;
+            bool billboardRender = props[i].WillRenderIndirectInstances;
             if (!prefabsSpawn && billboardRender) {
                 billboardMask |= 1 << i;
             }
@@ -678,6 +710,7 @@ public class VoxelProps : VoxelBehaviour {
         // Apply culling counts to the indirect draw args
         propCullingApply.SetBuffer(0, "culledCount", culledCountBuffer);
         propCullingApply.SetBuffer(0, "drawArgs", drawArgsBuffer);
+        propCullingApply.SetBuffer(0, "meshIndexCountPerInstance", meshIndexCountBuffer);
         propCullingApply.SetInt("propCount", props.Count);
         propCullingApply.Dispatch(0, 1, 1, 1);
 
@@ -685,8 +718,49 @@ public class VoxelProps : VoxelBehaviour {
         for (int i = 0; i < props.Count; i++) {
             IndirectExtraPropData extraData = extraPropData[i];
             PropType prop = props[i];
-            RenderBillboardsOfType(i, extraData, prop);
+            
+            if (prop.WillRenderIndirectInstances)
+                RenderInstancesOfType(i, extraData, prop);
         }
+    }
+
+    // Render the instanced mesh for a specific type of prop type
+    // This is either the billboard or the given instanced mesh
+    private void RenderInstancesOfType(int i, IndirectExtraPropData extraData, PropType prop) {
+        bool meshed = prop.propSpawnBehavior.HasFlag(PropSpawnBehavior.SwapForInstancedMeshes);
+
+        if (meshed && (prop.instancedMeshMaterial == null || prop.instancedMesh == null))
+            return;
+
+        Material material = meshed ? prop.instancedMeshMaterial : billboardMaterialBase;
+
+        ShadowCastingMode shadowCastingMode = prop.billboardCastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
+        RenderParams renderParams = new RenderParams(material);
+        renderParams.shadowCastingMode = shadowCastingMode;
+        renderParams.worldBounds = new Bounds {
+            min = -Vector3.one * VoxelUtils.PropSegmentSize * 100000,
+            max = Vector3.one * VoxelUtils.PropSegmentSize * 100000,
+        };
+
+        var mat = new MaterialPropertyBlock();
+        renderParams.matProps = mat;
+        mat.SetBuffer("_PropSectionOffsets", propSectionOffsetsBuffer);
+        mat.SetBuffer("_BlittablePropBuffer", culledPropBuffer);
+        mat.SetFloat("_PropType", (float)i);
+
+        if (!meshed) {
+            mat.SetTexture("_AlbedoArray", extraData.billboardAlbedoTexture);
+            mat.SetTexture("_NormalMapArray", extraData.billboardNormalTexture);
+            mat.SetTexture("_MaskMapArray", extraData.billboardMaskTexture);
+            mat.SetVector("_BillboardSize", prop.billboardSize);
+            mat.SetVector("_BillboardSizeOrigin", prop.billboardSizeOrigin);
+            mat.SetVector("_BillboardOffset", prop.billboardOffset);
+            mat.SetInt("_RECEIVE_SHADOWS_OFF", prop.billboardCastShadows ? 0 : 1);
+            mat.SetInt("_Lock_Rotation_Y", prop.billboardRestrictRotationY ? 1 : 0);
+        }
+
+        Mesh mesh = meshed ? prop.instancedMesh : VoxelTerrain.Instance.VoxelProps.quadBillboard;
+        Graphics.RenderMeshIndirect(renderParams, mesh, drawArgsBuffer, 1, i);
     }
 
     // Called whenever we want to serialize the data for a prop and save it to memory/disk
@@ -796,33 +870,6 @@ public class VoxelProps : VoxelBehaviour {
             onPropSegmentUnloaded?.Invoke(item.Value);
             pendingSegments.Enqueue(item.Value);
         }
-    }
-
-    // Render the billboards for a specific type of prop type
-    private void RenderBillboardsOfType(int i, IndirectExtraPropData extraData, PropType prop) {
-        ShadowCastingMode shadowCastingMode = prop.billboardCastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
-        RenderParams renderParams = new RenderParams(billboardMaterialBase);
-        renderParams.shadowCastingMode = shadowCastingMode;
-        renderParams.worldBounds = new Bounds {
-            min = -Vector3.one * VoxelUtils.PropSegmentSize * 100000,
-            max = Vector3.one * VoxelUtils.PropSegmentSize * 100000,
-        };
-
-        var mat = new MaterialPropertyBlock();
-        renderParams.matProps = mat;
-        mat.SetFloat("_PropType", (float)i);
-        mat.SetBuffer("_PropSectionOffsets", propSectionOffsetsBuffer);
-        mat.SetBuffer("_BlittablePropBuffer", culledPropBuffer);
-        mat.SetTexture("_AlbedoArray", extraData.billboardAlbedoTexture);
-        mat.SetTexture("_NormalMapArray", extraData.billboardNormalTexture);
-        mat.SetTexture("_MaskMapArray", extraData.billboardMaskTexture);
-        mat.SetVector("_BillboardSize", prop.billboardSize);
-        mat.SetVector("_BillboardOffset", prop.billboardOffset);
-        mat.SetInt("_RECEIVE_SHADOWS_OFF", prop.billboardCastShadows ? 0 : 1);
-        mat.SetInt("_Lock_Rotation_Y", prop.billboardRestrictRotationY ? 1 : 0);
-
-        Mesh mesh = VoxelTerrain.Instance.VoxelProps.quadBillboard;
-        Graphics.RenderMeshIndirect(renderParams, mesh, drawArgsBuffer, 1, i);
     }
 
     private void OnDrawGizmosSelected() {

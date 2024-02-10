@@ -19,7 +19,7 @@ public class PropType : ScriptableObject {
 
     [Header("Behavior")]
     public List<PropVariantType> variants;
-    public PropSpawnBehavior propSpawnBehavior = PropSpawnBehavior.RenderBillboards | PropSpawnBehavior.SpawnPrefabs;
+    public PropSpawnBehavior propSpawnBehavior = PropSpawnBehavior.RenderIndirectInstanced | PropSpawnBehavior.SpawnPrefabs;
 
     // Max number of props per segment and PER ALL segments
     // Spawning more segments than this will cause them to not be loaded, not very good
@@ -28,6 +28,10 @@ public class PropType : ScriptableObject {
     [Min(1)] public int maxVisibleProps = 4096;
     [Min(1)] public float maxInstancingDistance = 1000;
 
+    // Used when the SwapBillboardsForMeshes feature is on
+    public Material instancedMeshMaterial;
+    public Mesh instancedMesh;
+
     // Capture settings that apply for ALL variants
     [Header("Billboard Capture")]
     public int billboardTextureWidth = 256;
@@ -35,6 +39,7 @@ public class PropType : ScriptableObject {
     public FilterMode billboardTextureFilterMode = FilterMode.Bilinear;
     public Vector2 billboardSize = Vector2.one * 10;
     public Vector3 billboardOffset;
+    public Vector3 billboardSizeOrigin;
 
     // How to show the billboard that apply for ALL variants
     [Header("Billboard Rendering")]
@@ -45,23 +50,23 @@ public class PropType : ScriptableObject {
     public bool WillSpawnPrefab => propSpawnBehavior.HasFlag(PropSpawnBehavior.SpawnPrefabs);
 
     // Will this prop be rendered as a billboard
-    public bool WillRenderBillboard => propSpawnBehavior.HasFlag(PropSpawnBehavior.RenderBillboards);
+    public bool WillRenderIndirectInstances => propSpawnBehavior.HasFlag(PropSpawnBehavior.RenderIndirectInstanced);
 }
 
 [Flags]
 public enum PropSpawnBehavior {
     None = 0,
 
-    // Enables/disables rendering far away billboards
-    RenderBillboards = 1 << 0,
+    // Enables/disables rendering far away billboards/instances
+    RenderIndirectInstanced = 1 << 0,
 
     // Enables/disables spawning in actual prefabs
     SpawnPrefabs = 1 << 1,
 
     // Swaps out everything for instanced meshes
     // (useful for small rocks or stuff not to be interacted with that we don't want as a gameobject)
-    // Only works when the given prefabs only contain ONE material that we can swap with
-    //OnlyRenderInstances = 1 << 2,
+    // Only works when we have NO prop prefabs!!!
+    SwapForInstancedMeshes = 1 << 2,
 }
 
 

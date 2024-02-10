@@ -29,12 +29,12 @@ public class VoxelPropsSpawnModifier : MonoBehaviour {
         public byte propType;
         public byte propVariant;
         public byte modifier;
+        public byte spawnModifierIndex;
     }
-    
+
     public struct BlittableSpawnModifier {
         public float4 center;
         public float4 extent;
-        public uint ruleSetId;
     }
 
     private void OnDrawGizmos() {

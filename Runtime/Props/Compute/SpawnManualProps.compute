@@ -1,0 +1,14 @@
+struct BlittableProp {
+    uint2 packed_position_and_scale;
+    uint2 packed_rotation_dispatch_index_prop_variant_padding;
+};
+
+int propCount;
+RWStructuredBuffer<BlittableProp> tempProps;
+RWStructuredBuffer<int> tempCounters;
+StructuredBuffer<uint3> propSectionOffsets;
+
+[numthreads(4, 4, 4)]
+void CSSpawnManualProp(uint3 id : SV_DispatchThreadID)
+{
+}

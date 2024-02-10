@@ -11,16 +11,17 @@ struct BlittableProp {
 StructuredBuffer<BlittableProp> _BlittablePropBuffer;
 
 StructuredBuffer<uint3> _PropSectionOffsets;
+float _PropType;
 
-void MyFunctionA_float(float i, float propType, out float variant, out float3 position, out float scale, out float3 rotation)
+void MyFunctionA_float(float i, out float variant, out float3 position, out float scale, out float3 rotation)
 {
-    BlittableProp prop = _BlittablePropBuffer[(int)i + _PropSectionOffsets[(int)propType].z];
+    BlittableProp prop = _BlittablePropBuffer[(int)i + _PropSectionOffsets[(int)_PropType].z];
 
     float4 unpackedPosScale = UnpackPositionAndScale(prop.packed_position_and_scale);
     variant = UnpackVariant(prop.packed_euler_angles_id);
     position = unpackedPosScale.xyz;
     scale = unpackedPosScale.w;
-    rotation = float3(0, 0, 0);
+    rotation = UnpackRotation(prop.packed_euler_angles_id);
 }
 
 #endif
