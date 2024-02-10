@@ -59,9 +59,9 @@ Material:
     m_Ints: []
     m_Floats:
     - _InvTilingScale: 1
-    - _Metallic: 0.4
-    - _NormalScale: 1
-    - _Smoothness: 0.4
+    - _Metallic: 0
+    - _NormalScale: 0.72
+    - _Smoothness: 0.142
     m_Colors:
     - _BaseColor: {r: 0.3679245, g: 0.3679245, b: 0.3679245, a: 1}
     - _Color: {r: 0.36792448, g: 0.36792448, b: 0.36792448, a: 1}

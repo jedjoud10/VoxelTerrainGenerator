@@ -71,9 +71,76 @@ void Spawn(float3 position, float scale, float3 rotation, uint propType, uint pr
 // Get the density value at a specific point (world space)
 float GetDensity(float3 position) {
 	float3 localPos = WorldToPropSegment(position);
-	return _Voxels.SampleLevel(sampler_Voxels, localPos, 0).x;
+	return _Voxels.SampleLevel(sampler_Voxels, localPos + (0.5 / propSegmentResolution), 0).x;
 }
 
+// Calculates the normals at a specific position using numerical derivation
+float3 GetNormal(float3 position) {
+	float b = GetDensity(position);
+	float x1 = GetDensity(position + float3(20, 0, 0));
+	float y1 = GetDensity(position + float3(0, 20, 0));
+	float z1 = GetDensity(position + float3(0, 0, 20));
+	
+	return normalize(float3(x1-b, y1-b, z1-b));
+}
+
+// Structure returned from CheckClosestSurface
+struct ClosestSurface {
+	bool hit;
+	float3 normals;
+	float3 position;
+};
+
+// Check if the current position contains an surface that contains both air and terrain
+// Could be used for spawning props horizontally, or in cases where there are a lot
+// of intersection within a single axis
+ClosestSurface CheckClosestSurface(float3 position, int dir, float thickness) {
+	ClosestSurface res;
+	res.hit = false;
+	res.position = float3(0, 0, 0);
+	res.normals = float3(0, 0, 0);
+
+	// Convert world position to local position (in ID space)
+	float3 localPosTest = WorldToPropSegment(position) + (0.5f / propSegmentResolution);
+	float2 localPos = float2(0, 0);
+	float3 offset = float3(0, 0, 0);
+
+	if (dir == 0) {
+		localPos = localPosTest.xy;
+		offset.y = thickness;
+	} else if (dir == 1) {
+		localPos = localPosTest.xz;
+		offset.z = thickness;
+	} else {
+		localPos = localPosTest.yz;
+		offset.x = thickness;
+	}
+
+	// No surface if we're outside the bounds of the segment
+	bool test1 = any(localPos <= float2(0, 0) + (0.5f / propSegmentResolution));
+	bool test2 = any(localPos >= float2(1, 1) - (0.5f / propSegmentResolution));
+	if (test1 || test2) {
+		return res;
+	}
+
+	// Sample the density twice and check for intersection
+	float d0 = GetDensity(position - offset);
+	float d1 = GetDensity(position + offset);
+
+	// Make use of inv lerp to find the exact position
+	if (d0 > 0 ^ d1 > 0) {
+		float inv = invLerp(d0, d1, 0);
+		float3 finalPosition = lerp(position - offset, position + offset, inv);
+		res.hit = true;
+		res.position = finalPosition;
+		res.normals = GetNormal(finalPosition);
+		return res;
+	}
+
+	return res;
+}
+
+/*
 // Structure returned from a hit ray
 struct HitRay {
 	bool hit;
@@ -131,3 +198,4 @@ HitRay CheckRay(float3 position, int dir) {
 
 	return ray;
 }
+*/

@@ -397,10 +397,6 @@ public class VoxelProps : VoxelBehaviour {
         voxelShader.SetVector("propChunkOffset", segment.worldPosition);
         voxelShader.Dispatch(1, _count, _count, _count);
 
-        // Execute the ray casting shader that will store the position of the rays inside the textures
-        voxelShader.Dispatch(3, _count, _count, 3);
-        voxelShader.Dispatch(2, _count, _count, _count);
-
         // Set compute properties and run the compute shader
         tempCountBuffer.SetData(new int[props.Count]);
         onUpdateComputeCustom?.Invoke(propShader, segment);
