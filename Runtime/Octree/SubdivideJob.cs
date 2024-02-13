@@ -12,9 +12,8 @@ public struct SubdivideJob<T> : IJob where T: struct, IOctreeSubdivider {
     // Currently pending nodes for generation
     public NativeQueue<OctreeNode> pending;
 
-    // The octree chunk targets 
     [ReadOnly]
-    public NativeArray<TerrainLoaderTarget> targets;
+    public TerrainLoader.Target target;
 
     [ReadOnly] public int maxDepth;
     public T subdivider;
@@ -27,7 +26,7 @@ public struct SubdivideJob<T> : IJob where T: struct, IOctreeSubdivider {
 
     // Try to subdivide the current node into 8 octants
     public void TrySubdivide(ref OctreeNode node) {
-        if (subdivider.ShouldSubdivide(ref node, ref targets) && node.depth < maxDepth) {
+        if (subdivider.ShouldSubdivide(ref node, ref target) && node.depth < maxDepth) {
             node.childBaseIndex = nodes.Length;
 
             for (int i = 0; i < 8; i++) {

@@ -1,28 +1,44 @@
+using System;
 using Unity.Mathematics;
 using UnityEngine;
 
 // Will be used by the prop system to load prop segments and spawn props
 public class TerrainLoader : MonoBehaviour {
-    // How many prop segments we should spawn around the terrain loader
-    public uint3 propSegmentExtent = new uint3(1, 1, 1);
+    [Serializable]
+    public struct Target {
+        // Should we generate collisions for chunks generated around this target?
+        public bool generateCollisions;
 
-    // Multiplier for the prop segment lod system
-    public float propSegmentLodMultiplier = 1f;
+        // Position of the target in world space (very small coordinates)
+        [HideInInspector]
+        public float3 center;
 
-    // Should the terrain loader force the voxel props to generated prop segments
-    public bool affectsVoxelProps = true;
+        // Radius in world space
+        [Min(0.001F)]
+        public float radius;
 
-    // Should we generate collisions for chunks generated around this loader?
-    public bool generateCollisions = false;
+        // Should the terrain loader force the voxel props to generated prop segments
+        public bool affectsVoxelProps;
 
-    // Radius in world space
-    [Min(0.001F)]
-    public float radius = 16.0F;
+        // Extents around the terrain loader where we must spawn prop segments
+        public uint3 propSegmentExtent;
 
-    // Max distance we can move before we must regenerate the octree around us
-    [Min(0.001F)]
-    public float maxDistanceThreshold = 1.0F;
+        // Multiplier for the prop segment lod system
+        public float propSegmentLodMultiplier;
 
+        // Max distance we can move before we must regenerate the octree around us
+        [Min(0.001F)]
+        public float maxDistanceThreshold;
+    }
+
+    public Target data = new Target {
+        generateCollisions = false,
+        center = float3.zero,
+        radius = 16f,
+        affectsVoxelProps = true,
+        propSegmentExtent = new uint3(5, 1, 5),
+        maxDistanceThreshold = 1F,
+    };
     private Vector3 last;
     private VoxelOctree octree;
     public Camera viewCamera;
@@ -37,35 +53,24 @@ public class TerrainLoader : MonoBehaviour {
 
     void Update() {
         if (VoxelTerrain.Instance != null) {
-
             // Initialize both octree and props
             bool bruhtonium = false;
             if (octree == null) {
                 octree = VoxelTerrain.Instance.VoxelOctree;
-                octree.targetsLookup.Add(this, octree.targets.Length);
-                octree.targets.Add(new TerrainLoaderTarget {
-                    generateCollisions = generateCollisions,
-                    center = transform.position,
-                    radius = radius,
-                });
-                bruhtonium = true;
+
+                if (VoxelTerrain.Instance.VoxelOctree.target == null) {
+                    octree.target = this;
+                    bruhtonium = true;
+                    octree.mustUpdate = true;
+                } else {
+                    Debug.LogWarning("Already have a target. Multi-target support has been removed already!!");
+                }
             }
 
             // Update octree variables (pass in required prop segment mul)
-            if (Vector3.Distance(transform.position, last) > maxDistanceThreshold || bruhtonium) {
-                if (octree.Free) {
-                    int index = octree.targetsLookup[this];
-                    octree.targets[index] = new TerrainLoaderTarget {
-                        generateCollisions = generateCollisions,
-                        center = transform.position,
-                        radius = radius,
-                        propSegmentExtent = propSegmentExtent,
-                        propSegmentLodMultiplier = propSegmentLodMultiplier,
-                    };
-
-                    last = transform.position;
-                    octree.mustUpdate = true;
-                }
+            if (Vector3.Distance(transform.position, last) > data.maxDistanceThreshold || bruhtonium) {
+                data.center = transform.position;
+                octree.mustUpdate = true;
             }
         }
     }

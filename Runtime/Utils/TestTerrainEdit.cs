@@ -14,6 +14,7 @@ public class TestTerrainEdit : MonoBehaviour {
 
     public EditType type;
     private bool isApplied = false;
+    public bool save;
     public bool writeMaterial;
     public float strength;
     public byte material;
@@ -26,14 +27,18 @@ public class TestTerrainEdit : MonoBehaviour {
             float3 halfExtents = math.float3(transform.lossyScale.x, transform.lossyScale.y, transform.lossyScale.z) / 2f;
             float radius = transform.lossyScale.x;
 
+            float3x3 rotation = new float3x3(transform.rotation);
+
             switch (type) {
                 case EditType.CuboidDynamic:
                     VoxelTerrain.Instance.VoxelEdits.ApplyDynamicEdit(new CuboidDynamicEdit {
+                        rotation = rotation,
                         center = center,
                         halfExtents = halfExtents,
                         writeMaterial = writeMaterial,
                         material = material,
-                    });
+                        inverse = strength < 0,
+                    }, save: save);
                     break;
                 case EditType.SphereDynamic:
                     VoxelTerrain.Instance.VoxelEdits.ApplyDynamicEdit(new SphereDynamicEdit {
@@ -41,7 +46,8 @@ public class TestTerrainEdit : MonoBehaviour {
                         radius = radius,
                         writeMaterial = writeMaterial,
                         material = material,
-                    });
+                        inverse = strength < 0,
+                    }, save: save);
                     break;
                 case EditType.CuboidVoxel:
                     VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(new CuboidVoxelEdit {
@@ -110,7 +116,9 @@ public class TestTerrainEdit : MonoBehaviour {
         if (sphere) {
             Gizmos.DrawWireSphere(transform.position, transform.lossyScale.x);
         } else {
-            Gizmos.DrawWireCube(transform.position, transform.lossyScale);
+            float4x4 rotation = new float4x4(transform.rotation, transform.position);
+            Gizmos.matrix = rotation;
+            Gizmos.DrawWireCube(Vector3.zero, transform.lossyScale);
         }
     }
 }

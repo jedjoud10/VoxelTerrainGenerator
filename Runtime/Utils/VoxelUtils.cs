@@ -279,4 +279,20 @@ public static class VoxelUtils {
     public static int FetchPropBitmaskIndex(int propType, ushort dispatchIndex) {
         return dispatchIndex + (PropSegmentResolution * PropSegmentResolution * PropSegmentResolution * propType);
     }
+
+    // Rotate a bound using a matrix
+    public static Bounds RotatedBy(this Bounds self, float3x3 rotation) {
+        Vector3 min = self.min - self.center;
+        Vector3 max = self.max - self.center;
+
+        Vector3 corner3 = new Vector3(min.x, min.y, max.z);
+        Vector3 corner4 = new Vector3(min.x, max.y, min.z);
+        Vector3 corner5 = new Vector3(max.x, min.y, min.z);
+        Vector3 corner6 = new Vector3(max.x, max.y, min.z);
+        Vector3 corner7 = new Vector3(min.x, max.y, max.z);
+        Vector3 corner8 = new Vector3(max.x, min.y, max.z);
+
+        float4x4 reconstructed = new float4x4(rotation, self.center);
+        return GeometryUtility.CalculateBounds(new Vector3[8] { min, max, corner3, corner4, corner5, corner6, corner7, corner8 }, reconstructed);
+    }
 }

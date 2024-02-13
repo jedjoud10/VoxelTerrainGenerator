@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
@@ -7,6 +8,12 @@ using UnityEngine;
 
 // Handles keeping track of voxel edits and dynamic edits in the world
 public class VoxelEdits : VoxelBehaviour {
+    // Reference that we can use to edit a dynamic edit after it has been placed
+    public struct DynamicEditReference {
+        internal int index;
+        internal int registryIndex;
+    }
+
     public bool debugGizmos = false;
 
     // Voxel edit octree nodes
@@ -22,7 +29,11 @@ public class VoxelEdits : VoxelBehaviour {
     internal List<SparseVoxelDeltaData> sparseVoxelData;
 
     // Stores the containers of the different types of world edits
+    // ONLY USED FOR SERIALIZATION AND SAVING
     internal SerializableRegistry worldEditRegistry;
+
+    // ALL dynamic edits (even the ones that should not be serialized)
+    internal List<IDynamicEdit> dynamicEdits;
 
     // Temporary place for voxel/dynamic edits that have not been applied yet
     internal Queue<IVoxelEdit> tempVoxelEdits = new Queue<IVoxelEdit>();
@@ -46,6 +57,7 @@ public class VoxelEdits : VoxelBehaviour {
         lookup = new NativeHashMap<int, int>(0, Allocator.Persistent);
         sparseVoxelData = new List<SparseVoxelDeltaData>();
         worldEditRegistry = new SerializableRegistry();
+        dynamicEdits = new List<IDynamicEdit>();
 
         terrain.onInitialGenerationDone += () => { applyEdits = true; };
 
@@ -174,16 +186,40 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     // Apply a dynamic edit to the terrain world when free or immediately
-    // The returned int is the index inside the registry for the dynamic edit
-    public int ApplyDynamicEdit<T>(T dynamicEdit, bool immediate = false) where T: struct, IDynamicEdit {
+    public DynamicEditReference ApplyDynamicEdit<T>(T dynamicEdit, bool immediate = false, bool save = true) where T: struct, IDynamicEdit {
+        DynamicEditReference reference = new DynamicEditReference {
+            index = dynamicEdits.Count,
+            registryIndex = -1,
+        };
+
         if (immediate && terrain.Free) {
             InternalApplyDynEditImmediate(dynamicEdit);
         } else {
             tempDynamicEdit.Enqueue(dynamicEdit);
         }
 
-        // We can add this later since the mesher isn't immediate; it will mesh next frame
-        return worldEditRegistry.Add(dynamicEdit);
+        // Sometimes we wish to apply dynamic edits that are not serialized
+        // use cases for this would be props that are dynamic edits themselves
+        // Since props serialization is automatically handled, we would cuase double serialization 
+        // (one for the prefabs and one for the dyn edits)
+        if (save) {
+            reference.registryIndex = worldEditRegistry.Add(dynamicEdit);
+        }
+
+        dynamicEdits.Add(dynamicEdit);
+        return reference;
+    }
+
+    // Update a dynamic edit that is already applied to the world using its reference
+    public void ModifyDynamicEdit<T>(DynamicEditReference reference, Func<T, T> callback) where T: struct, IDynamicEdit {
+        T result = callback.Invoke((T)dynamicEdits[reference.index]);
+        dynamicEdits[reference.index] = result;
+
+        if (reference.registryIndex != -1) {
+            int lookup = worldEditRegistry.lookup[typeof(T)];
+            var list = (IList<T>)worldEditRegistry.types[lookup].List;
+            list[reference.registryIndex] = result;
+        }
     }
 
     // Check if a chunk contains voxel edits
@@ -195,12 +231,6 @@ public class VoxelEdits : VoxelBehaviour {
         };
 
         return chunkLookup.ContainsKey(raw);
-    }
-    
-    // Check if a chunk contains dynamic edits
-    public bool IsChunkAffectedByDynamicEdits(VoxelChunk chunk) {
-        Bounds chunkBounds = chunk.GetBounds();
-        return worldEditRegistry.TryGetAll<IDynamicEdit>().Select(x => x.GetBounds()).Any(bound => bound.Intersects(chunkBounds));
     }
 
     // Create an apply job dependeny for a chunk that has voxel edits
@@ -230,15 +260,11 @@ public class VoxelEdits : VoxelBehaviour {
     // Create a list of dependencies to apply to chunks that have been affected by dynamic edits
     // Applied BEFORE the voxel edits
     public JobHandle TryGetApplyDynamicEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> voxels) {
-        if (!IsChunkAffectedByDynamicEdits(chunk)) {
-            return new JobHandle();
-        }
-
         JobHandle dep = new JobHandle();
-        foreach (var registry in worldEditRegistry.types) {
-            foreach (var worldEdit in registry.List) {
-                IDynamicEdit edit = (IDynamicEdit)worldEdit;
-                dep = edit.Apply(chunk, ref voxels, dep);
+
+        foreach (var dynamicEdit in dynamicEdits) {
+            if (dynamicEdit.GetBounds().Intersects(chunk.GetBounds())) {
+                dep = dynamicEdit.Apply(chunk, ref voxels, dep);
             }
         }
 

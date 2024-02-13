@@ -125,7 +125,13 @@ public partial class VoxelTerrain {
         onDeserializeStart?.Invoke();
         Debug.LogWarning("Deserializing terrain using FastBufferReader...");
         reader.ReadValueSafe(out VoxelGenerator.seed);
+        VoxelEdits.dynamicEdits.Clear();
         VoxelEdits.worldEditRegistry.Deserialize(reader);
+
+        foreach (var item in VoxelEdits.worldEditRegistry.TryGetAll<IDynamicEdit>()) {
+            VoxelEdits.dynamicEdits.Add(item);
+        }
+
         VoxelGenerator.UpdateStaticComputeFields();
 
         reader.ReadValueSafe(out int nodesCount);

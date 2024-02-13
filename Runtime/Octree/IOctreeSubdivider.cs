@@ -6,15 +6,15 @@ using System.Runtime.CompilerServices;
 public interface IOctreeSubdivider {
     // Should we subdivide the given node?
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool ShouldSubdivide(ref OctreeNode node, ref NativeArray<TerrainLoaderTarget> targets);
+    public bool ShouldSubdivide(ref OctreeNode node, ref TerrainLoader.Target target);
 
     // MUST CALL THE "ApplyGeneric" function because we can't hide away generics
-    public JobHandle Apply(NativeArray<TerrainLoaderTarget> targets, NativeList<OctreeNode> nodes, NativeQueue<OctreeNode> pending);
+    public JobHandle Apply(TerrainLoader.Target target, NativeList<OctreeNode> nodes, NativeQueue<OctreeNode> pending);
 
     // Apply any generic octree subdivider edit onto the octree
-    internal static JobHandle ApplyGeneric<T>(NativeArray<TerrainLoaderTarget> targets, NativeList<OctreeNode> nodes, NativeQueue<OctreeNode> pending, T subdivider) where T : struct, IOctreeSubdivider {
+    internal static JobHandle ApplyGeneric<T>(TerrainLoader.Target target, NativeList<OctreeNode> nodes, NativeQueue<OctreeNode> pending, T subdivider) where T : struct, IOctreeSubdivider {
         SubdivideJob<T> job = new SubdivideJob<T> {
-            targets = targets,
+            target = target,
             nodes = nodes,
             pending = pending,
             maxDepth = VoxelUtils.MaxDepth,

@@ -9,6 +9,7 @@ using UnityEngine;
 public struct SphereDynamicEdit : IDynamicEdit {
     [ReadOnly] public float3 center;
     [ReadOnly] public float radius;
+    [ReadOnly] public bool inverse;
     [ReadOnly] public byte material;
     [ReadOnly] public bool writeMaterial;
     public bool Enabled => true;
@@ -31,7 +32,11 @@ public struct SphereDynamicEdit : IDynamicEdit {
             voxel.material = material;
         }
 
-        voxel.density = (half)math.min(voxel.density, density);
+        if (inverse) {
+            voxel.density = (half)(math.max(voxel.density, -density));
+        } else {
+            voxel.density = (half)math.min(voxel.density, density);
+        }
         return voxel;
     }
 

@@ -183,7 +183,7 @@ public class VoxelProps : VoxelBehaviour {
         voxelShader.SetFloat("propSegmentWorldSize", VoxelUtils.PropSegmentSize);
         voxelShader.SetFloat("propSegmentResolution", VoxelUtils.PropSegmentResolution);
         propShader.SetVector("worldOffset", terrain.VoxelGenerator.worldOffset);
-        propShader.SetVector("worldScale", terrain.VoxelGenerator.worldScale * VoxelUtils.VoxelSizeFactor);
+        propShader.SetVector("worldScale", terrain.VoxelGenerator.worldScale);
         propShader.SetInts("permuationSeed", new int[] { permutationSeed.x, permutationSeed.y, permutationSeed.z });
         propShader.SetInts("moduloSeed", new int[] { moduloSeed.x, moduloSeed.y, moduloSeed.z });
         propShader.SetFloat("propSegmentWorldSize", VoxelUtils.PropSegmentSize);
@@ -444,9 +444,13 @@ public class VoxelProps : VoxelBehaviour {
         propShader.Dispatch(0, _count, _count, _count);
 
         // Create an async callback if we have ANY prop that must be spawned as a game object
-        if (props.Any(x => x.WillSpawnPrefab) && segment.spawnPrefabs) {
+        // props.Any(x => x.WillSpawnPrefab) && segment.spawnPrefabs || props.Any(x => x.propSpawnBehavior.HasFlag(PropSpawnBehavior.SwapForPrefabs))
+        if (true) {
             for (int i = 0; i < props.Count; i++) {
-                if (props[i].WillSpawnPrefab && !props[i].propSpawnBehavior.HasFlag(PropSpawnBehavior.SwapForInstancedMeshes)) {
+                bool spawn = props[i].WillSpawnPrefab && segment.spawnPrefabs;
+                bool forceInstanced = props[i].propSpawnBehavior.HasFlag(PropSpawnBehavior.SwapForInstancedMeshes);
+                bool forcePrefab = props[i].propSpawnBehavior.HasFlag(PropSpawnBehavior.SwapForPrefabs);
+                if ((spawn && !forceInstanced) || forcePrefab) {
                     segment.props.Add(i, (new List<GameObject>(), new List<ushort>()));
                 }
             }
@@ -476,7 +480,7 @@ public class VoxelProps : VoxelBehaviour {
                         PropType propType = props[i];
                         int offset = (int)propSectionOffsets[i].x;
 
-                        if (!propType.WillSpawnPrefab)
+                        if (!segment.props.ContainsKey(i))
                             continue;
 
                         // Spawn all the props of this specific type
@@ -579,6 +583,7 @@ public class VoxelProps : VoxelBehaviour {
                     SerializableProp prop = item.GetComponent<SerializableProp>();
                     item.SetActive(false);
                     pooledPropGameObjects[collection.Key][prop.Variant].Add(item);
+                    Debug.Log("add back");
                 }
             }
         }
@@ -602,6 +607,7 @@ public class VoxelProps : VoxelBehaviour {
         } else {
             go = pooledPropGameObjects[i][variant][0];
             pooledPropGameObjects[i][variant].RemoveAt(0);
+            Debug.Log("fetch pooled");
         }
 
         go.SetActive(true);
@@ -612,16 +618,17 @@ public class VoxelProps : VoxelBehaviour {
     private void Update() {
         mustUpdate |= terrain.VoxelOctree.mustUpdate;
 
+        if (terrain.VoxelOctree.target == null)
+            return;
+
         // Only update if we can and if we finished generating
         if (mustUpdate && pendingSegments.Count == 0 && !segmentsAwaitingRemoval) {
-            NativeList<TerrainLoaderTarget> targets = terrain.VoxelOctree.targets;
-
             PropSegmentSpawnDiffJob job = new PropSegmentSpawnDiffJob {
                 addedSegments = addedSegments,
                 removedSegments = removedSegments,
                 oldPropSegments = oldPropSegments,
                 propSegments = propSegments,
-                target = targets[0],
+                target = terrain.VoxelOctree.target.data,
                 maxSegmentsInWorld = VoxelUtils.PropSegmentsCount / 2,
                 propSegmentSize = VoxelUtils.PropSegmentSize,
             };
@@ -686,12 +693,11 @@ public class VoxelProps : VoxelBehaviour {
         }
 
         // Fetch camera from the terrain loader to use for prop billboard culling
-        Camera camera = null;
-        if (terrain.VoxelOctree.targetsLookup.Count > 0) {
-            camera = terrain.VoxelOctree.targetsLookup.First().Key.viewCamera;
-        }
-        if (camera == null)
+        Camera camera = terrain.VoxelOctree.target.viewCamera;
+        if (camera == null) {
+            Debug.LogWarning("Terrain Loader does not have a viewCamera assigned. Will not render props correctly!");
             return;
+        }
 
         // Cull the props all in one dispatch call
         culledCountBuffer.SetData(new int[props.Count]);
@@ -916,5 +922,12 @@ public class VoxelProps : VoxelBehaviour {
             item.set.Dispose();
         }
         propTypeSerializedData.Dispose();
+        permBitmaskBuffer.Dispose();
+        segmentsToRemoveBuffer.Dispose();
+        segmentIndexCountBuffer.Dispose();
+        culledPropBuffer.Dispose();
+        maxDistanceBuffer.Dispose();
+        meshIndexCountBuffer.Dispose();
+        permPropBuffer.Dispose();
     }
 }

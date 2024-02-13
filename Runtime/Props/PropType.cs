@@ -63,10 +63,13 @@ public enum PropSpawnBehavior {
     // Enables/disables spawning in actual prefabs
     SpawnPrefabs = 1 << 1,
 
+    // Replaces EVERYTHING with prefabs
+    SwapForPrefabs = 1 << 2,
+
     // Swaps out everything for instanced meshes
     // (useful for small rocks or stuff not to be interacted with that we don't want as a gameobject)
     // Only works when we have NO prop prefabs!!!
-    SwapForInstancedMeshes = 1 << 2,
+    SwapForInstancedMeshes = 1 << 3,
 }
 
 

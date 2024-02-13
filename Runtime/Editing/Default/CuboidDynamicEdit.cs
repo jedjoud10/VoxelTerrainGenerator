@@ -6,8 +6,10 @@ using UnityEngine;
 
 [assembly: RegisterGenericJobType(typeof(DynamicEditJob<CuboidDynamicEdit>))]
 public struct CuboidDynamicEdit : IDynamicEdit {
+    [ReadOnly] public float3x3 rotation;
     [ReadOnly] public float3 center;
     [ReadOnly] public float3 halfExtents;
+    [ReadOnly] public bool inverse;
     [ReadOnly] public byte material;
     [ReadOnly] public bool writeMaterial;
     public bool Enabled => true;
@@ -20,18 +22,24 @@ public struct CuboidDynamicEdit : IDynamicEdit {
         return new Bounds {
             center = center,
             extents = halfExtents * 2
-        };
+        }.RotatedBy(rotation);
     }
 
     public Voxel Modify(float3 position, Voxel voxel) {
-        float3 q = math.abs(position - center) - halfExtents;
+        position = math.mul(math.inverse(rotation), position - center);
+        float3 q = math.abs(position) - halfExtents;
         float density = math.length(math.max(q, 0.0F)) + math.min(math.max(q.x, math.max(q.y, q.z)), 0.0F);
 
         if (density < 1.0 && writeMaterial) {
             voxel.material = material;
         }
 
-        voxel.density = (half)math.min(voxel.density, density);
+        if (inverse) {
+            voxel.density = (half)(math.max(voxel.density, -density));
+        } else {
+            voxel.density = (half)math.min(voxel.density, density);
+        }
+
         return voxel;
     }
 

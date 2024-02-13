@@ -8,7 +8,7 @@ using Unity.Burst;
 public struct PropSegmentSpawnDiffJob : IJob {
     public NativeHashSet<int4> oldPropSegments;
     public NativeHashSet<int4> propSegments;
-    public TerrainLoaderTarget target;
+    public TerrainLoader.Target target;
 
     [WriteOnly]
     public NativeList<int4> addedSegments;
@@ -23,7 +23,6 @@ public struct PropSegmentSpawnDiffJob : IJob {
     public void Execute() {
         propSegments.Clear();
 
-        // TODO: Implement multi target support
         int3 c = (int3)target.propSegmentExtent;
         int3 min = new int3(-maxSegmentsInWorld, -maxSegmentsInWorld, -maxSegmentsInWorld);
         int3 max = new int3(maxSegmentsInWorld, maxSegmentsInWorld, maxSegmentsInWorld);

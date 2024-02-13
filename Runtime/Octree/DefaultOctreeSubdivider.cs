@@ -7,20 +7,15 @@ using Unity.Mathematics;
 public struct DefaultOctreeSubdivider : IOctreeSubdivider {
     public float propSegmentWorldSize;
 
-    public JobHandle Apply(NativeArray<TerrainLoaderTarget> targets, NativeList<OctreeNode> nodes, NativeQueue<OctreeNode> pending) {
-        return IOctreeSubdivider.ApplyGeneric(targets, nodes, pending, this);
+    public JobHandle Apply(TerrainLoader.Target target, NativeList<OctreeNode> nodes, NativeQueue<OctreeNode> pending) {
+        return IOctreeSubdivider.ApplyGeneric(target, nodes, pending, this);
     }
 
-    public bool ShouldSubdivide(ref OctreeNode node, ref NativeArray<TerrainLoaderTarget> targets) {
-        bool subdivide = false;
-
-        foreach (var target in targets) {
-            float3 minBounds = math.float3(node.position);
-            float3 maxBounds = math.float3(node.position) + math.float3(node.size);
-            float3 clamped = math.clamp(target.center, minBounds, maxBounds);
-            bool local = math.distance(clamped, target.center) < target.radius * node.scalingFactor;
-            subdivide |= local;
-        }
+    public bool ShouldSubdivide(ref OctreeNode node, ref TerrainLoader.Target target) {
+        float3 minBounds = math.float3(node.position);
+        float3 maxBounds = math.float3(node.position) + math.float3(node.size);
+        float3 clamped = math.clamp(target.center, minBounds, maxBounds);
+        bool subdivide = math.distance(clamped, target.center) < target.radius * node.scalingFactor;
 
         return subdivide;
     }

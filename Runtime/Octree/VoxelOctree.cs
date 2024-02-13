@@ -13,9 +13,9 @@ public class VoxelOctree : VoxelBehaviour {
     // Custom octree subdivider script
     public IOctreeSubdivider subdivider;
 
-    // Internal since they are handled by the octree loader
-    internal NativeList<TerrainLoaderTarget> targets;
-    internal Dictionary<TerrainLoader, int> targetsLookup;
+    // Single target support
+    [HideInInspector]
+    public TerrainLoader target;
 
     // Native hashmap for keeping track of the current nodes in the tree
     private NativeHashSet<OctreeNode>[] octreeNodesHashSet;
@@ -47,8 +47,6 @@ public class VoxelOctree : VoxelBehaviour {
         subdivider = new DefaultOctreeSubdivider { propSegmentWorldSize = VoxelUtils.PropSegmentSize };
         VoxelUtils.MaxDepth = maxDepth;
         Free = true;
-        targets = new NativeList<TerrainLoaderTarget>(Allocator.Persistent);
-        targetsLookup = new Dictionary<TerrainLoader, int>();
 
         octreeNodesHashSet = new NativeHashSet<OctreeNode>[2];
         octreeNodesList = new NativeList<OctreeNode>[2];
@@ -59,6 +57,7 @@ public class VoxelOctree : VoxelBehaviour {
         }
 
         pending = new NativeQueue<OctreeNode>(Allocator.Persistent);
+        target = null;
 
         addedNodes = new NativeList<OctreeNode>(Allocator.Persistent);
         removedNodes = new NativeList<OctreeNode>(Allocator.Persistent);
@@ -73,6 +72,9 @@ public class VoxelOctree : VoxelBehaviour {
 
     // Loop over all the octree loaders and generate the octree for them
     void Update() {
+        if (target == null)
+            return;
+
         // Make sure we are free for octree generation
         if (terrain.Free && Free && mustUpdate) {
             mustUpdate = false;
@@ -93,7 +95,7 @@ public class VoxelOctree : VoxelBehaviour {
             newNodesList.Add(root);
 
             // Creates the octree
-            JobHandle initial = subdivider.Apply(targets.AsArray(), newNodesList, pending);
+            JobHandle initial = subdivider.Apply(target.data, newNodesList, pending);
 
             // We don't need to execute the neighbour job if we have skirts disabled
             JobHandle hashSetJobHandle;
@@ -107,7 +109,7 @@ public class VoxelOctree : VoxelBehaviour {
 
                 // Execute the neighbour checking job for added nodes
                 NeighbourJob neighbourJob = new NeighbourJob {
-                    octreeLoaderPosition = targets[0].center,
+                    octreeLoaderPosition = target.data.center,
                     inputNodes = copy.AsArray(),
                     outputNodes = newNodesList.AsArray(),
                 };
@@ -203,7 +205,6 @@ public class VoxelOctree : VoxelBehaviour {
 
     // Dispose the octree memory
     internal override void Dispose() {
-        targets.Dispose();
         pending.Dispose();
         addedNodes.Dispose();
         removedNodes.Dispose();
