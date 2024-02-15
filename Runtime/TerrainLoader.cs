@@ -71,6 +71,7 @@ public class TerrainLoader : MonoBehaviour {
             if (Vector3.Distance(transform.position, last) > data.maxDistanceThreshold || bruhtonium) {
                 data.center = transform.position;
                 octree.mustUpdate = true;
+                last = transform.position;
             }
         }
     }

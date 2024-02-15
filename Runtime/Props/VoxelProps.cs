@@ -9,6 +9,7 @@ using UnityEngine.Rendering;
 using System.Linq;
 using Unity.Netcode;
 using Unity.Collections.LowLevel.Unsafe;
+using UnityEditor;
 
 // Responsible for generating the voxel props on the terrain
 // For this, we must force voxel generation to happen on the CPU so we can execute
@@ -65,6 +66,10 @@ public class VoxelProps : VoxelBehaviour {
     public ComputeShader propCullingCopy;
     public ComputeShader propCullingApply;
     public ComputeShader removePropSegments;
+
+    // Modifiers and the ruleset/modifier bufer
+    internal HashSet<VoxelPropsSpawnModifier> modifiersHashSet;
+    private ComputeBuffer modifiersBuffer;
 
     // Buffer containing the temp offset, perm offset, and culled offset for all prop types
     private ComputeBuffer propSectionOffsetsBuffer;
@@ -876,6 +881,22 @@ public class VoxelProps : VoxelBehaviour {
             onPropSegmentUnloaded?.Invoke(item.Value);
             pendingSegments.Enqueue(item.Value);
         }
+    }
+
+    // Cause the voxel prop modifiers to re-sort and recompute their compute buffer data
+    internal void ResortSpawnModifiers() {
+        if (modifiersBuffer.count < modifiersHashSet.Count) {
+            modifiersBuffer.Dispose();
+            modifiersBuffer = null;
+            modifiersBuffer = new ComputeBuffer(modifiersHashSet.Count, VoxelPropsSpawnModifier.BlittableSpawnModifier.size);
+        }
+
+        // Create the new buffer with the new size
+        var array = modifiersHashSet.Select(x => x.ConvertToBlittable()).ToList();
+        array.Sort((a, b) => a.priority.CompareTo(b.priority));
+        modifiersBuffer.SetData(array, 0, 0, modifiersHashSet.Count);
+
+        // TODO: Set the property of the prop gen comp shader to this buffer
     }
 
     private void OnDrawGizmosSelected() {

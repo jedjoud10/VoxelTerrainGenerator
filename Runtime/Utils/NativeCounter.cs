@@ -2,6 +2,7 @@
 // https://github.com/keijiro/Firefly/blob/master/Assets/Firefly/Utility/NativeCounter.cs
 
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Unity.Collections;
@@ -82,6 +83,7 @@ unsafe public struct NativeCounter {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         DisposeSentinel.Dispose(ref m_Safety, ref m_DisposeSentinel);
 #endif
+        //UnityEngine.Debug.Log("NativeCounter dispose");
 
         UnsafeUtility.Free(m_Counter, m_AllocatorLabel);
         m_Counter = null;

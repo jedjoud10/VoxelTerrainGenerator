@@ -20,14 +20,14 @@ public class PlayerControllerScript : MonoBehaviour {
             float temp = add ? -1F : 1F;
 
             if (Input.GetMouseButtonDown(0)) {
-                var edit = new SphereDynamicEdit {
-                    center = math.float3(hit.point.x, hit.point.y, hit.point.z),
+                var edit = new FlattenVoxelEdit {
+                    center = hit.point,
+                    normal = hit.normal,
                     radius = sizeRadius,
-                    writeMaterial = add,
-                    material = 2,
+                    strength = temp * 10,
                 };
 
-                VoxelTerrain.Instance.VoxelEdits.ApplyDynamicEdit(edit);
+                VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit);
             }
 
             if (Input.GetMouseButtonDown(1)) {

@@ -1,6 +1,8 @@
 using UnityEngine;
 
 // Manual spawner that will allow us to place props manually in the world
+// Either allows us to place the props in a random manner (scatterred around in a plane) or
+// allows us to place props one by one
 public class VoxelPropSpawner : MonoBehaviour {
     public PropType propType;
     public int variant;

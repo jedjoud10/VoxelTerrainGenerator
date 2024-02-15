@@ -27,6 +27,16 @@ void VoxelAt(float3 position, out float density, out uint material) {
 	mixer = smoothstep(0, 1, saturate(2 * (mixer - 0.5) + 0.5));
 
 	density = position.y + lerp(density1, density2, mixer);
+
+	// Cave mixer?
+	float caveMixer = (snoise(position.xz * 0.001) * 0.5 + 0.5);
+	caveMixer = 1 - smoothstep(0, 1, saturate(10 * (caveMixer - 0.5) + 0.5));
+	caveMixer *= saturate(-(position.y + 20)) * (1-mixer);
+
+	float caveDensity = fbmCellular(position * 0.001 * float3(1, 4, 1), 7, 0.4, 2.0).x * 320 - 50;
+	//caveDensity = caveDensity * (snoise(position * 0.01) * 0.5 + 0.5);
+	//density = lerp(density, caveDensity, caveMixer);
+
 	material = sdBox(position, float3(10, 500, 10)) < 0 ? 1 : 0;
 }
 

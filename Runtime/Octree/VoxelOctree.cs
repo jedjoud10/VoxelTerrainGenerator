@@ -13,6 +13,9 @@ public class VoxelOctree : VoxelBehaviour {
     // Custom octree subdivider script
     public IOctreeSubdivider subdivider;
 
+    // Min max bounds optimization
+    public Vector2 minMaxYPositions;
+
     // Single target support
     [HideInInspector]
     public TerrainLoader target;
@@ -44,7 +47,7 @@ public class VoxelOctree : VoxelBehaviour {
 
     // Intialize octree memory
     internal override void Init() {
-        subdivider = new DefaultOctreeSubdivider { propSegmentWorldSize = VoxelUtils.PropSegmentSize };
+        subdivider = new DefaultOctreeSubdivider { propSegmentWorldSize = VoxelUtils.PropSegmentSize, yPositionBounds = minMaxYPositions };
         VoxelUtils.MaxDepth = maxDepth;
         Free = true;
 

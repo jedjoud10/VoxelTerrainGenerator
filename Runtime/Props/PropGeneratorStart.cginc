@@ -77,9 +77,9 @@ float GetDensity(float3 position) {
 // Calculates the normals at a specific position using numerical derivation
 float3 GetNormal(float3 position) {
 	float b = GetDensity(position);
-	float x1 = GetDensity(position + float3(20, 0, 0));
-	float y1 = GetDensity(position + float3(0, 20, 0));
-	float z1 = GetDensity(position + float3(0, 0, 20));
+	float x1 = GetDensity(position + float3(4, 0, 0));
+	float y1 = GetDensity(position + float3(0, 4, 0));
+	float z1 = GetDensity(position + float3(0, 0, 4));
 	
 	return normalize(float3(x1-b, y1-b, z1-b));
 }
