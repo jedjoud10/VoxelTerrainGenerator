@@ -71,7 +71,8 @@ public partial class VoxelTerrain {
             }
         }
 
-        foreach (var value in VoxelProps.propSegmentsDict) {
+        // Force all regions to serialize their data (only needed for props)
+        foreach (var value in VoxelRegions.propSegmentsDict) {
             VoxelProps.SerializePropsOnSegmentUnload(value.Key);
         }
 
@@ -266,6 +267,9 @@ public partial class VoxelTerrain {
         Debug.LogWarning($"Finished loading terrain, took, {sw.ElapsedMilliseconds}ms");
         RequestAll(true, reason: GenerationReason.Deserialized);
         VoxelProps.UpdateStaticComputeFields();
-        VoxelProps.RegenerateProps();
+        
+        
+        VoxelRegions.RegenerateRegions();
+        VoxelProps.ResetPropData();
     }
 }

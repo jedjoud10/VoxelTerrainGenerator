@@ -19,7 +19,7 @@ public class CustomEditorVoxelTerrain : Editor {
         if (GUILayout.Button("Regenerate")) {
             terrain.VoxelGenerator.UpdateStaticComputeFields();
             terrain.VoxelProps.UpdateStaticComputeFields();
-            terrain.VoxelProps.RegenerateProps();
+            terrain.VoxelRegions.RegenerateRegions();
             terrain.RequestAll(true);
         }
         if (GUILayout.Button("Remesh")) {

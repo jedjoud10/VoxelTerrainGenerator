@@ -43,6 +43,7 @@ public class PlayerControllerScript : MonoBehaviour {
             }
 
             indicator.transform.position = Vector3.Lerp(indicator.transform.position, hit.point, 13.25F * Time.deltaTime);
+            indicator.transform.rotation = Quaternion.Lerp(indicator.transform.rotation, Quaternion.LookRotation(hit.normal), 13.25F * Time.deltaTime);
         } else {
             indicator.transform.position = Vector3.Lerp(indicator.transform.position, head.transform.forward * 200.0F + head.transform.position, 13.25F * Time.deltaTime);
         }

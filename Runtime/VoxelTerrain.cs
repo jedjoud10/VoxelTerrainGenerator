@@ -11,6 +11,7 @@ using UnityEngine;
 [RequireComponent(typeof(VoxelCollisions))]
 [RequireComponent(typeof(VoxelOctree))]
 [RequireComponent(typeof(VoxelEdits))]
+[RequireComponent(typeof(VoxelRegions))]
 [RequireComponent(typeof(VoxelProps))]
 public partial class VoxelTerrain : MonoBehaviour {
     public enum GenerationReason {
@@ -30,6 +31,8 @@ public partial class VoxelTerrain : MonoBehaviour {
     public VoxelCollisions VoxelCollisions { get; private set; }
     public VoxelOctree VoxelOctree { get; private set; }
     public VoxelEdits VoxelEdits { get; private set; }
+    public VoxelRegions VoxelRegions { get; private set; }
+    //public VoxelStructures VoxelStructures { get; private set; }
     public VoxelProps VoxelProps { get; private set; }
 
 
@@ -114,6 +117,7 @@ public partial class VoxelTerrain : MonoBehaviour {
         VoxelOctree = GetComponent<VoxelOctree>();
         VoxelEdits = GetComponent<VoxelEdits>();
         VoxelProps = GetComponent<VoxelProps>();
+        VoxelRegions = GetComponent<VoxelRegions>();
 
         // Set the voxel utils static class
         VoxelUtils.Size = resolution;
@@ -123,6 +127,7 @@ public partial class VoxelTerrain : MonoBehaviour {
         VoxelGenerator.InitWith(this);
         VoxelMesher.InitWith(this);
         VoxelCollisions.InitWith(this);
+        VoxelRegions.InitWith(this);
         VoxelProps.InitWith(this);
         VoxelOctree.InitWith(this);
         VoxelEdits.InitWith(this);
@@ -150,7 +155,7 @@ public partial class VoxelTerrain : MonoBehaviour {
         VoxelGenerator.Dispose();
         VoxelCollisions.Dispose();
         VoxelProps.Dispose();
-
+        VoxelRegions.Dispose();
 
         foreach (var item in Chunks) {
             PoolChunkBack(item.Value);
@@ -163,7 +168,7 @@ public partial class VoxelTerrain : MonoBehaviour {
     }
 
     private void Update() {
-        if (!Free && VoxelGenerator.Free && VoxelMesher.Free && VoxelOctree.Free && VoxelEdits.Free && VoxelProps.Free) {
+        if (!Free && VoxelGenerator.Free && VoxelMesher.Free && VoxelOctree.Free && VoxelEdits.Free && VoxelProps.Free && VoxelRegions.Free) {
             Free = true;
             onChunkGenerationDone?.Invoke();
 
@@ -386,7 +391,7 @@ public partial class VoxelTerrain : MonoBehaviour {
             Label($"# of pending GPU async readback jobs: {VoxelGenerator.pendingVoxelGenerationChunks.Count}");
             Label($"# of pending mesh jobs: {VoxelMesher.pendingMeshJobs.Count}");
             Label($"# of pending mesh baking jobs: {VoxelCollisions.ongoingBakeJobs.Count}");
-            Label($"# of pending prop segments jobs: {VoxelProps.pendingSegments.Count}");
+            Label($"# of pending voxel segments jobs: {VoxelRegions.pendingSegments.Count}");
             Label($"# of pooled chunk game objects: {pooledChunkGameObjects.Count}");
             Label($"# of pooled native voxel arrays: {pooledVoxelChunkContainers.Count}");
 

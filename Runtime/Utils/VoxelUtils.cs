@@ -33,6 +33,12 @@ public static class VoxelUtils {
     // Total size of a prop segment
     public static int PropSegmentSize => (int)(ChunksPerPropSegment * Size);
 
+    // Max segments that we will ever have in the world
+    public static int MaxSegments { get; internal set; }
+
+    // Max segments that we will ever remove in the world
+    public static int MaxSegmentsToRemove { get; internal set; }
+
     // Chunk resolution for prop chunks (remember that prop chunks are 8 times as big as normal chunks)
     public static int PropSegmentResolution { get; internal set; }
 

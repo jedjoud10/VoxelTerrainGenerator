@@ -10,31 +10,11 @@ using System.Linq;
 using Unity.Netcode;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEditor;
+using static VoxelRegions;
 
 // Responsible for generating the voxel props on the terrain
-// For this, we must force voxel generation to happen on the CPU so we can execute
-// custom code when the voxel edit must generate on world / voxel edits
+// Handles generating the prop data on the GPU and renders it as billboards 
 public class VoxelProps : VoxelBehaviour {
-    
-    // Toggles for debugging
-    public bool debugGizmos = false;
-
-    // Prop resolution per segment
-    [Range(4, 32)]
-    public int propSegmentResolution = 32;
-
-    // How many voxel chunks fit in a prop segment
-    [Range(1, 64)]
-    public int voxelChunksInPropSegment = 8;
-
-    // Max number of active segments possible at any given time
-    [Min(128)]
-    public int maxSegments = 512;
-
-    // Max number of segments that we can unload / remove
-    [Min(128)]
-    public int maxSegmentsToRemove = 512;
-
     // List of props that we will generated based on their index
     [SerializeField]
     public List<PropType> props;
@@ -55,7 +35,7 @@ public class VoxelProps : VoxelBehaviour {
 
     // Custom delegate that can be used to send custom data to the prop shader
     public delegate void InitComputeCustom(ComputeShader shader);
-    public delegate void UpdateComputeCustom(ComputeShader shader, PropSegment segment);
+    public delegate void UpdateComputeCustom(ComputeShader shader, VoxelRegion segment);
     public event InitComputeCustom onInitComputeCustom;
     public event UpdateComputeCustom onUpdateComputeCustom;
 
@@ -105,15 +85,6 @@ public class VoxelProps : VoxelBehaviour {
     // Maximum value of the perm count of all prop types
     private int maxPermPropCount;
 
-    // Prop segment management and diffing
-    private NativeHashSet<int4> propSegments;
-    private NativeHashSet<int4> oldPropSegments;
-    private NativeList<int4> addedSegments;
-    private NativeList<int4> removedSegments;
-
-    // Prop segment classes bounded to their positions
-    internal Dictionary<int4, PropSegment> propSegmentsDict;
-
     // Affected segment (those that contain modified props)
     internal NativeHashMap<int3, NativeBitArray> ignorePropsBitmasks;
     internal ComputeBuffer ignorePropBitmaskBuffer;
@@ -129,22 +100,10 @@ public class VoxelProps : VoxelBehaviour {
     }
     internal NativeArray<PropTypeSerializedData> propTypeSerializedData; 
     
-    // When we load in a prop segment
-    public delegate void PropSegmentLoaded(PropSegment segment);
-    public event PropSegmentLoaded onPropSegmentLoaded;
-
-    // When we unload a prop segment
-    public delegate void PropSegmentUnloaded(PropSegment segment);
-    public event PropSegmentUnloaded onPropSegmentUnloaded;
-
     // Pooled props and prop owners
     // TODO: Optimize
     private List<List<GameObject>>[] pooledPropGameObjects;
     private GameObject propOwner;
-
-    // Pending prop segment to generated and to be deleted
-    internal Queue<PropSegment> pendingSegments;
-    internal bool segmentsAwaitingRemoval;
 
     // Used for collision and GPU based raycasting (supports up to 4 intersections within a ray)
     RenderTexture propSegmentDensityVoxels;
@@ -152,23 +111,13 @@ public class VoxelProps : VoxelBehaviour {
     // 3 R textures (FLOAT4) that contain the position data for the respective intersection
     RenderTexture positionIntersectingTexture;
 
-    private bool mustUpdate = false;
     private bool lastSegmentWasModified = false;
     int asyncRequestsInProcess = 0;
 
     // Checks if we completed prop generation
     public bool Free {
         get {
-            return !mustUpdate && pendingSegments.Count == 0 && asyncRequestsInProcess == 0;
-        }
-    }
-
-    private void OnValidate() {
-        if (terrain == null) {
-            propSegmentResolution = Mathf.ClosestPowerOfTwo(propSegmentResolution);
-            voxelChunksInPropSegment = Mathf.ClosestPowerOfTwo(voxelChunksInPropSegment);
-            VoxelUtils.PropSegmentResolution = propSegmentResolution;
-            VoxelUtils.ChunksPerPropSegment = voxelChunksInPropSegment;
+            return asyncRequestsInProcess == 0;
         }
     }
 
@@ -209,13 +158,10 @@ public class VoxelProps : VoxelBehaviour {
 
     // Create captures of the props, and register main settings
     internal override void Init() {
-        propSegmentResolution = Mathf.ClosestPowerOfTwo(propSegmentResolution);
-        voxelChunksInPropSegment = Mathf.ClosestPowerOfTwo(voxelChunksInPropSegment);
-        VoxelUtils.PropSegmentResolution = propSegmentResolution;
-        VoxelUtils.ChunksPerPropSegment = voxelChunksInPropSegment;
+        int maxSegments = terrain.VoxelRegions.maxSegments;
+        int maxSegmentsToRemove = terrain.VoxelRegions.maxSegmentsToRemove;
 
         // Pooling game object stuff
-        segmentsAwaitingRemoval = false;
         pooledPropGameObjects = new List<List<GameObject>>[props.Count];
         propOwner = new GameObject("Props Owner GameObject");
         propOwner.transform.SetParent(transform);
@@ -249,26 +195,21 @@ public class VoxelProps : VoxelBehaviour {
         propSectionOffsetsBuffer = new ComputeBuffer(props.Count, sizeof(int) * 3);
         propSectionOffsets = new uint3[props.Count];
         segmentIndexCountBuffer = new ComputeBuffer(maxSegments * props.Count, sizeof(uint) * 2, ComputeBufferType.Structured);
-        propSegmentDensityVoxels = VoxelUtils.Create3DRenderTexture(propSegmentResolution, GraphicsFormat.R32_SFloat);
+        propSegmentDensityVoxels = VoxelUtils.Create3DRenderTexture(VoxelUtils.PropSegmentResolution, GraphicsFormat.R32_SFloat);
         unusedSegmentLookupIndices = new NativeBitArray(maxSegments, Allocator.Persistent);
         unusedSegmentLookupIndices.Clear();
-        segmentsToRemoveBuffer = new ComputeBuffer(maxSegmentsToRemove, sizeof(int));
-
-        // Stuff used for management and addition/removal detection of segments
-        propSegmentsDict = new Dictionary<int4, PropSegment>();
-        propSegments = new NativeHashSet<int4>(0, Allocator.Persistent);
-        oldPropSegments = new NativeHashSet<int4>(0, Allocator.Persistent);
-        addedSegments = new NativeList<int4>(Allocator.Persistent);
-        removedSegments = new NativeList<int4>(Allocator.Persistent);
-        onPropSegmentLoaded += OnPropSegmentLoad;
-        onPropSegmentUnloaded += OnPropSegmentUnload;
-        pendingSegments = new Queue<PropSegment>();
+        segmentsToRemoveBuffer = new ComputeBuffer(maxSegmentsToRemove, sizeof(int)); 
 
         // For now we are going to assume we will spawn only 1 variant of a prop type per segment
         ignorePropsBitmasks = new NativeHashMap<int3, NativeBitArray>(0, Allocator.Persistent);
-        ignorePropBitmaskBuffer = new ComputeBuffer((propSegmentResolution * propSegmentResolution * propSegmentResolution * props.Count) / 32, sizeof(uint));
+        ignorePropBitmaskBuffer = new ComputeBuffer((VoxelUtils.PropSegmentResolution * VoxelUtils.PropSegmentResolution * VoxelUtils.PropSegmentResolution * props.Count) / 32, sizeof(uint));
         globalBitmaskIndexToLookup = new NativeHashMap<int4, int>(0, Allocator.Persistent);
         propTypeSerializedData = new NativeArray<PropTypeSerializedData>(props.Count, Allocator.Persistent);
+
+        // Register to the voxel region events
+        terrain.VoxelRegions.onPropSegmentLoaded += OnPropSegmentLoad;
+        terrain.VoxelRegions.onPropSegmentUnloaded += OnPropSegmentUnload;
+        terrain.VoxelRegions.onPropSegmetsPreRemoval += RemoveRegionsGpu;
 
         // Fetch the temp offset, perm offset, visible culled offset
         // Also spawns the object prop type owners and attaches them to the terrain
@@ -333,7 +274,7 @@ public class VoxelProps : VoxelBehaviour {
         }
 
         // Create textures used for intersection tests and GPU raycasting
-        positionIntersectingTexture = CreateRayCastTexture(propSegmentResolution, GraphicsFormat.R16G16B16A16_SFloat);
+        positionIntersectingTexture = CreateRayCastTexture(VoxelUtils.PropSegmentResolution, GraphicsFormat.R16G16B16A16_SFloat);
 
         // Update static settings and capture the billboards
         propSectionOffsetsBuffer.SetData(propSectionOffsets);
@@ -415,7 +356,7 @@ public class VoxelProps : VoxelBehaviour {
     }
 
     // Called when a new prop segment is loaded and should be generated
-    private void OnPropSegmentLoad(PropSegment segment) {
+    private void OnPropSegmentLoad(VoxelRegion segment) {
         segment.props = new Dictionary<int, (List<GameObject>, List<ushort>)>();
 
         // Quit early if we shouldn't do shit
@@ -424,14 +365,16 @@ public class VoxelProps : VoxelBehaviour {
         }
 
         // Set the prop ignore bitmask buffer if needed
-        if (ignorePropsBitmasks.ContainsKey(segment.segmentPosition)) {
-            var bitmask = ignorePropsBitmasks[segment.segmentPosition];
+        if (ignorePropsBitmasks.ContainsKey(segment.regionPosition)) {
+            var bitmask = ignorePropsBitmasks[segment.regionPosition];
             lastSegmentWasModified = true;
             ignorePropBitmaskBuffer.SetData(bitmask.AsNativeArrayExt<int>());
         } else if (lastSegmentWasModified) {
             ignorePropBitmaskBuffer.SetData(new int[ignorePropBitmaskBuffer.count]);
             lastSegmentWasModified = false;
         }
+
+        // Generate structures first
 
         // Fetch all the voxel prop spawners in this segment and apply them first
         // TODO: Actually implement this
@@ -500,7 +443,7 @@ public class VoxelProps : VoxelBehaviour {
                             // TODO: Cache this, for perf reasons
                             SerializableProp serializableProp = propGameObject.GetComponent<SerializableProp>();
                             int index = VoxelUtils.FetchPropBitmaskIndex(i, dispatchIndex);
-                            if (globalBitmaskIndexToLookup.TryGetValue(new int4(segment.segmentPosition, index), out int elementLookup)) {
+                            if (globalBitmaskIndexToLookup.TryGetValue(new int4(segment.regionPosition, index), out int elementLookup)) {
                                 serializableProp.Variant = variant;
                                 var serializedData = propTypeSerializedData[i];
                                 FastBufferReader reader = new FastBufferReader(serializedData.rawBytes.AsArray(), Allocator.Temp, serializedData.stride, serializedData.stride * elementLookup);
@@ -580,7 +523,7 @@ public class VoxelProps : VoxelBehaviour {
     }
 
     // Called when an old prop segment is unloaded
-    private void OnPropSegmentUnload(PropSegment segment) {
+    private void OnPropSegmentUnload(VoxelRegion segment) {
         foreach (var collection in segment.props) {
             foreach (var item in collection.Value.Item1) {
                 if (item != null) {
@@ -619,83 +562,10 @@ public class VoxelProps : VoxelBehaviour {
         return go;
     }
 
-    // Updates the prop segments LOD and renders instanced/billboarded instances for props
+    // Render the indirectly rendered (billboard / instanced) props 
     private void Update() {
-        mustUpdate |= terrain.VoxelOctree.mustUpdate;
-
         if (terrain.VoxelOctree.target == null)
             return;
-
-        // Only update if we can and if we finished generating
-        if (mustUpdate && pendingSegments.Count == 0 && !segmentsAwaitingRemoval) {
-            PropSegmentSpawnDiffJob job = new PropSegmentSpawnDiffJob {
-                addedSegments = addedSegments,
-                removedSegments = removedSegments,
-                oldPropSegments = oldPropSegments,
-                propSegments = propSegments,
-                target = terrain.VoxelOctree.target.data,
-                maxSegmentsInWorld = VoxelUtils.PropSegmentsCount / 2,
-                propSegmentSize = VoxelUtils.PropSegmentSize,
-            };
-
-            job.Schedule().Complete();
-
-            for (int i = 0; i < addedSegments.Length; i++) {
-                var segment = new PropSegment();
-                var pos = addedSegments[i];
-                segment.worldPosition = new Vector3(pos.x, pos.y, pos.z) * VoxelUtils.PropSegmentSize;
-                segment.segmentPosition = pos.xyz;
-                segment.spawnPrefabs = pos.w == 0;
-                segment.indexRangeLookup = -1;
-                propSegmentsDict.Add(pos, segment);
-                pendingSegments.Enqueue(segment);
-            }
-
-            mustUpdate = false;
-            segmentsAwaitingRemoval = removedSegments.Length > 0;
-
-            foreach (var removed in removedSegments) {
-                SerializePropsOnSegmentUnload(removed);
-            }
-        }
-
-        // When we finished generating all pending segments delete the ones that are pending removal
-        if (pendingSegments.Count == 0 && segmentsAwaitingRemoval && asyncRequestsInProcess == 0) {
-            segmentsAwaitingRemoval = false;
-            if (removedSegments.Length == 0) {
-                return;
-            }
-
-            int[] indices = Enumerable.Repeat(-1, maxSegmentsToRemove).ToArray();
-            for (int i = 0; i < removedSegments.Length; i++) {
-                var pos = removedSegments[i];
-                if (propSegmentsDict.Remove(pos, out PropSegment val)) {
-                    indices[i] = val.indexRangeLookup;
-                    onPropSegmentUnloaded.Invoke(val);
-                } else {
-                    indices[i] = -1;
-                }
-            }
-
-            // TODO: Test fluke? One time when tested (spaz) shit didn't work. DEBUG PLS
-            // Also figure out why this causes a dx11 driver crash lel
-            segmentsToRemoveBuffer.SetData(indices);
-            removePropSegments.SetInt("segmentsToRemoveCount", removedSegments.Length);
-            removePropSegments.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
-            removePropSegments.SetBuffer(0, "segmentIndices", segmentsToRemoveBuffer);
-            removePropSegments.SetBuffer(0, "segmentIndexCount", segmentIndexCountBuffer);
-            removePropSegments.SetInt("propCount", props.Count);
-            removePropSegments.Dispatch(0, Mathf.CeilToInt((float)removedSegments.Length / 32.0f), props.Count, 1);
-        }
-
-        // Start generating the first pending segment we find
-        PropSegment result;
-        if (pendingSegments.TryPeek(out result)) {
-            if (asyncRequestsInProcess == 0) {
-                pendingSegments.Dequeue();
-                onPropSegmentLoaded.Invoke(result);
-            }
-        }
 
         // Fetch camera from the terrain loader to use for prop billboard culling
         Camera camera = terrain.VoxelOctree.target.viewCamera;
@@ -777,7 +647,7 @@ public class VoxelProps : VoxelBehaviour {
     // Called whenever we want to serialize the data for a prop and save it to memory/disk
     // Is called automatically when we unload the segment, but also when we serialize the terrain
     internal void SerializePropsOnSegmentUnload(int4 removed) {
-        if (propSegmentsDict.TryGetValue(removed, out PropSegment segment)) {
+        if (terrain.VoxelRegions.propSegmentsDict.TryGetValue(removed, out VoxelRegion segment)) {
             foreach (var collection in segment.props) {
                 var propData = propTypeSerializedData[collection.Key];
                 int stride = propData.stride;
@@ -791,18 +661,18 @@ public class VoxelProps : VoxelBehaviour {
                     GameObject prop = collection.Value.Item1[i];
                     ushort dispatchIndex = collection.Value.Item2[i];
                     int index = VoxelUtils.FetchPropBitmaskIndex(collection.Key, dispatchIndex);
-                    int4 indexer = new int4(segment.segmentPosition, index);
+                    int4 indexer = new int4(segment.regionPosition, index);
 
                     // Set the prop as "destroyed"
                     if (prop == null) {
                         // Initialize this segment as a "modified" segment that will read from the prop ignore bitmask
-                        if (!ignorePropsBitmasks.ContainsKey(segment.segmentPosition)) {
-                            ignorePropsBitmasks.Add(segment.segmentPosition, new NativeBitArray(ignorePropBitmaskBuffer.count * 32, Allocator.Persistent));
+                        if (!ignorePropsBitmasks.ContainsKey(segment.regionPosition)) {
+                            ignorePropsBitmasks.Add(segment.regionPosition, new NativeBitArray(ignorePropBitmaskBuffer.count * 32, Allocator.Persistent));
                         }
 
                         // Write the affected bit to the buffer to tell the compute shader
                         // to no longer spawn this prop
-                        NativeBitArray bitmask = ignorePropsBitmasks[segment.segmentPosition];
+                        NativeBitArray bitmask = ignorePropsBitmasks[segment.regionPosition];
                         bitmask.Set(index, true);
 
                         // Set the bit back to "free" since we're deleting the prop
@@ -851,12 +721,31 @@ public class VoxelProps : VoxelBehaviour {
         }
     }
 
-    // Clear out all the props and regenerate them
-    // This will reset all buffers, bitmasks, EVERYTHING
-    public void RegenerateProps() {
-        if (mustUpdate)
-            return;
+    // Called by VoxelRegion when we should remove the regions (and thus hide their billboarded props) on the GPU
+    private void RemoveRegionsGpu(ref NativeList<int4> removedSegments) {
+        int[] indices = Enumerable.Repeat(-1, VoxelUtils.MaxSegmentsToRemove).ToArray();
+        for (int i = 0; i < removedSegments.Length; i++) {
+            var pos = removedSegments[i];
+            if (terrain.VoxelRegions.propSegmentsDict.TryGetValue(pos, out VoxelRegion val)) {
+                indices[i] = val.indexRangeLookup;
+            } else {
+                indices[i] = -1;
+            }
+        }
 
+        // TODO: Test fluke? One time when tested (spaz) shit didn't work. DEBUG PLS
+        // Also figure out why this causes a dx11 driver crash lel
+        segmentsToRemoveBuffer.SetData(indices);
+        removePropSegments.SetInt("segmentsToRemoveCount", removedSegments.Length);
+        removePropSegments.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
+        removePropSegments.SetBuffer(0, "segmentIndices", segmentsToRemoveBuffer);
+        removePropSegments.SetBuffer(0, "segmentIndexCount", segmentIndexCountBuffer);
+        removePropSegments.SetInt("propCount", props.Count);
+        removePropSegments.Dispatch(0, Mathf.CeilToInt((float)removedSegments.Length / 32.0f), props.Count, 1);
+    }
+
+    // Clear out all old GPU data for props and reset it
+    internal void ResetPropData() {
         // Secondary buffers used for temp -> perm data copy
         tempIndexBuffer.SetData(new int[props.Count]);
         int permSum = props.Select(x => x.maxPropsInTotal).Sum();
@@ -872,15 +761,8 @@ public class VoxelProps : VoxelBehaviour {
         culledPropBuffer.SetData(new BlittableProp[visibleSum]);
 
         // Other stuff (still related to prop gen and GPU alloc)
-        segmentIndexCountBuffer.SetData(new uint[maxSegments * props.Count * 2]);
+        segmentIndexCountBuffer.SetData(new uint[VoxelUtils.MaxSegments * props.Count * 2]);
         unusedSegmentLookupIndices.Clear();
-        
-        // WARNING: This causes GC.Collect spikes since we set a bunch of stuff null so it collects them automatically
-        // what we should do instead is only regenerate the chunks that have been modified instead
-        foreach (var item in propSegmentsDict) {
-            onPropSegmentUnloaded?.Invoke(item.Value);
-            pendingSegments.Enqueue(item.Value);
-        }
     }
 
     // Cause the voxel prop modifiers to re-sort and recompute their compute buffer data
@@ -899,29 +781,14 @@ public class VoxelProps : VoxelBehaviour {
         // TODO: Set the property of the prop gen comp shader to this buffer
     }
 
-    private void OnDrawGizmosSelected() {
-        if (terrain != null && debugGizmos) {
-            int size = VoxelUtils.PropSegmentSize;
-            foreach (var item in propSegmentsDict) {
-                var key = item.Key.xyz;
-                Vector3 center = new Vector3(key.x, key.y, key.z) * size + Vector3.one * size / 2.0f;
-
-                if (item.Value.spawnPrefabs) {
-                    Gizmos.color = Color.green;
-                } else {
-                    Gizmos.color = Color.red;
-                }
-
-                Gizmos.DrawWireCube(center, Vector3.one * size);
-            }
-        }
+    // Destroy all props in a specific position around a radius
+    // Needed since we cannot access the generated props on the GPU directly
+    // Only use this for effects as there is no way of knowing exactly how many props where affected
+    public void DestroyInRadius(Vector3 position, float radius) {
+        throw new NotImplementedException();
     }
 
     internal override void Dispose() {
-        propSegments.Dispose();
-        oldPropSegments.Dispose();
-        addedSegments.Dispose();
-        removedSegments.Dispose();
         drawArgsBuffer.Dispose();
         culledCountBuffer.Dispose();
         tempCountBuffer.Dispose();
