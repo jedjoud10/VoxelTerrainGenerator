@@ -14,6 +14,8 @@ public class VoxelMesher : VoxelBehaviour {
 
     public bool smoothing = true;
     public bool skirts = true;
+    public bool perVertexNormals = true;
+    public bool perVertexUvs = true;
     public Material[] voxelMaterials;
 
     // List of persistently allocated mesh data
@@ -41,6 +43,8 @@ public class VoxelMesher : VoxelBehaviour {
         pendingMeshJobs = new Queue<PendingMeshJob>();
         VoxelUtils.MinSkirtDensityThreshold = minSkirtDensityThreshold;
         VoxelUtils.Smoothing = smoothing;
+        VoxelUtils.PerVertexUvs = perVertexUvs;
+        VoxelUtils.PerVertexNormals = perVertexNormals;
         VoxelUtils.Skirts = skirts;
 
         for (int i = 0; i < meshJobsPerFrame; i++) {
@@ -64,27 +68,6 @@ public class VoxelMesher : VoxelBehaviour {
 
         pendingMeshJobs.Enqueue(job);
     }
-
-    // Begin generating the mesh data immediately without putting the mesh through the queue
-    // Might fail in case there aren't enough free handlers to handle the job
-    /*
-    public bool TryGenerateMeshImmediate(VoxelChunk voxelChunk, bool computeCollisions) {
-        for (int i = 0; i < meshJobsPerFrame; i++) {
-            if (handlers[i].Free) {
-                MeshJobHandler handler = handlers[i];
-                handler.chunk = voxelChunk;
-                handler.computeCollisions = computeCollisions;
-                var job = handler.BeginJob(new JobHandle(), voxelChunk.node);
-
-                VoxelMesh voxelMesh = handler.Complete(voxelChunk.sharedMesh, voxelMaterials);
-                onVoxelMeshingComplete?.Invoke(voxelChunk, voxelMesh);
-                return true;
-            }
-        }
-
-        return false;
-    }
-    */
 
     void Update() {
         // Complete the jobs that finished and create the meshes

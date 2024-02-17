@@ -63,7 +63,7 @@ public class PlayerControllerScript : MonoBehaviour {
                 var edit2 = new AddVoxelEdit {
                     center = math.float3(hit.point.x, hit.point.y, hit.point.z),
                     radius = sizeRadius,
-                    strength = 10.0F * temp,
+                    strength = 1.0F * temp,
                     writeMaterial = true,
                     material = 2,
                 };

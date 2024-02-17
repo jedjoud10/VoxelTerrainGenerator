@@ -58,6 +58,20 @@ public struct VertexJob : IJobParallelFor {
     [NativeDisableParallelForRestriction]
     public NativeArray<float3> vertices;
 
+    // Normals in case we have a shader that requires them
+    [WriteOnly]
+    [NativeDisableParallelForRestriction]
+    public NativeArray<float3> normals;
+
+    // Extra data passed to the shader for per vertex ambient occlusion
+    [WriteOnly]
+    [NativeDisableParallelForRestriction]
+    public NativeArray<float2> uvs;
+
+    // GYATT
+    public bool perVertexNormals;
+    public bool perVertexUvs;
+
     // Vertex Counter
     public NativeCounter.Concurrent counter;
 
@@ -80,6 +94,7 @@ public struct VertexJob : IJobParallelFor {
             return;
 
         float3 vertex = float3.zero;
+        float3 normal = float3.zero;
 
         // Check if we will use this vertex for skirting purposes
         bool3 base_ = (position <= math.uint3(1)) & skirtsBase;
@@ -102,27 +117,29 @@ public struct VertexJob : IJobParallelFor {
         // Use linear interpolation when smoothing
         if (!empty) {
             if (smoothing) {
-                {
-                    // Create the smoothed vertex
-                    // TODO: Test out QEF or other methods for smoothing here
-                    for (int edge = 0; edge < 12; edge++) {
-                        // Continue if the edge isn't inside
-                        if (((code >> edge) & 1) == 0) continue;
+                // Create the smoothed vertex
+                // TODO: Test out QEF or other methods for smoothing here
+                for (int edge = 0; edge < 12; edge++) {
+                    // Continue if the edge isn't inside
+                    if (((code >> edge) & 1) == 0) continue;
 
-                        uint3 startOffset = edgePositions0[edge];
-                        uint3 endOffset = edgePositions1[edge];
+                    uint3 startOffset = edgePositions0[edge];
+                    uint3 endOffset = edgePositions1[edge];
 
-                        int startIndex = VoxelUtils.PosToIndex(startOffset + position);
-                        int endIndex = VoxelUtils.PosToIndex(endOffset + position);
+                    int startIndex = VoxelUtils.PosToIndex(startOffset + position);
+                    int endIndex = VoxelUtils.PosToIndex(endOffset + position);
 
-                        // Get the Voxels of the edge
-                        Voxel startVoxel = voxels[startIndex];
-                        Voxel endVoxel = voxels[endIndex];
+                    float3 startNormal = VoxelUtils.SampleGridNormal(startOffset + position, ref voxels, size);
+                    float3 endNormal = VoxelUtils.SampleGridNormal(endOffset + position, ref voxels, size);
 
-                        // Create a vertex on the line of the edge
-                        float value = math.unlerp(startVoxel.density, endVoxel.density, 0);
-                        vertex += math.lerp(startOffset, endOffset, value) - math.float3(0.5);
-                    }
+                    // Get the Voxels of the edge
+                    Voxel startVoxel = voxels[startIndex];
+                    Voxel endVoxel = voxels[endIndex];
+
+                    // Create a vertex on the line of the edge
+                    float value = math.unlerp(startVoxel.density, endVoxel.density, 0);
+                    vertex += math.lerp(startOffset, endOffset, value) - math.float3(0.5);
+                    normal += math.lerp(startNormal, endNormal, value);
                 }
             } else {
                 // Don't do any smoothing
@@ -151,5 +168,14 @@ public struct VertexJob : IJobParallelFor {
 
         float3 outputVertex = (offset - 1.0F) + position;
         vertices[vertexIndex] = outputVertex * vertexScale * voxelScale;
+        normals[vertexIndex] = -math.normalizesafe(normal, new float3(0, 1, 0));
+
+        float ambientOcclusion = 1.0f;
+
+        if (perVertexUvs)
+            ambientOcclusion = VoxelUtils.CalculateVertexAmbientOcclusion(outputVertex, ref voxels, size);
+
+        uvs[vertexIndex] = new float2(ambientOcclusion, 0.0f);
+        //normals[vertexIndex] = new float3(0, 1, 0);
     }
 }

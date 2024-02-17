@@ -12,6 +12,8 @@ internal class MeshJobHandler {
 
     // Native buffers for mesh data
     public NativeArray<float3> vertices;
+    public NativeArray<float3> normals;
+    public NativeArray<float2> uvs;
     public NativeArray<int> tempTriangles;
     public NativeArray<int> permTriangles;
 
@@ -34,6 +36,8 @@ internal class MeshJobHandler {
         // Native buffers for mesh data
         voxels = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         vertices = new NativeArray<float3>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        normals = new NativeArray<float3>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        uvs = new NativeArray<float2>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         tempTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         permTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 
@@ -89,11 +93,15 @@ internal class MeshJobHandler {
             voxels = voxels,
             indices = indices,
             vertices = vertices,
+            normals = normals,
+            uvs = uvs,
             counter = counter,
             voxelScale = VoxelUtils.VoxelSizeFactor,
             vertexScale = VoxelUtils.VertexScaling,
             size = VoxelUtils.Size,
             smoothing = VoxelUtils.Smoothing,
+            perVertexNormals = VoxelUtils.PerVertexNormals,
+            perVertexUvs = VoxelUtils.PerVertexUvs,
             skirtsBase = skirtsBase,
             skirtsEnd = skirtsEnd,
             minSkirtDensityThreshold = threshold
@@ -185,8 +193,17 @@ internal class MeshJobHandler {
 
         // Set mesh shared vertices
         mesh.Clear();
-        mesh.SetVertexBufferParams(maxVertices, new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3));
-        mesh.SetVertexBufferData(vertices.Reinterpret<Vector3>(), 0, 0, maxVertices);
+
+        VertexAttributeDescriptor[] descriptors = new VertexAttributeDescriptor[] {
+            new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, 0),
+            new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3, 1),
+            new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2, 2),
+        };
+
+        mesh.SetVertexBufferParams(maxVertices, descriptors);
+        mesh.SetVertexBufferData(vertices.Reinterpret<Vector3>(), 0, 0, maxVertices, 0);
+        mesh.SetVertexBufferData(normals.Reinterpret<Vector3>(), 0, 0, maxVertices, 1);
+        mesh.SetVertexBufferData(uvs.Reinterpret<Vector2>(), 0, 0, maxVertices, 2);
 
         // Set mesh indices
         mesh.SetIndexBufferParams(maxIndices, IndexFormat.UInt32);
@@ -229,6 +246,8 @@ internal class MeshJobHandler {
         voxels.Dispose();
         indices.Dispose();
         vertices.Dispose();
+        normals.Dispose();
+        uvs.Dispose();
         counter.Dispose();
         countersQuad.Dispose();
         tempTriangles.Dispose();
