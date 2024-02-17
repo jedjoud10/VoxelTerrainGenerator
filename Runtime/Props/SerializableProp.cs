@@ -1,6 +1,4 @@
-﻿using Unity.Collections;
-using Unity.Mathematics;
-using Unity.Netcode;
+﻿using Unity.Netcode;
 using UnityEngine;
 
 // Custom prop interface that we can extend to implement custom prop saving/loading logic

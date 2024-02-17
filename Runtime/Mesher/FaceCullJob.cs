@@ -1,7 +1,5 @@
 using Unity.Burst;
-using Unity.Collections;
 using Unity.Jobs;
-using Unity.Mathematics;
 
 
 // Detects the faces that are completely filled or completely empty

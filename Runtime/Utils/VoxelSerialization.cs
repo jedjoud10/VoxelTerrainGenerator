@@ -52,7 +52,7 @@ public partial class VoxelTerrain {
             voxelEncode.Schedule().Complete();
 
             int compressedBytes = compressedDensities.Length + compressedMaterials.Length * 4;
-            arr[(int)Math.Log(data.scalingFactor, 2.0f)] = compressedBytes;
+            arr[(int)Math.Log(data.scalingFactor, 2.0f)] += compressedBytes;
 
             writer.WriteValueSafe(data.position);
             writer.WriteValueSafe(data.scalingFactor);
@@ -71,8 +71,10 @@ public partial class VoxelTerrain {
             }
         }
 
+        Debug.LogWarning($"Size before props: {writer.Length}");
+
         // Force all regions to serialize their data (only needed for props)
-        foreach (var value in VoxelRegions.propSegmentsDict) {
+        foreach (var value in VoxelSegments.propSegmentsDict) {
             VoxelProps.SerializePropsOnSegmentUnload(value.Key);
         }
 
@@ -95,23 +97,25 @@ public partial class VoxelTerrain {
         NativeList<uint> compressedBitmask = new NativeList<uint>(Allocator.TempJob);
 
         foreach (var data in VoxelProps.propTypeSerializedData) {
-            writer.WriteValueSafe(data.rawBytes.AsArray());
+            if (data.valid) {
+                writer.WriteValueSafe(data.rawBytes.AsArray());
 
-            var bitmaskArr = data.set.AsNativeArray<byte>();
+                var bitmaskArr = data.set.AsNativeArray<byte>();
 
-            compressedBitmask.Clear();
-            RleCompressionJob rleEncodeJob = new RleCompressionJob {
-                bytesIn = bitmaskArr,
-                uintsOut = compressedBitmask,
-            };
+                compressedBitmask.Clear();
+                RleCompressionJob rleEncodeJob = new RleCompressionJob {
+                    bytesIn = bitmaskArr,
+                    uintsOut = compressedBitmask,
+                };
 
-            rleEncodeJob.Schedule().Complete();
-            
-            writer.WriteValueSafe(compressedBitmask.AsArray());
+                rleEncodeJob.Schedule().Complete();
+
+                writer.WriteValueSafe(compressedBitmask.AsArray());
+            }
         }
         compressedBitmask.Dispose();
 
-        Debug.LogWarning($"Finished serializing the terrain! Final size: {writer.Position} bytes, took {sw.ElapsedMilliseconds}ms");
+        Debug.LogWarning($"Finished serializing the terrain! Final size: {writer.Length} bytes, took {sw.ElapsedMilliseconds}ms");
         onSerializeFinish?.Invoke();
     }
 
@@ -248,20 +252,23 @@ public partial class VoxelTerrain {
 
         for (int i = 0; i < VoxelProps.props.Count; i++) {
             PropTypeSerializedData data = VoxelProps.propTypeSerializedData[i];
-            data.rawBytes.Clear();
 
-            reader.ReadValueSafeTemp(out NativeArray<byte> tempArray);
-            data.rawBytes.AddRange(tempArray);
-            tempArray.Dispose();
+            if (data.valid) {
+                data.rawBytes.Clear();
 
-            reader.ReadValueSafe(out NativeArray<uint> uintIn, Allocator.TempJob);
-            RleDecompressionJob rleDecodeJob = new RleDecompressionJob {
-                uintsIn = uintIn,
-                bytesOut = data.set.AsNativeArrayExt<byte>(),
-            };
+                reader.ReadValueSafeTemp(out NativeArray<byte> tempArray);
+                data.rawBytes.AddRange(tempArray);
+                tempArray.Dispose();
 
-            rleDecodeJob.Schedule().Complete();
-            uintIn.Dispose();
+                reader.ReadValueSafe(out NativeArray<uint> uintIn, Allocator.TempJob);
+                RleDecompressionJob rleDecodeJob = new RleDecompressionJob {
+                    uintsIn = uintIn,
+                    bytesOut = data.set.AsNativeArrayExt<byte>(),
+                };
+
+                rleDecodeJob.Schedule().Complete();
+                uintIn.Dispose();
+            }
         }
 
         Debug.LogWarning($"Finished loading terrain, took, {sw.ElapsedMilliseconds}ms");
@@ -269,7 +276,7 @@ public partial class VoxelTerrain {
         VoxelProps.UpdateStaticComputeFields();
         
         
-        VoxelRegions.RegenerateRegions();
+        VoxelSegments.RegenerateRegions();
         VoxelProps.ResetPropData();
     }
 }

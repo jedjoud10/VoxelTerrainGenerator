@@ -1,7 +1,4 @@
-﻿using Unity.Collections;
-using Unity.Mathematics;
-using Unity.Netcode;
-using UnityEngine;
+﻿using Unity.Netcode;
 
 public class DefaultSerializableProp : SerializableProp {
     public override int Stride => sizeof(int);

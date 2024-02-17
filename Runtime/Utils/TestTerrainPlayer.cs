@@ -9,6 +9,7 @@ public class PlayerControllerScript : MonoBehaviour {
     public GameObject head;
     public GameObject indicator;
     private float sizeRadius = 1.0F;
+    private int target = 0;
 
     private void Start() {
     }
@@ -18,20 +19,48 @@ public class PlayerControllerScript : MonoBehaviour {
         if (Physics.Raycast(head.transform.position, head.transform.forward * 2, out RaycastHit hit, 500.0F, LayerMask.NameToLayer("Player"))) {
             bool add = Input.GetKey(KeyCode.LeftShift);
             float temp = add ? -1F : 1F;
-
+            target += Input.GetKeyDown(KeyCode.K) ? 1 : 0;
+            target = target % 3;
+            
             if (Input.GetMouseButtonDown(0)) {
-                var edit = new FlattenVoxelEdit {
-                    center = hit.point,
-                    normal = hit.normal,
-                    radius = sizeRadius,
-                    strength = temp * 10,
-                };
+                switch (target) {
+                    case 0:
+                        var edit = new FlattenVoxelEdit {
+                            center = hit.point,
+                            normal = hit.normal,
+                            radius = sizeRadius,
+                            strength = temp * 10,
+                        };
 
-                VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit);
+                        VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit);
+                        break;
+                    case 1:
+                        var edit2 = new AddVoxelEdit {
+                            center = math.float3(hit.point.x, hit.point.y, hit.point.z),
+                            radius = sizeRadius,
+                            strength = 10.0F * temp,
+                            writeMaterial = true,
+                            material = 2,
+                        };
+
+                        VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit2);
+                        break;
+                    case 2:
+                        var edit3 = new SphereVoxelEdit {
+                            center = math.float3(hit.point.x, hit.point.y, hit.point.z),
+                            radius = sizeRadius,
+                            strength = 10.0F * temp,
+                            writeMaterial = true,
+                            material = 2,
+                        };
+
+                        VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit3);
+                        break;
+                }
             }
 
-            if (Input.GetMouseButtonDown(1)) {
-                var edit = new AddVoxelEdit {
+            if (Input.GetMouseButton(1)) {
+                var edit2 = new AddVoxelEdit {
                     center = math.float3(hit.point.x, hit.point.y, hit.point.z),
                     radius = sizeRadius,
                     strength = 10.0F * temp,
@@ -39,7 +68,7 @@ public class PlayerControllerScript : MonoBehaviour {
                     material = 2,
                 };
 
-                VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit);
+                VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit2);
             }
 
             indicator.transform.position = Vector3.Lerp(indicator.transform.position, hit.point, 13.25F * Time.deltaTime);

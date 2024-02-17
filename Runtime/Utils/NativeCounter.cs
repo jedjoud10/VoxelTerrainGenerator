@@ -2,7 +2,6 @@
 // https://github.com/keijiro/Firefly/blob/master/Assets/Firefly/Utility/NativeCounter.cs
 
 using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Unity.Collections;

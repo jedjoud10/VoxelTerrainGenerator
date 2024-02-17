@@ -1,5 +1,4 @@
-﻿using Unity.Burst.CompilerServices;
-using Unity.Mathematics;
+﻿using Unity.Mathematics;
 using UnityEngine;
 
 // Sample terrain edit (either dynamic or voxel) that is applied when the terrain is first generated

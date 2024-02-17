@@ -1,7 +1,5 @@
 using Unity.Burst;
-using Unity.Collections;
 using Unity.Jobs;
-using Unity.Mathematics;
 
 // Given the main octree structure, this job will tell us what chunks should be COMPLETELY invisible to the camera
 // Basically occlusion culling but using the voxel data to help us cull

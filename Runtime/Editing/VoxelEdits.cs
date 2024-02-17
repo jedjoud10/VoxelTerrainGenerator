@@ -87,7 +87,7 @@ public class VoxelEdits : VoxelBehaviour {
         if (!applyEdits)
             return;
 
-        if (terrain.Free && terrain.VoxelOctree.Free && terrain.VoxelMesher.Free) {
+        if (terrain.Free && terrain.VoxelMesher.Free) {
             IVoxelEdit edit;
             if (tempVoxelEdits.TryDequeue(out edit)) {
                 ApplyVoxelEdit(edit, true);
@@ -102,10 +102,14 @@ public class VoxelEdits : VoxelBehaviour {
 
     // Apply a voxel edit to the terrain world
     public void ApplyVoxelEdit(IVoxelEdit edit, bool neverForget = false) {
-        if (!terrain.Free) {
+        if (!(terrain.Free && terrain.VoxelMesher.Free && terrain.VoxelGenerator.Free)) {
             if (neverForget)
                 tempVoxelEdits.Enqueue(edit);
             return;
+        }
+
+        foreach (var item in sparseVoxelData) {
+            item.applyJobHandle.Complete();
         }
 
         // Update voxel edits octree (run subdivision job on new bounds)
