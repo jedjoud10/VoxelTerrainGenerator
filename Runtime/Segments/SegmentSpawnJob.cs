@@ -5,7 +5,7 @@ using Unity.Burst;
 
 // This will handle spawning the prop segments from scratch and to be diffed later
 [BurstCompile(CompileSynchronously = true)]
-public struct PropSegmentSpawnDiffJob : IJob {
+public struct SegmentSpawnJob : IJob {
     public NativeHashSet<int4> oldPropSegments;
     public NativeHashSet<int4> propSegments;
     public TerrainLoader.Target target;
@@ -58,9 +58,6 @@ public struct PropSegmentSpawnDiffJob : IJob {
 
         foreach (var item in oldPropSegments) {
             if (!propSegments.Contains(item)) {
-                // multiple duplicates for each level to make sure there are no "zombie" segments that are left
-                // only have to worry about this when using multiple targets
-
                 removedSegments.Add(item);
             }
         }

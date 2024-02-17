@@ -27,8 +27,11 @@ public struct FlattenVoxelEdit : IVoxelEdit {
     public Voxel Modify(float3 position, Voxel lastDelta) {
         Voxel voxel = lastDelta;
         float density = math.length(position - center) - radius;
+        float mask = math.saturate(density);
+        float oldDensity = lastDelta.density;
         float planeDensity = math.dot(normal, position - center);
-        voxel.density = (density < 0.0F) ? (half)(lastDelta.density + strength * planeDensity) : lastDelta.density;
+        float newDensity = (half)(lastDelta.density + strength * planeDensity);
+        voxel.density = (half)math.lerp(newDensity, oldDensity, mask);
         
         
         return voxel;

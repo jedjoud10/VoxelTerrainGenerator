@@ -6,7 +6,7 @@ using UnityEngine;
 // Voxel regions are stored in the main voxel regions terrain component
 // We must split the world in equal "regions" so that prop spawn density and
 // structure spawn density stay the same across LODs, otherwise density would not be consistent
-public class VoxelRegion {
+public class Segment {
     // Internal position
     public int3 regionPosition;
 

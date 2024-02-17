@@ -25,7 +25,7 @@ MonoBehaviour:
     billboardCaptureCameraScale: 7
     billboardCaptureRotation: {x: 0, y: 35, z: 0}
     billboardCapturePosition: {x: 0, y: -7, z: 5}
-  propSpawnBehavior: 1
+  propSpawnBehavior: 3
   maxPropsPerSegment: 8192
   maxPropsInTotal: 524288
   maxVisibleProps: 524288

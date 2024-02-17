@@ -11,7 +11,7 @@ using UnityEngine;
 [RequireComponent(typeof(VoxelCollisions))]
 [RequireComponent(typeof(VoxelOctree))]
 [RequireComponent(typeof(VoxelEdits))]
-[RequireComponent(typeof(VoxelRegions))]
+[RequireComponent(typeof(VoxelSegments))]
 [RequireComponent(typeof(VoxelProps))]
 public partial class VoxelTerrain : MonoBehaviour {
     public enum GenerationReason {
@@ -31,7 +31,7 @@ public partial class VoxelTerrain : MonoBehaviour {
     public VoxelCollisions VoxelCollisions { get; private set; }
     public VoxelOctree VoxelOctree { get; private set; }
     public VoxelEdits VoxelEdits { get; private set; }
-    public VoxelRegions VoxelRegions { get; private set; }
+    public VoxelSegments VoxelRegions { get; private set; }
     //public VoxelStructures VoxelStructures { get; private set; }
     public VoxelProps VoxelProps { get; private set; }
 
@@ -117,7 +117,7 @@ public partial class VoxelTerrain : MonoBehaviour {
         VoxelOctree = GetComponent<VoxelOctree>();
         VoxelEdits = GetComponent<VoxelEdits>();
         VoxelProps = GetComponent<VoxelProps>();
-        VoxelRegions = GetComponent<VoxelRegions>();
+        VoxelRegions = GetComponent<VoxelSegments>();
 
         // Set the voxel utils static class
         VoxelUtils.Size = resolution;

@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 7541423554628836651}
   - component: {fileID: 6535033683702868775}
   - component: {fileID: 3468452622346475171}
+  - component: {fileID: 2034548315684897522}
   m_Layer: 0
   m_Name: Voxel Terrain
   m_TagString: Untagged
@@ -69,6 +70,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxDepth: 7
   debugGizmos: 0
+  minMaxYPositions: {x: 0, y: 0}
+  target: {fileID: 0}
   mustUpdate: 0
 --- !u!114 &7158265105977027013
 MonoBehaviour:
@@ -150,11 +153,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: efb0edf5fd1e01a4283d253eaa649b4e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  debugGizmos: 0
-  propSegmentResolution: 32
-  voxelChunksInPropSegment: 4
-  maxSegments: 2048
-  maxSegmentsToRemove: 2048
   props:
   - {fileID: 11400000, guid: 3ab5956d7784dc341b5dcb3cb8b0c70c, type: 2}
   - {fileID: 11400000, guid: 9e91c229f071f1c4e9bdcc0ae525b3d4, type: 2}
@@ -171,3 +169,20 @@ MonoBehaviour:
   propCullingCopy: {fileID: 7200000, guid: 0fc248ebd7631a242afffc4ccdbe1b5e, type: 3}
   propCullingApply: {fileID: 7200000, guid: b37299e5f05f5004b9698816461e0df3, type: 3}
   removePropSegments: {fileID: 7200000, guid: 62d1ba42545233149af3b0666c4246c9, type: 3}
+--- !u!114 &2034548315684897522
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5247181259204451943}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db5166f307879fe4a8a29401cee62383, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  debugGizmos: 0
+  propSegmentResolution: 32
+  voxelChunksInPropSegment: 4
+  maxSegments: 512
+  maxSegmentsToRemove: 512

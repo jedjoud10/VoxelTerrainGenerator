@@ -10,7 +10,7 @@ using System.Linq;
 using Unity.Netcode;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEditor;
-using static VoxelRegions;
+using static VoxelSegments;
 
 // Responsible for generating the voxel props on the terrain
 // Handles generating the prop data on the GPU and renders it as billboards 
@@ -35,7 +35,7 @@ public class VoxelProps : VoxelBehaviour {
 
     // Custom delegate that can be used to send custom data to the prop shader
     public delegate void InitComputeCustom(ComputeShader shader);
-    public delegate void UpdateComputeCustom(ComputeShader shader, VoxelRegion segment);
+    public delegate void UpdateComputeCustom(ComputeShader shader, Segment segment);
     public event InitComputeCustom onInitComputeCustom;
     public event UpdateComputeCustom onUpdateComputeCustom;
 
@@ -98,8 +98,8 @@ public class VoxelProps : VoxelBehaviour {
         public int stride;
         public NativeBitArray set;
     }
-    internal NativeArray<PropTypeSerializedData> propTypeSerializedData; 
-    
+    internal NativeArray<PropTypeSerializedData> propTypeSerializedData;
+        
     // Pooled props and prop owners
     // TODO: Optimize
     private List<List<GameObject>>[] pooledPropGameObjects;
@@ -210,6 +210,7 @@ public class VoxelProps : VoxelBehaviour {
         terrain.VoxelRegions.onPropSegmentLoaded += OnPropSegmentLoad;
         terrain.VoxelRegions.onPropSegmentUnloaded += OnPropSegmentUnload;
         terrain.VoxelRegions.onPropSegmetsPreRemoval += RemoveRegionsGpu;
+        terrain.VoxelRegions.onSerializePropSegment += SerializePropsOnSegmentUnload;
 
         // Fetch the temp offset, perm offset, visible culled offset
         // Also spawns the object prop type owners and attaches them to the terrain
@@ -356,7 +357,7 @@ public class VoxelProps : VoxelBehaviour {
     }
 
     // Called when a new prop segment is loaded and should be generated
-    private void OnPropSegmentLoad(VoxelRegion segment) {
+    private void OnPropSegmentLoad(Segment segment) {
         segment.props = new Dictionary<int, (List<GameObject>, List<ushort>)>();
 
         // Quit early if we shouldn't do shit
@@ -373,12 +374,7 @@ public class VoxelProps : VoxelBehaviour {
             ignorePropBitmaskBuffer.SetData(new int[ignorePropBitmaskBuffer.count]);
             lastSegmentWasModified = false;
         }
-
-        // Generate structures first
-
-        // Fetch all the voxel prop spawners in this segment and apply them first
-        // TODO: Actually implement this
-        
+                
         // Execute the prop segment voxel cache compute shader
         int _count = VoxelUtils.PropSegmentResolution / 4;
         var voxelShader = terrain.VoxelGenerator.voxelShader;
@@ -523,7 +519,7 @@ public class VoxelProps : VoxelBehaviour {
     }
 
     // Called when an old prop segment is unloaded
-    private void OnPropSegmentUnload(VoxelRegion segment) {
+    private void OnPropSegmentUnload(Segment segment) {
         foreach (var collection in segment.props) {
             foreach (var item in collection.Value.Item1) {
                 if (item != null) {
@@ -531,7 +527,6 @@ public class VoxelProps : VoxelBehaviour {
                     SerializableProp prop = item.GetComponent<SerializableProp>();
                     item.SetActive(false);
                     pooledPropGameObjects[collection.Key][prop.Variant].Add(item);
-                    Debug.Log("add back");
                 }
             }
         }
@@ -555,7 +550,6 @@ public class VoxelProps : VoxelBehaviour {
         } else {
             go = pooledPropGameObjects[i][variant][0];
             pooledPropGameObjects[i][variant].RemoveAt(0);
-            Debug.Log("fetch pooled");
         }
 
         go.SetActive(true);
@@ -647,7 +641,7 @@ public class VoxelProps : VoxelBehaviour {
     // Called whenever we want to serialize the data for a prop and save it to memory/disk
     // Is called automatically when we unload the segment, but also when we serialize the terrain
     internal void SerializePropsOnSegmentUnload(int4 removed) {
-        if (terrain.VoxelRegions.propSegmentsDict.TryGetValue(removed, out VoxelRegion segment)) {
+        if (terrain.VoxelRegions.propSegmentsDict.TryGetValue(removed, out Segment segment)) {
             foreach (var collection in segment.props) {
                 var propData = propTypeSerializedData[collection.Key];
                 int stride = propData.stride;
@@ -723,10 +717,13 @@ public class VoxelProps : VoxelBehaviour {
 
     // Called by VoxelRegion when we should remove the regions (and thus hide their billboarded props) on the GPU
     private void RemoveRegionsGpu(ref NativeList<int4> removedSegments) {
+        if (removedSegments.Length == 0)
+            return;
+
         int[] indices = Enumerable.Repeat(-1, VoxelUtils.MaxSegmentsToRemove).ToArray();
         for (int i = 0; i < removedSegments.Length; i++) {
             var pos = removedSegments[i];
-            if (terrain.VoxelRegions.propSegmentsDict.TryGetValue(pos, out VoxelRegion val)) {
+            if (terrain.VoxelRegions.propSegmentsDict.TryGetValue(pos, out Segment val)) {
                 indices[i] = val.indexRangeLookup;
             } else {
                 indices[i] = -1;
@@ -765,28 +762,6 @@ public class VoxelProps : VoxelBehaviour {
         unusedSegmentLookupIndices.Clear();
     }
 
-    // Cause the voxel prop modifiers to re-sort and recompute their compute buffer data
-    internal void ResortSpawnModifiers() {
-        if (modifiersBuffer.count < modifiersHashSet.Count) {
-            modifiersBuffer.Dispose();
-            modifiersBuffer = null;
-            modifiersBuffer = new ComputeBuffer(modifiersHashSet.Count, VoxelPropsSpawnModifier.BlittableSpawnModifier.size);
-        }
-
-        // Create the new buffer with the new size
-        var array = modifiersHashSet.Select(x => x.ConvertToBlittable()).ToList();
-        array.Sort((a, b) => a.priority.CompareTo(b.priority));
-        modifiersBuffer.SetData(array, 0, 0, modifiersHashSet.Count);
-
-        // TODO: Set the property of the prop gen comp shader to this buffer
-    }
-
-    // Destroy all props in a specific position around a radius
-    // Needed since we cannot access the generated props on the GPU directly
-    // Only use this for effects as there is no way of knowing exactly how many props where affected
-    public void DestroyInRadius(Vector3 position, float radius) {
-        throw new NotImplementedException();
-    }
 
     internal override void Dispose() {
         drawArgsBuffer.Dispose();

@@ -6,9 +6,8 @@ using Unity.Mathematics;
 using UnityEngine;
 
 // Used for generating the main voxel regions that will be used for prop generation and structure generation
-// Structure generation has to happen before prop generation, so we run that as its own step
-// TODO: rename segments to regions.
-public class VoxelRegions : VoxelBehaviour {
+// Structure generation has to happen before prop generation, so we run that as its own stepSeS
+public class VoxelSegments : VoxelBehaviour {
     // Toggles for debugging
     public bool debugGizmos = false;
 
@@ -35,23 +34,25 @@ public class VoxelRegions : VoxelBehaviour {
     private NativeList<int4> removedSegments;
 
     // Prop segment classes bounded to their positions
-    internal Dictionary<int4, VoxelRegion> propSegmentsDict;
+    internal Dictionary<int4, Segment> propSegmentsDict;
         
     // When we load in a prop segment
-    public delegate void PropSegmentLoaded(VoxelRegion segment);
+    public delegate void PropSegmentLoaded(Segment segment);
     public event PropSegmentLoaded onPropSegmentLoaded;
 
-    // When we unload a prop segment
-    public delegate void PropSegmentUnloaded(VoxelRegion segment);
-    public event PropSegmentUnloaded onPropSegmentUnloaded;
-
+    // Called right before we unload prop segments that must be destroyed. 
     public delegate void PropSegmentsPreRemoval(ref NativeList<int4> removedSegments);
     public event PropSegmentsPreRemoval onPropSegmetsPreRemoval;
 
-    public delegate void PropSegmentsWillBeRemoved(int4 segment);
-    public event PropSegmentsWillBeRemoved onPropSegmetsPreRemovalSecond;
+    // When the fixed region should be hidden and everything that it owns should be destroyed
+    public delegate void PropSegmentUnloaded(Segment segment);
+    public event PropSegmentUnloaded onPropSegmentUnloaded;
 
-    internal Queue<VoxelRegion> pendingSegments;
+    // Called whenever we need to serialize the data for a specific prop segment (before it gets deleted)
+    public delegate void PropSegmentsWillBeRemoved(int4 segment);
+    public event PropSegmentsWillBeRemoved onSerializePropSegment;
+
+    internal Queue<Segment> pendingSegments;
     internal bool segmentsAwaitingRemoval;
     private bool mustUpdate = false;
     
@@ -82,12 +83,12 @@ public class VoxelRegions : VoxelBehaviour {
         segmentsAwaitingRemoval = false;
 
         // Stuff used for management and addition/removal detection of segments
-        propSegmentsDict = new Dictionary<int4, VoxelRegion>();
+        propSegmentsDict = new Dictionary<int4, Segment>();
         propSegments = new NativeHashSet<int4>(0, Allocator.Persistent);
         oldPropSegments = new NativeHashSet<int4>(0, Allocator.Persistent);
         addedSegments = new NativeList<int4>(Allocator.Persistent);
         removedSegments = new NativeList<int4>(Allocator.Persistent);
-        pendingSegments = new Queue<VoxelRegion>();
+        pendingSegments = new Queue<Segment>();
     }
 
     // Updates the prop segments LOD and renders instanced/billboarded instances for props
@@ -97,9 +98,14 @@ public class VoxelRegions : VoxelBehaviour {
         if (terrain.VoxelOctree.target == null)
             return;
 
+        // Since async readback currently uses one pending buffer, we have to always wait until it is done
+        // TODO: Implement proper circular buffers
+        if (!terrain.VoxelProps.Free)
+            return;
+
         // Only update if we can and if we finished generating
         if (mustUpdate && pendingSegments.Count == 0 && !segmentsAwaitingRemoval) {
-            PropSegmentSpawnDiffJob job = new PropSegmentSpawnDiffJob {
+            SegmentSpawnJob job = new SegmentSpawnJob {
                 addedSegments = addedSegments,
                 removedSegments = removedSegments,
                 oldPropSegments = oldPropSegments,
@@ -112,12 +118,13 @@ public class VoxelRegions : VoxelBehaviour {
             job.Schedule().Complete();
 
             for (int i = 0; i < addedSegments.Length; i++) {
-                var segment = new VoxelRegion();
+                var segment = new Segment();
                 var pos = addedSegments[i];
                 segment.worldPosition = new Vector3(pos.x, pos.y, pos.z) * VoxelUtils.PropSegmentSize;
                 segment.regionPosition = pos.xyz;
                 segment.spawnPrefabs = pos.w == 0;
                 segment.indexRangeLookup = -1;
+                segment.props = new Dictionary<int, (List<GameObject>, List<ushort>)>();
                 propSegmentsDict.Add(pos, segment);
                 pendingSegments.Enqueue(segment);
             }
@@ -125,40 +132,30 @@ public class VoxelRegions : VoxelBehaviour {
             mustUpdate = false;
             segmentsAwaitingRemoval = removedSegments.Length > 0;
 
+            // Serialize the data for the prop segments very early on
             foreach (var removed in removedSegments) {
-                onPropSegmetsPreRemovalSecond?.Invoke(removed);
+                onSerializePropSegment?.Invoke(removed);
             }
         }
 
         // When we finished generating all pending segments delete the ones that are pending removal
         if (pendingSegments.Count == 0 && segmentsAwaitingRemoval /* && asyncRequestsInProcess == 0 */) {
             segmentsAwaitingRemoval = false;
-            if (removedSegments.Length == 0) {
-                return;
-            }
-
             onPropSegmetsPreRemoval?.Invoke(ref removedSegments);
-
+            
             for (int i = 0; i < removedSegments.Length; i++) {
                 var pos = removedSegments[i];
-                if (propSegmentsDict.Remove(pos, out VoxelRegion val)) {
+                if (propSegmentsDict.Remove(pos, out Segment val)) {
                     onPropSegmentUnloaded?.Invoke(val);
                 }
             }
         }
-
+        
         // Start generating the first pending segment we find
-        VoxelRegion result;
+        Segment result;
         if (pendingSegments.TryPeek(out result)) {
             pendingSegments.Dequeue();
             onPropSegmentLoaded.Invoke(result);
-        }
-
-        // Fetch camera from the terrain loader to use for prop billboard culling
-        Camera camera = terrain.VoxelOctree.target.viewCamera;
-        if (camera == null) {
-            Debug.LogWarning("Terrain Loader does not have a viewCamera assigned. Will not render props correctly!");
-            return;
         }
     }
 

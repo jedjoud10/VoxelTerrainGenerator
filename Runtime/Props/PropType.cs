@@ -4,9 +4,10 @@ using System.Runtime.InteropServices;
 using Unity.Mathematics;
 using UnityEngine;
 
-// Voxel prop that can be spawned in the world using two different methods
-// Ray based method and density based method
-// At further away distances the voxel prop will be swapped out either for a billboard or an indirectly drawn mesh
+// Voxel detail that can be spawned in the world
+// Voxel details are either "Props" or "Structures"
+// Props can be billboarded, or rendered indirectly and using instancing
+// Structures are used for creating custom structures in the world before prop generation
 [CreateAssetMenu(menuName = "VoxelTerrain/New Voxel prop")]
 public class PropType : ScriptableObject {
     [Serializable]
