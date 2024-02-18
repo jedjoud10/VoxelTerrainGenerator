@@ -42,10 +42,10 @@ public class PropType : ScriptableObject {
     public Vector3 billboardOffset;
     public Vector3 billboardSizeOrigin;
 
-    // How to show the billboard that apply for ALL variants
-    [Header("Billboard Rendering")]
-    public bool billboardRestrictRotationY = false;
-    public bool billboardCastShadows = false;
+    // How to show the instance / billboards that apply for ALL variants
+    [Header("GPU Instance Rendering")]
+    public bool instancesRestrictRotationY = false;
+    public bool instancesCastShadows = false;
 
     // Will this prop be generated as a prefab
     public bool WillSpawnPrefab => propSpawnBehavior.HasFlag(PropSpawnBehavior.SpawnPrefabs);

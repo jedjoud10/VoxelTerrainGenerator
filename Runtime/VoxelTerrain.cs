@@ -340,12 +340,6 @@ public partial class VoxelTerrain : MonoBehaviour {
             min = chunk.node.position,
             max = chunk.node.position + chunk.node.size,
         };
-
-        // Pool the chunk if it's empty
-        /*
-        if (mesh.VertexCount == 0)
-            PoolChunkBack(chunk);
-        */
     }
 
     // Update the mesh collider when we finish collision baking

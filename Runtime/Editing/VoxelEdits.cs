@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -87,7 +86,7 @@ public class VoxelEdits : VoxelBehaviour {
         if (!applyEdits)
             return;
 
-        if (terrain.Free && terrain.VoxelMesher.Free) {
+        if (terrain.Free && terrain.VoxelMesher.Free && terrain.VoxelGenerator.Free && terrain.VoxelOctree.Free) {
             IVoxelEdit edit;
             if (tempVoxelEdits.TryDequeue(out edit)) {
                 ApplyVoxelEdit(edit, true);
@@ -102,7 +101,7 @@ public class VoxelEdits : VoxelBehaviour {
 
     // Apply a voxel edit to the terrain world
     public void ApplyVoxelEdit(IVoxelEdit edit, bool neverForget = false) {
-        if (!(terrain.Free && terrain.VoxelMesher.Free && terrain.VoxelGenerator.Free)) {
+        if (!(terrain.Free && terrain.VoxelMesher.Free && terrain.VoxelGenerator.Free && terrain.VoxelOctree.Free)) {
             if (neverForget)
                 tempVoxelEdits.Enqueue(edit);
             return;

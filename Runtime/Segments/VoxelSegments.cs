@@ -139,7 +139,7 @@ public class VoxelSegments : VoxelBehaviour {
         }
 
         // When we finished generating all pending segments delete the ones that are pending removal
-        if (pendingSegments.Count == 0 && segmentsAwaitingRemoval /* && asyncRequestsInProcess == 0 */) {
+        if (pendingSegments.Count == 0 && segmentsAwaitingRemoval && terrain.VoxelProps.Free) {
             segmentsAwaitingRemoval = false;
             onPropSegmetsPreRemoval?.Invoke(ref removedSegments);
             

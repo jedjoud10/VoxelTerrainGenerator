@@ -16,6 +16,8 @@ public class VoxelMesher : VoxelBehaviour {
     public bool skirts = true;
     public bool perVertexNormals = true;
     public bool perVertexUvs = true;
+    public float ambientOcclusionOffset = 0.4f;
+    public float ambientOcclusionPower = 2f;
     public Material[] voxelMaterials;
 
     // List of persistently allocated mesh data
@@ -46,6 +48,8 @@ public class VoxelMesher : VoxelBehaviour {
         VoxelUtils.PerVertexUvs = perVertexUvs;
         VoxelUtils.PerVertexNormals = perVertexNormals;
         VoxelUtils.Skirts = skirts;
+        VoxelUtils.AmbientOcclusionOffset = ambientOcclusionOffset;
+        VoxelUtils.AmbientOcclusionPower = ambientOcclusionPower;
 
         for (int i = 0; i < meshJobsPerFrame; i++) {
             handlers.Add(new MeshJobHandler());

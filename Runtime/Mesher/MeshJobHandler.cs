@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -21,6 +22,7 @@ internal class MeshJobHandler {
     public NativeArray<int> indices;
     public NativeArray<byte> enabled;
     public NativeMultiCounter countersQuad;
+    public NativeMultiCounter chunkCullingFaceCounters;
     public NativeCounter counter;
 
     // Native buffer for handling multiple materials
@@ -31,6 +33,7 @@ internal class MeshJobHandler {
     public JobHandle finalJobHandle;
     public VoxelChunk chunk;
     public bool computeCollisions = false;
+    internal VertexAttributeDescriptor[] vertexAttributeDescriptors;
 
     internal MeshJobHandler() {
         // Native buffers for mesh data
@@ -45,6 +48,7 @@ internal class MeshJobHandler {
         indices = new NativeArray<int>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         enabled = new NativeArray<byte>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         countersQuad = new NativeMultiCounter(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
+        chunkCullingFaceCounters = new NativeMultiCounter(6, Allocator.Persistent);
         counter = new NativeCounter(Allocator.Persistent);
 
         // Native buffer for handling multiple materials
@@ -52,12 +56,26 @@ internal class MeshJobHandler {
         materialHashSet = new NativeParallelHashSet<ushort>(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
         materialSegmentOffsets = new NativeArray<int>(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
         materialCounter = new NativeCounter(Allocator.Persistent);
+
+        VertexAttributeDescriptor positionDesc = new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, 0);
+        VertexAttributeDescriptor normalDesc = new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3, 1);
+        VertexAttributeDescriptor uvDesc = new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2, 2);
+
+        List<VertexAttributeDescriptor> descriptors = new List<VertexAttributeDescriptor> {
+            positionDesc
+        };
+        if (VoxelUtils.PerVertexNormals)
+            descriptors.Add(normalDesc);
+        if (VoxelUtils.PerVertexUvs)
+            descriptors.Add(uvDesc);
+        vertexAttributeDescriptors = descriptors.ToArray();
     }
     public bool Free { get; private set; } = true;
 
     // Begin the vertex + quad job that will generate the mesh
     internal JobHandle BeginJob(JobHandle dependency, OctreeNode node) {
         countersQuad.Reset();
+        chunkCullingFaceCounters.Reset();
         counter.Count = 0;
         materialCounter.Count = 0;
         materialHashSet.Clear();
@@ -72,6 +90,7 @@ internal class MeshJobHandler {
             voxels = voxels,
             enabled = enabled,
             size = VoxelUtils.Size,
+            intersectingCases = chunkCullingFaceCounters,
         };
 
         // Calculates the number of materials within the mesh
@@ -102,6 +121,8 @@ internal class MeshJobHandler {
             smoothing = VoxelUtils.Smoothing,
             perVertexNormals = VoxelUtils.PerVertexNormals,
             perVertexUvs = VoxelUtils.PerVertexUvs,
+            aoOffset = VoxelUtils.AmbientOcclusionOffset,
+            aoPower = VoxelUtils.AmbientOcclusionPower,
             skirtsBase = skirtsBase,
             skirtsEnd = skirtsEnd,
             minSkirtDensityThreshold = threshold
@@ -184,26 +205,17 @@ internal class MeshJobHandler {
             maxIndices += countersQuad[i] * 6;
         }
 
-        // Set mesh bounds
-        float max = VoxelUtils.VoxelSizeFactor * VoxelUtils.Size;
-        mesh.bounds = new Bounds {
-            min = Vector3.zero,
-            max = new Vector3(max, max, max)
-        };
-
         // Set mesh shared vertices
         mesh.Clear();
 
-        VertexAttributeDescriptor[] descriptors = new VertexAttributeDescriptor[] {
-            new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, 0),
-            new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3, 1),
-            new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2, 2),
-        };
+        mesh.SetVertexBufferParams(maxVertices, vertexAttributeDescriptors);
+        mesh.SetVertexBufferData(vertices.Reinterpret<Vector3>(), 0, 0, maxVertices, 0, MeshUpdateFlags.DontValidateIndices);
+        
+        if (VoxelUtils.PerVertexNormals)
+            mesh.SetVertexBufferData(normals.Reinterpret<Vector3>(), 0, 0, maxVertices, 1, MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices);
 
-        mesh.SetVertexBufferParams(maxVertices, descriptors);
-        mesh.SetVertexBufferData(vertices.Reinterpret<Vector3>(), 0, 0, maxVertices, 0);
-        mesh.SetVertexBufferData(normals.Reinterpret<Vector3>(), 0, 0, maxVertices, 1);
-        mesh.SetVertexBufferData(uvs.Reinterpret<Vector2>(), 0, 0, maxVertices, 2);
+        if (VoxelUtils.PerVertexUvs)
+            mesh.SetVertexBufferData(uvs.Reinterpret<Vector2>(), 0, 0, maxVertices, 2, MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices);
 
         // Set mesh indices
         mesh.SetIndexBufferParams(maxIndices, IndexFormat.UInt32);
@@ -228,7 +240,7 @@ internal class MeshJobHandler {
                     indexStart = segmentOffset,
                     indexCount = countIndices,
                     topology = MeshTopology.Triangles,
-                });
+                }, MeshUpdateFlags.DontValidateIndices);
             }
         }
 
@@ -256,6 +268,7 @@ internal class MeshJobHandler {
         materialHashMap.Dispose();
         materialHashSet.Dispose();
         materialSegmentOffsets.Dispose();
+        chunkCullingFaceCounters.Dispose();
         enabled.Dispose();
     }
 }

@@ -52,8 +52,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   resolution: 64
-  debugGUI: 0
-  voxelSizeReduction: 0
+  debugGUI: 1
+  voxelSizeReduction: 1
   chunkPrefab: {fileID: 6177338312385691531, guid: 4d388002189c96345901f85821f1a600,
     type: 3}
 --- !u!114 &7193759343885691420
@@ -68,9 +68,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e787133040bb3d45acfc35df2b68f88, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxDepth: 7
+  maxDepth: 4
   debugGizmos: 0
-  minMaxYPositions: {x: 0, y: 0}
+  minMaxYPositions: {x: -300, y: 1000}
   target: {fileID: 0}
   mustUpdate: 0
 --- !u!114 &7158265105977027013
@@ -106,10 +106,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 998d14371a252d844953b5096474c997, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  meshJobsPerFrame: 1
+  meshJobsPerFrame: 2
   minSkirtDensityThreshold: -15
   smoothing: 1
-  skirts: 0
+  skirts: 1
+  perVertexNormals: 1
+  perVertexUvs: 1
+  ambientOcclusionOffset: 0.2
+  ambientOcclusionPower: 1
   voxelMaterials:
   - {fileID: 2100000, guid: 44ba4b072f5232546b8e3481243824f3, type: 2}
   - {fileID: 2100000, guid: 046aef91378297847971989e13254949, type: 2}

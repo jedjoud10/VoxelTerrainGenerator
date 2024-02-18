@@ -1,12 +1,8 @@
-using System;
-using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
-using UnityEngine.Rendering;
 using System.Linq;
-using Unity.Netcode;
 using UnityEditor;
 
 // Utilities for GPU stuff and shits

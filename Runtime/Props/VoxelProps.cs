@@ -3,11 +3,9 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using System.Linq;
 using Unity.Netcode;
-using UnityEditor;
 
 // Responsible for generating the voxel props on the terrain
 // Handles generating the prop data on the GPU and renders it as billboards 

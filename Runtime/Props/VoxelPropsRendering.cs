@@ -1,13 +1,6 @@
-using System;
 using System.Collections.Generic;
-using Unity.Collections;
-using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
-using System.Linq;
-using Unity.Netcode;
-using UnityEditor;
 
 // Partial implementation simply responsible for billboard capturing and indirect rendering
 public partial class VoxelProps {
@@ -130,8 +123,10 @@ public partial class VoxelProps {
             IndirectExtraPropData extraData = extraPropData[i];
             PropType prop = props[i];
             
+            /*
             if (prop.WillRenderIndirectInstances)
                 RenderInstancesOfType(i, extraData, prop);
+            */
         }
     }
 
@@ -145,7 +140,7 @@ public partial class VoxelProps {
 
         Material material = meshed ? prop.instancedMeshMaterial : billboardMaterialBase;
 
-        ShadowCastingMode shadowCastingMode = prop.billboardCastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
+        ShadowCastingMode shadowCastingMode = prop.instancesCastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
         RenderParams renderParams = new RenderParams(material);
         renderParams.shadowCastingMode = shadowCastingMode;
         renderParams.worldBounds = new Bounds {
@@ -166,8 +161,8 @@ public partial class VoxelProps {
             mat.SetVector("_BillboardSize", prop.billboardSize);
             mat.SetVector("_BillboardSizeOrigin", prop.billboardSizeOrigin);
             mat.SetVector("_BillboardOffset", prop.billboardOffset);
-            mat.SetInt("_RECEIVE_SHADOWS_OFF", prop.billboardCastShadows ? 0 : 1);
-            mat.SetInt("_Lock_Rotation_Y", prop.billboardRestrictRotationY ? 1 : 0);
+            mat.SetInt("_RECEIVE_SHADOWS_OFF", prop.instancesCastShadows ? 0 : 1);
+            mat.SetInt("_Lock_Rotation_Y", prop.instancesRestrictRotationY ? 1 : 0);
         }
 
         Mesh mesh = meshed ? prop.instancedMesh : VoxelTerrain.Instance.VoxelProps.quadBillboard;

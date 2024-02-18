@@ -71,6 +71,8 @@ public struct VertexJob : IJobParallelFor {
     // GYATT
     public bool perVertexNormals;
     public bool perVertexUvs;
+    public float aoOffset;
+    public float aoPower;
 
     // Vertex Counter
     public NativeCounter.Concurrent counter;
@@ -168,14 +170,14 @@ public struct VertexJob : IJobParallelFor {
 
         float3 outputVertex = (offset - 1.0F) + position;
         vertices[vertexIndex] = outputVertex * vertexScale * voxelScale;
-        normals[vertexIndex] = -math.normalizesafe(normal, new float3(0, 1, 0));
 
-        float ambientOcclusion = 1.0f;
+        // Calculate per vertex normals and apply it
+        normal = perVertexNormals ? -math.normalizesafe(normal, new float3(0, 1, 0)) : new float3(0, 1, 0);
+        normals[vertexIndex] = normal;
 
-        if (perVertexUvs)
-            ambientOcclusion = VoxelUtils.CalculateVertexAmbientOcclusion(outputVertex, ref voxels, size);
 
+        // Calculate per vertex ambient occlusion and apply it
+        float ambientOcclusion = perVertexUvs ? VoxelUtils.CalculateVertexAmbientOcclusion(outputVertex, ref voxels, size, aoOffset, aoPower) : 1.0f;
         uvs[vertexIndex] = new float2(ambientOcclusion, 0.0f);
-        //normals[vertexIndex] = new float3(0, 1, 0);
     }
 }
