@@ -1,0 +1,25 @@
+# A procedural terrain generator that makes use of your GPU to generate fully volumetric terrain
+
+## Features
+* 3D Octree for worlds up to 32km with sub-meter voxel precision
+* GPU Voxel Generation with Async CPU readback
+* MUltithreaded and Jobified CPU meshing implementing the Surface Nets algorithm
+  *  Supports vertex merging and custom materials
+  *  Supports custom per vertex ambient occlusion and UV pass-through data
+  *  Async Collision Baking
+  *  Custom skirts system for meshes
+  *  
+* Terrain editing using duplicate octree
+  * Supports "dynamic" edits which are applied on a global scale (non-destructive)
+  * Supports "voxel" edits which are applied on a local voxel-to-voxel scale
+* GPU Based Prop Generation
+  * Avoids unecessary CPU callbacks
+  * Uses density and surface data to generate props
+  * Multiple prop "variants" supported
+  * Uses the GPU for indirect instanced rendering directly without CPU callback
+  * Uses billboard system for props that are further away
+    * Billboard captures are done automatically at the start of the frame
+    * Makes use of albedo, mask, and normal map data to create billboards procedurally
+* Serialization / deserialization system that supports terrain edits, terrain seed, and modified/destoyed props
+  * Uses RLE and delta compression for voxel data
+  * Uses RLE for prop masks
