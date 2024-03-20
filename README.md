@@ -6,9 +6,9 @@
 * MUltithreaded and Jobified CPU meshing implementing the Surface Nets algorithm
   *  Supports vertex merging and custom materials
   *  Supports custom per vertex ambient occlusion and UV pass-through data
-  *  Async Collision Baking
-  *  Custom skirts system for meshes
-  *  
+  *  Async Collision Baking using the job system and PhysX
+  *  Custom skirts system for meshes with different resolution to avoid gaps between chunks
+  *  Fully parallel, runs under 6ms for a 64x64x64 mesh on my machine for 8 threads 
 * Terrain editing using duplicate octree
   * Supports "dynamic" edits which are applied on a global scale (non-destructive)
   * Supports "voxel" edits which are applied on a local voxel-to-voxel scale
