@@ -29,6 +29,6 @@ public interface IVoxelEdit {
             densities = data.densities,
             materials = data.materials,
         };
-        return job.Schedule(VoxelUtils.Volume, 2048);
+        return job.Schedule(VoxelUtils.Volume, 2048 * 16);
     }
 }

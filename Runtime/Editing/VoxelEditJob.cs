@@ -42,17 +42,5 @@ struct VoxelEditJob<T> : IJobParallelFor
         Voxel output = edit.Modify(position, new Voxel { material = material, density = density });
         materials[index] = output.material;
         densities[index] = VoxelUtils.NormalizeHalf(output.density);
-
-        /*
-        // Keep track of the voxels that we added/removed
-        float difference = density - output.density;
-        if (scalingFactor == 1.0) {
-            if (difference > 0.0f) {
-                counters.Increment(0);
-            } else if (difference < 0.0f) {
-                counters.Increment(1);
-            }
-        }
-        */
     }
 }

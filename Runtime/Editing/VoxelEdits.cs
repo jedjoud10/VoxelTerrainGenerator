@@ -16,11 +16,14 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     // Reference that we can use to fetch modified data of a voxel edit
-    public class VoxelEditCountersHandle {
-        internal int added;
-        internal int removed;
+    internal class VoxelEditCountersHandle {
+        internal int changed;
         internal int pending;
-    }
+        internal VoxelEditCounterCallback callback;
+    } 
+
+    // Callback that we can pass to the voxel edit functions to allow us to check how many voxels were added/removed
+    public delegate void VoxelEditCounterCallback(int changed);
 
     public bool debugGizmos = false;
 
@@ -111,11 +114,11 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     // Apply a voxel edit to the terrain world
-    public VoxelEditCountersHandle ApplyVoxelEdit(IVoxelEdit edit, bool neverForget = false, bool immediate = false) {
+    public void ApplyVoxelEdit(IVoxelEdit edit, bool neverForget = false, bool immediate = false, VoxelEditCounterCallback callback = null) {
         if (!(terrain.Free && terrain.VoxelMesher.Free && terrain.VoxelGenerator.Free && terrain.VoxelOctree.Free)) {
             if (neverForget)
                 tempVoxelEdits.Enqueue(edit);
-            return null;
+            return;
         }
 
         foreach (var item in sparseVoxelData) {
@@ -162,8 +165,9 @@ public class VoxelEdits : VoxelBehaviour {
         }
 
         VoxelEditCountersHandle countersHandle = new VoxelEditCountersHandle {
-            added = 0,
-            removed = 0,
+            changed = 0,
+            pending = 0,
+            callback = callback,
         };
 
         for (int i = 0; i < chunksToUpdate.Length; i++) {
@@ -192,8 +196,6 @@ public class VoxelEdits : VoxelBehaviour {
         pending.Dispose();
         chunksToUpdate.Dispose();
         addedNodes.Dispose();
-
-        return countersHandle;
     }
 
     // Internally used to hide generic
@@ -260,7 +262,7 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     // Create an apply job dependeny for a chunk that has voxel edits
-    public JobHandle TryGetApplyVoxelEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> voxels, NativeMultiCounter changedVoxelsCounters, JobHandle dependency) {
+    public JobHandle TryGetApplyVoxelEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> voxels, NativeCounter counter, JobHandle dependency) {
         if (!IsChunkAffectedByVoxelEdits(chunk)) {
             if (chunk.voxelCountersHandle != null) {
                 chunk.voxelCountersHandle.pending--;
@@ -284,9 +286,9 @@ public class VoxelEdits : VoxelBehaviour {
         VoxelEditApplyJob job = new VoxelEditApplyJob {
             data = data,
             voxels = voxels,
-            counters = changedVoxelsCounters,
+            counter = counter,
         };
-        return job.Schedule(VoxelUtils.Volume, 2048, newDep);
+        return job.Schedule(VoxelUtils.Volume, 2048 * 8, newDep);
     }    
 
     // Create a list of dependencies to apply to chunks that have been affected by dynamic edits
@@ -301,6 +303,36 @@ public class VoxelEdits : VoxelBehaviour {
         }
 
         return dep;
+    }
+
+    // Update the modified voxel counters of a chunk after finishing meshing
+    internal void UpdateCounters(MeshJobHandler handler, VoxelChunk voxelChunk)
+    {
+        VoxelEditCountersHandle handle = voxelChunk.voxelCountersHandle;
+        if (handle != null)
+        {
+            handle.pending--;
+            int lookup = chunkLookup[new VoxelEditOctreeNode.RawNode
+            {
+                position = voxelChunk.node.position,
+                depth = voxelChunk.node.depth,
+                size = voxelChunk.node.size,
+            }];
+
+            // Check current values, update them
+            SparseVoxelDeltaData data = sparseVoxelData[lookup];
+            int lastValue = data.lastCounters;
+            int newValue = handler.voxelCounter.Count;
+
+            // Store the data back into the sparse voxel array
+            int delta = newValue - lastValue;
+            data.lastCounters = newValue;
+            sparseVoxelData[lookup] = data;
+
+            handle.changed += delta;
+            if (handle.pending == 0)
+                handle.callback?.Invoke(handle.changed);            
+        }
     }
 
     private void OnDrawGizmosSelected() {

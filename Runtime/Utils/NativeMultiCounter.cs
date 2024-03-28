@@ -125,5 +125,14 @@ unsafe public struct NativeMultiCounter {
             // The actual increment is implemented with an atomic since it can be incremented by multiple threads at the same time
             return Interlocked.Increment(ref *(m_Counters + index * sizeOfInt)) - 1;
         }
+
+        public int Decrement(int index) {
+            // Increment still needs to check for write permissions
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
+#endif
+            // The actual decrement is implemented with an atomic since it can be decremented by multiple threads at the same time
+            return Interlocked.Decrement(ref *(m_Counters + index * sizeOfInt)) - 1;
+        }
     }
 }

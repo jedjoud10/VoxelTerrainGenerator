@@ -9,10 +9,13 @@ public class PlayerControllerScript : MonoBehaviour {
     public GameObject head;
     public GameObject indicator;
     private float sizeRadius = 1.0F;
-    private VoxelEdits.VoxelEditCountersHandle handle; 
     private int target = 0;
 
     private void Start() {
+    }
+
+    private void Callback(int changed) {
+        Debug.Log(changed);
     }
 
     // Update is called once per frame
@@ -33,7 +36,7 @@ public class PlayerControllerScript : MonoBehaviour {
                             strength = temp * 10,
                         };
 
-                        handle = VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit);
+                        VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit, callback: Callback);
                         break;
                     case 1:
                         var edit2 = new AddVoxelEdit {
@@ -44,7 +47,7 @@ public class PlayerControllerScript : MonoBehaviour {
                             material = 2,
                         };
 
-                        handle = VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit2);
+                        VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit2, callback: Callback);
                         break;
                     case 2:
                         var edit3 = new SphereVoxelEdit {
@@ -55,7 +58,7 @@ public class PlayerControllerScript : MonoBehaviour {
                             material = 2,
                         };
 
-                        handle = VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit3);
+                        VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit3, callback: Callback);
                         break;
                 }
             }
@@ -64,12 +67,12 @@ public class PlayerControllerScript : MonoBehaviour {
                 var edit2 = new AddVoxelEdit {
                     center = math.float3(hit.point.x, hit.point.y, hit.point.z),
                     radius = sizeRadius,
-                    strength = 1.0F * temp,
+                    strength = 0.7F * temp,
                     writeMaterial = true,
                     material = 2,
                 };
 
-                handle = VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit2);
+                VoxelTerrain.Instance.VoxelEdits.ApplyVoxelEdit(edit2, callback: Callback);
             }
 
             indicator.transform.position = Vector3.Lerp(indicator.transform.position, hit.point, 13.25F * Time.deltaTime);
@@ -82,14 +85,6 @@ public class PlayerControllerScript : MonoBehaviour {
 
         sizeRadius += Input.mouseScrollDelta.y * Time.deltaTime * 45.0F;
         sizeRadius = Mathf.Clamp(sizeRadius, 0, 500);
-
-        if (handle != null) {
-            if (handle.pending == 0) {
-                Debug.Log(handle.added);
-                Debug.Log(handle.removed);
-                handle = null;
-            }
-        }
 
         if (Input.GetKeyDown(KeyCode.V)) {
             string path = Application.persistentDataPath + "/terrain.world";

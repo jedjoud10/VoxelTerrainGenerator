@@ -10,10 +10,8 @@ public class VoxelChunk : MonoBehaviour {
     // If null it means the chunk cannot be generated (no voxel data!!)
     public VoxelTempContainer container;
 
-    // Temp handle for a currently active voxel job that will eventually modify this chunk
-    public VoxelEdits.VoxelEditCountersHandle voxelCountersHandle;
-    public int lastAdded;
-    public int lastRemoved;
+    // Callback that we must invoke when we finish meshing this voxel chunk
+    internal VoxelEdits.VoxelEditCountersHandle voxelCountersHandle;
 
     // Shared generated mesh
     public Mesh sharedMesh;

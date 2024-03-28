@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Unity.Jobs;
 using UnityEngine;
 using System.Linq;
+using Unity.Mathematics;
 
 // Responsible for creating and executing the mesh generation jobs
 public class VoxelMesher : VoxelBehaviour {
@@ -79,17 +80,10 @@ public class VoxelMesher : VoxelBehaviour {
             if (handler.finalJobHandle.IsCompleted && !handler.Free) {
                 VoxelChunk voxelChunk = handler.chunk;
                 var stats = handler.Complete(voxelChunk.sharedMesh, voxelMaterials);
-                
-                if (voxelChunk.voxelCountersHandle != null) {
-                    voxelChunk.voxelCountersHandle.pending--;
 
-                    int newAdded = handler.changedVoxelsCounters[0];
-                    int lastAdded = voxelChunk.lastAdded;
+                if (voxelChunk.voxelCountersHandle != null)
+                    terrain.VoxelEdits.UpdateCounters(handler, voxelChunk);
 
-                    voxelChunk.lastAdded = newAdded;
-                    voxelChunk.voxelCountersHandle.added += newAdded - lastAdded;
-                }
-                
                 onVoxelMeshingComplete?.Invoke(voxelChunk, stats);
             }
         }
@@ -110,9 +104,9 @@ public class VoxelMesher : VoxelBehaviour {
                 handler.computeCollisions = output.computeCollisions;
 
                 // Pass through the edit system for any chunks that should be modifiable
-                handler.changedVoxelsCounters.Reset();
+                handler.voxelCounter.Count = 0;
                 JobHandle dynamicEdit = terrain.VoxelEdits.TryGetApplyDynamicEditJobDependency(output.chunk, ref handler.voxels);
-                JobHandle voxelEdit = terrain.VoxelEdits.TryGetApplyVoxelEditJobDependency(output.chunk, ref handler.voxels, handler.changedVoxelsCounters, dynamicEdit);
+                JobHandle voxelEdit = terrain.VoxelEdits.TryGetApplyVoxelEditJobDependency(output.chunk, ref handler.voxels, handler.voxelCounter, dynamicEdit);
                 handler.BeginJob(voxelEdit, output.chunk.node);
             }
         }

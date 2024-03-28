@@ -23,7 +23,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Low Poly Textured
+  m_Name: Low Poly Textured 2
   m_Shader: {fileID: -6465566751694194690, guid: 1b72af06099531b448b6b9c4f31025d5,
     type: 3}
   m_Parent: {fileID: 0}
@@ -126,8 +126,8 @@ Material:
     - _ZTestTransparent: 4
     - _ZWrite: 1
     m_Colors:
-    - _Color_1: {r: 0.22700001, g: 0.22700001, b: 0.22700001, a: 0}
-    - _Color_2: {r: 0.4528302, g: 0.4528302, b: 0.4528302, a: 0}
+    - _Color_1: {r: 0.4811321, g: 0.4811321, b: 0.4811321, a: 0}
+    - _Color_2: {r: 0.21698111, g: 0.21698111, b: 0.21698111, a: 0}
     - _DoubleSidedConstants: {r: 1, g: 1, b: -1, a: 0}
     - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

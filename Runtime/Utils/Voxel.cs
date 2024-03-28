@@ -47,6 +47,10 @@ public struct SparseVoxelDeltaData {
     // Job handle for the "apply" task for this sparse voxel data
     public JobHandle applyJobHandle;
 
+    // Last counters for the chunk for this delta node
+    // Used to calculate delta counter values
+    public int lastCounters;
+
     // Create sparse voxel data for an unnaffected delta chunk
     public static SparseVoxelDeltaData Empty = new SparseVoxelDeltaData {
         densities = default,

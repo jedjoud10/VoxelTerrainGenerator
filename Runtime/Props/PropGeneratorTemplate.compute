@@ -5,6 +5,7 @@
 // Remember that you can only spawn ONE prop type (including variants) per unique ID
 void PropsAt(uint3 id, float3 position) {
 	// Mixer between biome 1 and biome 2
+	/*
 	float mixer = snoise(position.xz * 0.0003) * 0.5 + 0.5;
 	mixer = smoothstep(0, 1, mixer) * 1;
 
@@ -31,7 +32,14 @@ void PropsAt(uint3 id, float3 position) {
 	if (hit2.hit && mixer > 0.00 && caveMixer > 0.6) {
 		Spawn(hit2.position, 0.5 + snoise(position * 0.01) * 0.25, hash33(position) * 180, 1, 0, id);
 	}
-	
+
+	float3 randomOffset2 = (2 * hash33(position * 2 + 0.588456) - 1) * 30;
+	float3 rockPos = position + randomOffset2;
+	ClosestSurface hit2 = CheckClosestSurface(rockPos, 0, 3.0);
+	if (hit2.hit) {
+		Spawn(hit2.position, 3.5 + snoise(position * 0.01) * 0.25, hash33(position) * 180, 1, 0, id);
+	}
+	*/
 }
 
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Props/PropGeneratorEnd.cginc"

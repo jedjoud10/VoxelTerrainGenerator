@@ -55,6 +55,7 @@ public partial class VoxelTerrain {
             arr[(int)Math.Log(data.scalingFactor, 2.0f)] += compressedBytes;
 
             writer.WriteValueSafe(data.position);
+            writer.WriteValueSafe(data.lastCounters);
             writer.WriteValueSafe(data.scalingFactor);
             writer.WriteValueSafe(compressedDensities.AsArray());
             writer.WriteValueSafe(compressedMaterials.AsArray());
@@ -197,6 +198,9 @@ public partial class VoxelTerrain {
             reader.ReadValueSafe(out float y);
             reader.ReadValueSafe(out float z);
             data.position = new float3(x, y, z);
+
+            reader.ReadValueSafe(out int counter);
+            data.lastCounters = counter;
 
             reader.ReadValueSafe(out data.scalingFactor);
 

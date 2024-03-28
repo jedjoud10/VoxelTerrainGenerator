@@ -24,7 +24,7 @@ internal class MeshJobHandler {
     public NativeMultiCounter countersQuad;
     public NativeMultiCounter chunkCullingFaceCounters;
     public NativeCounter counter;
-    public NativeMultiCounter changedVoxelsCounters;
+    public NativeCounter voxelCounter;
 
     // Native buffer for handling multiple materials
     public NativeParallelHashMap<ushort, int> materialHashMap;
@@ -44,7 +44,7 @@ internal class MeshJobHandler {
         uvs = new NativeArray<float2>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         tempTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         permTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        changedVoxelsCounters = new NativeMultiCounter(4, Allocator.Persistent);
+        voxelCounter = new NativeCounter(Allocator.Persistent);
 
         // Native buffer for mesh generation data
         indices = new NativeArray<int>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
@@ -161,18 +161,18 @@ internal class MeshJobHandler {
         };
 
         // Start the corner job
-        JobHandle cornerJobHandle = cornerJob.Schedule(VoxelUtils.Volume, 2048, dependency);
+        JobHandle cornerJobHandle = cornerJob.Schedule(VoxelUtils.Volume, 2048 * 16, dependency);
 
         // Start the material job
-        JobHandle materialJobHandle = materialJob.Schedule(VoxelUtils.Volume, 2048, dependency);
+        JobHandle materialJobHandle = materialJob.Schedule(VoxelUtils.Volume, 2048 * 16, dependency);
 
         // Start the vertex job
         JobHandle vertexDep = JobHandle.CombineDependencies(cornerJobHandle, dependency);
-        JobHandle vertexJobHandle = vertexJob.Schedule(VoxelUtils.Volume, 2048, vertexDep);
+        JobHandle vertexJobHandle = vertexJob.Schedule(VoxelUtils.Volume, 2048 * 16, vertexDep);
 
         // Start the quad job
         JobHandle merged = JobHandle.CombineDependencies(materialJobHandle, vertexJobHandle, cornerJobHandle);
-        JobHandle quadJobHandle = quadJob.Schedule(VoxelUtils.Volume, 2048, merged);
+        JobHandle quadJobHandle = quadJob.Schedule(VoxelUtils.Volume, 2048 * 16, merged);
 
         // Start the sum job 
         JobHandle sumJobHandle = sumJob.Schedule(VoxelUtils.MAX_MATERIAL_COUNT, 32, quadJobHandle);
@@ -272,6 +272,6 @@ internal class MeshJobHandler {
         materialSegmentOffsets.Dispose();
         chunkCullingFaceCounters.Dispose();
         enabled.Dispose();
-        changedVoxelsCounters.Dispose();
+        voxelCounter.Dispose();
     }
 }
