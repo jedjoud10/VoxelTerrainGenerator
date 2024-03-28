@@ -1,16 +1,25 @@
 using System;
 using System.Collections.Generic;
+using PlasticPipe.PlasticProtocol.Messages;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 // Handles keeping track of voxel edits and dynamic edits in the world
 public class VoxelEdits : VoxelBehaviour {
     // Reference that we can use to edit a dynamic edit after it has been placed
-    public struct DynamicEditReference {
+    public struct DynamicEditHandle {
         internal int index;
         internal int registryIndex;
+    }
+
+    // Reference that we can use to fetch modified data of a voxel edit
+    public class VoxelEditCountersHandle {
+        internal int added;
+        internal int removed;
+        internal int pending;
     }
 
     public bool debugGizmos = false;
@@ -50,8 +59,10 @@ public class VoxelEdits : VoxelBehaviour {
     // Initialize the voxel edits handler
     internal override void Init() {
         chunkLookup = new NativeHashMap<VoxelEditOctreeNode.RawNode, int>(0, Allocator.Persistent);
-        nodes = new NativeList<VoxelEditOctreeNode>(Allocator.Persistent);
-        nodes.Add(VoxelEditOctreeNode.RootNode(VoxelUtils.MaxDepth));
+        nodes = new NativeList<VoxelEditOctreeNode>(Allocator.Persistent)
+        {
+            VoxelEditOctreeNode.RootNode(VoxelUtils.MaxDepth)
+        };
 
         lookup = new NativeHashMap<int, int>(0, Allocator.Persistent);
         sparseVoxelData = new List<SparseVoxelDeltaData>();
@@ -100,11 +111,11 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     // Apply a voxel edit to the terrain world
-    public void ApplyVoxelEdit(IVoxelEdit edit, bool neverForget = false) {
+    public VoxelEditCountersHandle ApplyVoxelEdit(IVoxelEdit edit, bool neverForget = false, bool immediate = false) {
         if (!(terrain.Free && terrain.VoxelMesher.Free && terrain.VoxelGenerator.Free && terrain.VoxelOctree.Free)) {
             if (neverForget)
                 tempVoxelEdits.Enqueue(edit);
-            return;
+            return null;
         }
 
         foreach (var item in sparseVoxelData) {
@@ -150,11 +161,19 @@ public class VoxelEdits : VoxelBehaviour {
             sparseVoxelData.Add(data);
         }
 
+        VoxelEditCountersHandle countersHandle = new VoxelEditCountersHandle {
+            added = 0,
+            removed = 0,
+        };
+
         for (int i = 0; i < chunksToUpdate.Length; i++) {
             SparseVoxelDeltaData data = sparseVoxelData[chunksToUpdate[i]];
             JobHandle handle = edit.Apply(data);
             data.applyJobHandle = handle;
             sparseVoxelData[chunksToUpdate[i]] = data;
+            
+            if (immediate)
+                handle.Complete();
         }
 
         // Custom job to find all the octree nodes that touch the bounds
@@ -164,6 +183,8 @@ public class VoxelEdits : VoxelBehaviour {
         // Re-mesh the chunks
         foreach (var node in temp) {
             VoxelChunk chunk = terrain.Chunks[node];
+            chunk.voxelCountersHandle = countersHandle;
+            countersHandle.pending++;
             chunk.Remesh(terrain);
         }
 
@@ -171,6 +192,8 @@ public class VoxelEdits : VoxelBehaviour {
         pending.Dispose();
         chunksToUpdate.Dispose();
         addedNodes.Dispose();
+
+        return countersHandle;
     }
 
     // Internally used to hide generic
@@ -189,8 +212,8 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     // Apply a dynamic edit to the terrain world when free or immediately
-    public DynamicEditReference ApplyDynamicEdit<T>(T dynamicEdit, bool immediate = false, bool save = true) where T: struct, IDynamicEdit {
-        DynamicEditReference reference = new DynamicEditReference {
+    public DynamicEditHandle ApplyDynamicEdit<T>(T dynamicEdit, bool immediate = false, bool save = true) where T: struct, IDynamicEdit {
+        DynamicEditHandle reference = new DynamicEditHandle {
             index = dynamicEdits.Count,
             registryIndex = -1,
         };
@@ -214,7 +237,7 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     // Update a dynamic edit that is already applied to the world using its reference
-    public void ModifyDynamicEdit<T>(DynamicEditReference reference, Func<T, T> callback) where T: struct, IDynamicEdit {
+    public void ModifyDynamicEdit<T>(DynamicEditHandle reference, Func<T, T> callback) where T: struct, IDynamicEdit {
         T result = callback.Invoke((T)dynamicEdits[reference.index]);
         dynamicEdits[reference.index] = result;
 
@@ -237,8 +260,13 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     // Create an apply job dependeny for a chunk that has voxel edits
-    public JobHandle TryGetApplyVoxelEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> voxels, JobHandle dependency) {
+    public JobHandle TryGetApplyVoxelEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> voxels, NativeMultiCounter changedVoxelsCounters, JobHandle dependency) {
         if (!IsChunkAffectedByVoxelEdits(chunk)) {
+            if (chunk.voxelCountersHandle != null) {
+                chunk.voxelCountersHandle.pending--;
+                chunk.voxelCountersHandle = null;
+            }
+            
             return dependency;
         }
 
@@ -256,9 +284,10 @@ public class VoxelEdits : VoxelBehaviour {
         VoxelEditApplyJob job = new VoxelEditApplyJob {
             data = data,
             voxels = voxels,
+            counters = changedVoxelsCounters,
         };
         return job.Schedule(VoxelUtils.Volume, 2048, newDep);
-    }
+    }    
 
     // Create a list of dependencies to apply to chunks that have been affected by dynamic edits
     // Applied BEFORE the voxel edits

@@ -24,6 +24,7 @@ internal class MeshJobHandler {
     public NativeMultiCounter countersQuad;
     public NativeMultiCounter chunkCullingFaceCounters;
     public NativeCounter counter;
+    public NativeMultiCounter changedVoxelsCounters;
 
     // Native buffer for handling multiple materials
     public NativeParallelHashMap<ushort, int> materialHashMap;
@@ -43,6 +44,7 @@ internal class MeshJobHandler {
         uvs = new NativeArray<float2>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         tempTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         permTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        changedVoxelsCounters = new NativeMultiCounter(4, Allocator.Persistent);
 
         // Native buffer for mesh generation data
         indices = new NativeArray<int>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
@@ -270,5 +272,6 @@ internal class MeshJobHandler {
         materialSegmentOffsets.Dispose();
         chunkCullingFaceCounters.Dispose();
         enabled.Dispose();
+        changedVoxelsCounters.Dispose();
     }
 }

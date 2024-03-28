@@ -6,6 +6,7 @@ using UnityEngine.Rendering;
 public partial class VoxelProps {
     // Used for prop billboard captures
     [Header("Billboard Capture & Rendering")]
+    public bool renderIndirectInstancingMeshes;
     public GameObject propCaptureCameraPrefab;
     public Material propCaptureFullscreenMaterial;
     public Mesh quadBillboard;
@@ -87,7 +88,7 @@ public partial class VoxelProps {
 
     // Render the indirectly rendered (billboard / instanced) props 
     private void Update() {
-        if (terrain.VoxelOctree.target == null)
+        if (terrain.VoxelOctree.target == null || !renderIndirectInstancingMeshes)
             return;
 
         // Fetch camera from the terrain loader to use for prop billboard culling
@@ -123,10 +124,8 @@ public partial class VoxelProps {
             IndirectExtraPropData extraData = extraPropData[i];
             PropType prop = props[i];
             
-            /*
             if (prop.WillRenderIndirectInstances)
                 RenderInstancesOfType(i, extraData, prop);
-            */
         }
     }
 

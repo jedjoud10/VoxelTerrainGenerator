@@ -13,7 +13,7 @@ void PropsAt(uint3 id, float3 position) {
 	ClosestSurface hit1 = CheckClosestSurface(treePos, 0, 3.0);
 	float caveMixer = saturate(-(position.y - 100) / 20);
 
-	if ((hash13(treePos) < 0.4) && hit1.hit && mixer < 0.5 && dot(float3(0, 1, 0), hit1.normals) > 0.96 + snoise(position.xz * 0.01) * 0.12 && caveMixer < 0.6) {
+	if ((hash13(treePos) < 0.8) && hit1.hit && dot(float3(0, 1, 0), hit1.normals) > 0.96 + snoise(position.xz * 0.01) * 0.12) {
 		Spawn(hit1.position, hash13(treePos * 12.321) * 0.5 + 1.5, float3(0, 0, 0), 0, round(hash13(treePos * 3.123 - 15.694)*2), id);
 
 		if (hash13(position) == 0 && hash33(position).y < 0.6) {
@@ -21,8 +21,7 @@ void PropsAt(uint3 id, float3 position) {
 		}
 	}
 
-	/*
-	float3 randomOffset2 = (2 * hash33(position * 2 + 0.588456 + i * 1232.321) - 1) * 30;
+	float3 randomOffset2 = (2 * hash33(position * 2 + 0.588456) - 1) * 30;
 	float3 rockPos = position + randomOffset2;
 	ClosestSurface hit2 = CheckClosestSurface(rockPos, 0, 3.0);
 	if (hit2.hit && mixer > 0.00 && abs(dot(float3(0, 1, 0), hit2.normals)) < 0.8) {
@@ -32,7 +31,6 @@ void PropsAt(uint3 id, float3 position) {
 	if (hit2.hit && mixer > 0.00 && caveMixer > 0.6) {
 		Spawn(hit2.position, 0.5 + snoise(position * 0.01) * 0.25, hash33(position) * 180, 1, 0, id);
 	}
-	*/
 	
 }
 

@@ -3,6 +3,7 @@ float propSegmentResolution;
 float3 propChunkOffset;
 float3 worldOffset;
 float3 worldScale;
+float voxelSize;
 
 // Seeding parameters
 int3 permuationSeed;
@@ -50,9 +51,10 @@ void Spawn(float3 position, float scale, float3 rotation, uint propType, uint pr
 		return;
 	}
 
-	position = position - worldOffset;
-	BlittableProp prop;
+	position -= worldOffset;
 	position /= worldScale;
+
+	BlittableProp prop;
 	prop.packed_position_and_scale = PackPositionAndScale(position, scale);
 	prop.packed_rotation_dispatch_index_prop_variant_padding = PackRotationAndVariantAndId(rotation, propVariant, searchIndexBase);
 	

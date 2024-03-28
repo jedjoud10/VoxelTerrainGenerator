@@ -63,6 +63,7 @@ public partial class VoxelProps {
         voxelShader.SetFloat("propSegmentResolution", VoxelUtils.PropSegmentResolution);
         propShader.SetVector("worldOffset", terrain.VoxelGenerator.worldOffset);
         propShader.SetVector("worldScale", terrain.VoxelGenerator.worldScale);
+        propShader.SetFloat("voxelSize", VoxelUtils.VoxelSizeFactor);
         propShader.SetInts("permuationSeed", new int[] { permutationSeed.x, permutationSeed.y, permutationSeed.z });
         propShader.SetInts("moduloSeed", new int[] { moduloSeed.x, moduloSeed.y, moduloSeed.z });
         propShader.SetFloat("propSegmentWorldSize", VoxelUtils.PropSegmentSize);

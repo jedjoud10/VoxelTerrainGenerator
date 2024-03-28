@@ -37,7 +37,7 @@ void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)
 	
 	// TODO: Understand why we need this
 	// Props are constant size so why would voxel size affect them?
-	position *= (1 / voxelSize);
+	//position *= (1 / voxelSize);
 	float density = 0.0;
 	uint material = 0;
 	VoxelAt(position, density, material);

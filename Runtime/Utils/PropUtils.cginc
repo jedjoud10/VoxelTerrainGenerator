@@ -9,6 +9,7 @@ float3 PropSegmentToWorld(float3 id) {
 	position += propChunkOffset;
 
 	// World offset and scale
+	position *= (1 / voxelSize);
 	position = (position * worldScale) + worldOffset;
 	return position;
 }
