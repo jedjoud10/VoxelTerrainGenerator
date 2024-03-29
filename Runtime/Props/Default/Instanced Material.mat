@@ -69,7 +69,7 @@ Material:
     - _EnableBlendModePreserveSpecularLighting: 1
     - _EnableFogOnTransparent: 1
     - _ExcludeFromTUAndAA: 0
-    - _Metallic: 0
+    - _Metallic: 1
     - _Normal_Map_Strength: 3
     - _OpaqueCullMode: 2
     - _RayTracing: 0
@@ -107,7 +107,7 @@ Material:
     m_Colors:
     - _DoubleSidedConstants: {r: 1, g: 1, b: -1, a: 0}
     - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
-    - _Tint: {r: 0.31132078, g: 0.31132078, b: 0.31132078, a: 0}
+    - _Tint: {r: 0.24528301, g: 0.24528301, b: 0.24528301, a: 0}
   m_BuildTextureStacks: []
 --- !u!114 &1646832104730458091
 MonoBehaviour:

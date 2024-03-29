@@ -13,12 +13,19 @@ public class VoxelMesher : VoxelBehaviour {
 
     public float minSkirtDensityThreshold = -10.0F;
 
+    [Header("Mesh Mode & Settings")]
     public bool smoothing = true;
     public bool skirts = true;
     public bool perVertexNormals = true;
     public bool perVertexUvs = true;
+
+    [Header("Mesh Ambient Occlusion")]
     public float ambientOcclusionOffset = 0.4f;
     public float ambientOcclusionPower = 2f;
+    public float ambientOcclusionSpread = 0.4f;
+    public float ambientOcclusionGlobalOffset = 0f;
+
+    [Header("Mesh Materials")]
     public Material[] voxelMaterials;
 
     // List of persistently allocated mesh data
@@ -40,10 +47,7 @@ public class VoxelMesher : VoxelBehaviour {
         }
     }
 
-    // Initialize the voxel mesher
-    internal override void Init() {
-        handlers = new List<MeshJobHandler>(meshJobsPerFrame);
-        pendingMeshJobs = new Queue<PendingMeshJob>();
+    private void UpdateParams() {
         VoxelUtils.MinSkirtDensityThreshold = minSkirtDensityThreshold;
         VoxelUtils.Smoothing = smoothing;
         VoxelUtils.PerVertexUvs = perVertexUvs;
@@ -51,6 +55,19 @@ public class VoxelMesher : VoxelBehaviour {
         VoxelUtils.Skirts = skirts;
         VoxelUtils.AmbientOcclusionOffset = ambientOcclusionOffset;
         VoxelUtils.AmbientOcclusionPower = ambientOcclusionPower;
+        VoxelUtils.AmbientOcclusionSpread = ambientOcclusionSpread;
+        VoxelUtils.AmbientOcclusionGlobalOffset = ambientOcclusionGlobalOffset;
+    }
+
+    private void OnValidate() {
+        UpdateParams();
+    }
+
+    // Initialize the voxel mesher
+    internal override void Init() {
+        handlers = new List<MeshJobHandler>(meshJobsPerFrame);
+        pendingMeshJobs = new Queue<PendingMeshJob>();
+        UpdateParams();
 
         for (int i = 0; i < meshJobsPerFrame; i++) {
             handlers.Add(new MeshJobHandler());

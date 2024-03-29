@@ -73,6 +73,8 @@ public struct VertexJob : IJobParallelFor {
     public bool perVertexUvs;
     public float aoOffset;
     public float aoPower;
+    public float aoSpread;
+    public float aoGlobalOffset;
 
     // Vertex Counter
     public NativeCounter.Concurrent counter;
@@ -177,7 +179,12 @@ public struct VertexJob : IJobParallelFor {
 
 
         // Calculate per vertex ambient occlusion and apply it
-        float ambientOcclusion = perVertexUvs ? VoxelUtils.CalculateVertexAmbientOcclusion(outputVertex, ref voxels, size, aoOffset, aoPower) : 1.0f;
+        float ambientOcclusion = perVertexUvs ? VoxelUtils.CalculateVertexAmbientOcclusion(outputVertex, ref voxels, size, aoOffset, aoPower, aoSpread, aoGlobalOffset) : 1.0f;
+        
+        if (float.IsNaN(ambientOcclusion)) {
+            ambientOcclusion = 1;
+        }
+
         uvs[vertexIndex] = new float2(ambientOcclusion, 0.0f);
     }
 }

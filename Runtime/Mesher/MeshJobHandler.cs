@@ -125,6 +125,8 @@ internal class MeshJobHandler {
             perVertexUvs = VoxelUtils.PerVertexUvs,
             aoOffset = VoxelUtils.AmbientOcclusionOffset,
             aoPower = VoxelUtils.AmbientOcclusionPower,
+            aoSpread = VoxelUtils.AmbientOcclusionSpread,
+            aoGlobalOffset = VoxelUtils.AmbientOcclusionGlobalOffset,
             skirtsBase = skirtsBase,
             skirtsEnd = skirtsEnd,
             minSkirtDensityThreshold = threshold

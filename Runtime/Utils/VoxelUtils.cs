@@ -59,11 +59,11 @@ public static class VoxelUtils {
     // Should we calculate per vertex normals
     public static bool PerVertexNormals { get; internal set; }
 
-    // Offset for calculating AO
+    // Full control over how the ambient occlusion is calculated
     public static float AmbientOcclusionOffset { get; internal set; }
-
-    // Power exponent for calculating AO
     public static float AmbientOcclusionPower { get; internal set; }
+    public static float AmbientOcclusionSpread { get; internal set; }
+    public static float AmbientOcclusionGlobalOffset { get; internal set; }
 
     // Should we calculate per vertex density and ambient occlusion?
     public static bool PerVertexUvs { get; internal set; }
@@ -243,7 +243,7 @@ public static class VoxelUtils {
 
     // Calculate ambient occlusion around a specific point
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static float CalculateVertexAmbientOcclusion(float3 position, ref NativeArray<Voxel> voxels, int size, float offset, float power) {
+    public static float CalculateVertexAmbientOcclusion(float3 position, ref NativeArray<Voxel> voxels, int size, float offset, float power, float spread, float globalOffset) {
         float ao = 0.0f;
         float minimum = 200000;
         
@@ -252,7 +252,7 @@ public static class VoxelUtils {
                 for (int z = -1; z <= 1; z++) {
                     // 2 => 0.5
                     // 1 = 1.5
-                    float density = SampleGridInterpolated(position + new float3(x, y, z) * 2 + math.float3(0.9f), ref voxels, size);
+                    float density = SampleGridInterpolated(position + new float3(x, y, z) * spread + new float3(globalOffset), ref voxels, size);
                     density = math.min(density, 0);
                     ao += density;
                     minimum = math.min(minimum, density);

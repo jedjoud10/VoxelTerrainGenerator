@@ -15,12 +15,14 @@ void VoxelAt(float3 position, out float density, out uint material) {
 	float density2 = -fbmCellular(position.xz * 0.0008, 8, 0.4, 2.2).y * 920;
 
 	// Density value for biome 3
-	float density3 = -fbm(position.xz * 0.001, 5, 0.50, 2.1) * 20 - 50;
-	float rngSlope = snoise(position.xz * 0.001) * 0.003;
-	float shortPillars = -fbmCellular(position.xz * 0.01 + position.y * (0.005 + rngSlope), 4, 0.45, 2.1).x + (snoise(position.xz * 0.002) * 0.8) - 0.3;
-	shortPillars += snoise(position * float3(1, 3, 1) * 0.2) * 0.01;
-	shortPillars += snoise(position.xz * 0.01 + position.y * 0.005) * 0.3;
-	density3 += min(shortPillars - 0.15, 0) * 95;
+	float density3 = -fbm(position.xz * 0.005, 4, 0.60, 2.2) * 10 - 50;
+	float rngSlope = snoise(position.xz * 0.003) * 0.00325;
+	float2 sloped = position.xz * 0.008 + position.y * (0.008 + rngSlope);
+
+	float shortPillars = -fbmCellular(sloped, 4, 0.45, 2.1).x * (snoise(position.xz * 0.002) + 1);
+	shortPillars = max(shortPillars, -0.7);
+	density3 += min(shortPillars - 0.05, 0) * 225;
+	density3 += cellular(sloped * 3).y * 20.0;
 
 	// Mixer between biome 1 and biome 2
 	float mixer = snoise(position.xz * 0.0003) * 0.5 + 0.5;
@@ -48,6 +50,7 @@ void VoxelAt(float3 position, out float density, out uint material) {
 	*/
 
 	material = (shortPillars < 0.2 && mixer > 0.4) ? 2 : 0;
+	//material = 0;
 }
 
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Voxelizer/VoxelGeneratorEnd.cginc"

@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
-using PlasticPipe.PlasticProtocol.Messages;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 
 // Handles keeping track of voxel edits and dynamic edits in the world

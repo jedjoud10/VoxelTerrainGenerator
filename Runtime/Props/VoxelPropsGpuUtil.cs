@@ -209,7 +209,7 @@ public partial class VoxelProps {
             propFreeBlockCopy.Dispatch(0, maxPermPropCount / 32, props.Count, 1);
         } else {
             segment.indexRangeLookup = -1;
-            Debug.LogWarning("Could not find a free bit, skipping segment gen");
+            Debug.LogWarning("Could not find a free bit, skipping segment gen (blame Jed)");
         }
     }
 }

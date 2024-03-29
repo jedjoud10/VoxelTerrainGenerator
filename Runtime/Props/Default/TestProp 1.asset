@@ -17,7 +17,7 @@ MonoBehaviour:
   maxPropsPerSegment: 8192
   maxPropsInTotal: 524288
   maxVisibleProps: 524288
-  maxInstancingDistance: 80
+  maxInstancingDistance: 1000
   instancedMeshMaterial: {fileID: 2100000, guid: f0fed9d70ae7f3146b651b5f23365ea0,
     type: 2}
   instancedMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}

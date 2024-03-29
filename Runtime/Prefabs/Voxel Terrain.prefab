@@ -68,9 +68,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e787133040bb3d45acfc35df2b68f88, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxDepth: 4
+  maxDepth: 6
   debugGizmos: 0
-  minMaxYPositions: {x: -300, y: 1000}
+  minMaxYPositions: {x: -80, y: 80}
   target: {fileID: 0}
   mustUpdate: 0
 --- !u!114 &7158265105977027013
@@ -106,17 +106,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 998d14371a252d844953b5096474c997, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  meshJobsPerFrame: 2
+  meshJobsPerFrame: 1
   minSkirtDensityThreshold: -15
   smoothing: 1
   skirts: 1
   perVertexNormals: 1
   perVertexUvs: 1
-  ambientOcclusionOffset: 0.2
-  ambientOcclusionPower: 1
+  ambientOcclusionOffset: 0.4
+  ambientOcclusionPower: 2
   voxelMaterials:
   - {fileID: 2100000, guid: 44ba4b072f5232546b8e3481243824f3, type: 2}
   - {fileID: 2100000, guid: 046aef91378297847971989e13254949, type: 2}
+  - {fileID: 2100000, guid: 57308a0e7c9a01549a5120e2775cff75, type: 2}
   - {fileID: 2100000, guid: ca1ae838cf2e7d645b7e97efe6deb252, type: 2}
   - {fileID: 2100000, guid: 40d4a243869c25a48ab2f2de89d94dcd, type: 2}
   - {fileID: 2100000, guid: 62cb0288a0a6372468fe6da7d4a84aa1, type: 2}
@@ -167,6 +168,7 @@ MonoBehaviour:
   propCullingCopy: {fileID: 7200000, guid: 0fc248ebd7631a242afffc4ccdbe1b5e, type: 3}
   propCullingApply: {fileID: 7200000, guid: b37299e5f05f5004b9698816461e0df3, type: 3}
   removePropSegments: {fileID: 7200000, guid: 62d1ba42545233149af3b0666c4246c9, type: 3}
+  renderIndirectInstancingMeshes: 1
   propCaptureCameraPrefab: {fileID: 507919951813536729, guid: b5f593c8c122c934ca1aef0d4969cb43,
     type: 3}
   propCaptureFullscreenMaterial: {fileID: 2100000, guid: 6a57ba25d9097ae498538688f424599b,

@@ -88,8 +88,8 @@ Material:
     - _EnableBlendModePreserveSpecularLighting: 1
     - _EnableFogOnTransparent: 1
     - _ExcludeFromTUAndAA: 0
-    - _Factor: 1
-    - _Metallic: 0
+    - _Factor: 0
+    - _Metallic: 0.8
     - _Offset: 0
     - _OpaqueCullMode: 2
     - _RayTracing: 0
@@ -98,7 +98,7 @@ Material:
     - _RefractionModel: 0
     - _RenderQueueType: 1
     - _RequireSplitLighting: 0
-    - _Smoothness: 0
+    - _Smoothness: 0.1
     - _SrcBlend: 1
     - _StencilRef: 0
     - _StencilRefDepth: 8
@@ -112,7 +112,7 @@ Material:
     - _StencilWriteMaskMV: 41
     - _SupportDecals: 1
     - _SurfaceType: 0
-    - _Tile: 0.2
+    - _Tile: 0.09
     - _TransparentBackfaceEnable: 0
     - _TransparentCullMode: 2
     - _TransparentDepthPostpassEnable: 0
@@ -126,8 +126,8 @@ Material:
     - _ZTestTransparent: 4
     - _ZWrite: 1
     m_Colors:
-    - _Color_1: {r: 0.4811321, g: 0.4811321, b: 0.4811321, a: 0}
-    - _Color_2: {r: 0.21698111, g: 0.21698111, b: 0.21698111, a: 0}
+    - _Color_1: {r: 0.2264151, g: 0.2264151, b: 0.2264151, a: 0}
+    - _Color_2: {r: 1, g: 1, b: 1, a: 0}
     - _DoubleSidedConstants: {r: 1, g: 1, b: -1, a: 0}
     - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
