@@ -23,7 +23,18 @@
 * Serialization / deserialization system that supports terrain edits, terrain seed, and modified/destoyed props
   * Uses RLE and delta compression for voxel data
   * Uses RLE for prop masks
-
+ 
+ ## WIP Features to be added
+  * Better compresion ratio for saved worlds
+  * Better compression algorithms for props and voxel data
+  * Full world biome generation (big low-res 3d texture)
+  * Per-biome localized volumetric fog
+  * Better lighting effects (AO/GI)
+  * Voxel Occlusion culling for props and terrain chunks
+  * Fully GPU-driven voxel chunks using indirect draw
+    * Maybe mess around with nvidia mesh/task shaders?
+  * Voxel graph / interpreter to create voxel terrains in C# or visually
+  * Multiplayer support   
 Showcase:
 ![image](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/506140cb-6bd8-4c07-a3aa-9438115872b1)
 ![image](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/8b0d434b-0d18-4e3c-806d-a9ceb16e024c)
