@@ -3,7 +3,7 @@
 ## Features
 * 3D Octree for worlds up to 32km with sub-meter voxel precision
 * GPU Voxel Generation with Async CPU readback
-* MUltithreaded and Jobified CPU meshing implementing the Surface Nets algorithm
+* Multithreaded and Jobified CPU meshing implementing the Surface Nets algorithm
   *  Supports vertex merging and custom materials
   *  Supports custom per vertex ambient occlusion and UV pass-through data
   *  Async Collision Baking using the job system and PhysX
@@ -25,6 +25,7 @@
   * Uses RLE for prop masks
  
  ## WIP Features to be added
+  * Structure generation
   * Better compresion ratio for saved worlds
   * Better compression algorithms for props and voxel data
   * Full world biome generation (big low-res 3d texture)
