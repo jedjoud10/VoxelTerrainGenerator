@@ -49,7 +49,7 @@ void VoxelAt(float3 position, out float density, out uint material) {
 	material = caveMixer > 0.2 ? 1 : 0;
 	*/
 
-	material = (shortPillars < 0.2 && mixer > 0.4) ? 2 : 0;
+	material = (shortPillars < 0.2 && (mixer + snoise(position * 0.1) * 0.2) > 0.4) ? 2 : 0;
 	//material = 0;
 }
 

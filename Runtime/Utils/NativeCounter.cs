@@ -78,12 +78,10 @@ unsafe public struct NativeCounter {
     }
 
     public void Dispose() {
-        // Let the dispose sentinel know that the data has been freed so it does not report any memory leaks
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
+        // Let the dispose sentinel know that the data has been freed so it does not report any memory leaks
         DisposeSentinel.Dispose(ref m_Safety, ref m_DisposeSentinel);
 #endif
-        //UnityEngine.Debug.Log("NativeCounter dispose");
-
         UnsafeUtility.Free(m_Counter, m_AllocatorLabel);
         m_Counter = null;
     }

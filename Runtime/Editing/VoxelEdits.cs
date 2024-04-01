@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices.WindowsRuntime;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -331,6 +332,43 @@ public class VoxelEdits : VoxelBehaviour {
             if (handle.pending == 0)
                 handle.callback?.Invoke(handle.changed);            
         }
+    }
+
+    // Fetch the voxel array for a specific chunk at any given position
+    // This allows the user to do custom voxel fetching to check the value of the voxel at a specific position
+    // This is an asynchronous operation, and thus returns a JobHandle to be able to add a job dependency to actually wait for the job to complete
+    // This only works for chunks that actually have a CPU sided native voxel array 
+    // If you are going to call this method multiple times, you should externally cache the results (it applies the edits each time)
+    public bool TryGetVoxelData(Vector3 position, out NativeArray<Voxel> voxels, out JobHandle handle) {
+        voxels = new NativeArray<Voxel>();
+        handle = new JobHandle();
+
+        if (!(terrain.Free && terrain.VoxelMesher.Free && terrain.VoxelGenerator.Free && terrain.VoxelOctree.Free)) {
+            return false;
+        }
+
+        // Custom job to find all the octree nodes that touch the bounds
+        NativeList<OctreeNode>? temp;
+        terrain.VoxelOctree.TryCheckAABBIntersection(new Bounds {
+            center = position,
+            extents = Vector3.zero,
+        }, out temp);
+
+        // Only one chunk at a time big fello (satisfactory reference)
+        if (temp.Value.Length != 1) {
+            return false;
+        }
+
+        // Actually create the voxels and the job values
+        OctreeNode node = temp.Value[0];
+        VoxelChunk chunk = terrain.Chunks[node];
+        
+        voxels = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        NativeCounter tempCounter = new NativeCounter(Allocator.Persistent);
+        voxels.CopyFrom(chunk.container.voxels);
+        JobHandle dynamicEdit = TryGetApplyDynamicEditJobDependency(chunk, ref voxels);
+        handle = TryGetApplyVoxelEditJobDependency(chunk, ref voxels, tempCounter, dynamicEdit);
+        return true;
     }
 
     private void OnDrawGizmosSelected() {

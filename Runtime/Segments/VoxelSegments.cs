@@ -54,7 +54,7 @@ public class VoxelSegments : VoxelBehaviour {
 
     internal Queue<Segment> pendingSegments;
     internal bool segmentsAwaitingRemoval;
-    private bool mustUpdate = false;
+    internal bool mustUpdate = false;
     
     // Checks if we completed segment generation
     public bool Free {

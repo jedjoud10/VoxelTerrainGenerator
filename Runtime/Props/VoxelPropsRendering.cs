@@ -42,12 +42,16 @@ public partial class VoxelProps {
     public IndirectExtraPropData CaptureBillboard(Camera camera, PropType prop) {
         int width = prop.billboardTextureWidth;
         int height = prop.billboardTextureHeight;
+        bool mips = prop.billboardMipMaps;
+
         var temp = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32);
+        temp.autoGenerateMips = mips;
+        temp.useMipMap = mips;
         camera.targetTexture = temp;
 
-        Texture2DArray albedoTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, false);
-        Texture2DArray normalTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, false);
-        Texture2DArray maskTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, false);
+        Texture2DArray albedoTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, mips);
+        Texture2DArray normalTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, mips);
+        Texture2DArray maskTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, mips);
         Texture2DArray[] tempOut = new Texture2DArray[3] { albedoTextureOut, normalTextureOut, maskTextureOut };
 
         for (int i = 0; i < prop.variants.Count; i++) {
@@ -70,7 +74,9 @@ public partial class VoxelProps {
                 tempOut[j].filterMode = prop.billboardTextureFilterMode;
                 propCaptureFullscreenMaterial.SetInteger("_TextureType", j);
                 camera.Render();
-                Graphics.CopyTexture(temp, 0, tempOut[j], i);
+                for (int m = 0; m < temp.mipmapCount; m++) {
+                    Graphics.CopyTexture(temp, 0, m, tempOut[j], i, m);
+                }
             }
 
             faker.GetComponent<SerializableProp>().OnDestroyCaptureFake();

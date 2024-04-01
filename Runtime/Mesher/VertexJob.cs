@@ -148,6 +148,7 @@ public struct VertexJob : IJobParallelFor {
             } else {
                 // Don't do any smoothing
                 count = 1;
+                normal += VoxelUtils.SampleGridNormal(position, ref voxels, size);
             }
         }
 

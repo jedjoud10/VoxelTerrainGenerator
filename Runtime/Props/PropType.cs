@@ -37,6 +37,7 @@ public class PropType : ScriptableObject {
     [Header("Billboard Capture")]
     public int billboardTextureWidth = 256;
     public int billboardTextureHeight = 256;
+    public bool billboardMipMaps = true;
     public FilterMode billboardTextureFilterMode = FilterMode.Bilinear;
     public Vector2 billboardSize = Vector2.one * 10;
     public Vector3 billboardOffset;

@@ -41,6 +41,7 @@ public class TerrainLoader : MonoBehaviour {
     };
     private Vector3 last;
     private VoxelOctree octree;
+    private VoxelSegments segments;
     public Camera viewCamera;
 
     void Start() {
@@ -57,11 +58,13 @@ public class TerrainLoader : MonoBehaviour {
             bool bruhtonium = false;
             if (octree == null) {
                 octree = VoxelTerrain.Instance.VoxelOctree;
+                segments = VoxelTerrain.Instance.VoxelSegments;
 
                 if (VoxelTerrain.Instance.VoxelOctree.target == null) {
                     octree.target = this;
                     bruhtonium = true;
                     octree.mustUpdate = true;
+                    segments.mustUpdate = true;
                 } else {
                     Debug.LogWarning("Already have a target. Multi-target support has been removed already!!");
                 }
@@ -71,6 +74,7 @@ public class TerrainLoader : MonoBehaviour {
             if (Vector3.Distance(transform.position, last) > data.maxDistanceThreshold || bruhtonium) {
                 data.center = transform.position;
                 octree.mustUpdate = true;
+                segments.mustUpdate = true;
                 last = transform.position;
             }
         }

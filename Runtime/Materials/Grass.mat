@@ -23,7 +23,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Low Poly Textured
+  m_Name: Grass
   m_Shader: {fileID: -6465566751694194690, guid: 1b72af06099531b448b6b9c4f31025d5,
     type: 3}
   m_Parent: {fileID: 0}
@@ -88,9 +88,9 @@ Material:
     - _EnableBlendModePreserveSpecularLighting: 1
     - _EnableFogOnTransparent: 1
     - _ExcludeFromTUAndAA: 0
-    - _Factor: 0
+    - _Factor: 100
     - _Metallic: 0
-    - _Offset: 0
+    - _Offset: -0.79
     - _OpaqueCullMode: 2
     - _RayTracing: 0
     - _ReceivesSSR: 1
@@ -99,7 +99,7 @@ Material:
     - _RenderQueueType: 1
     - _RequireSplitLighting: 0
     - _Smoothed: 0
-    - _Smoothness: 0
+    - _Smoothness: 0.2
     - _SrcBlend: 1
     - _StencilRef: 0
     - _StencilRefDepth: 8
@@ -113,7 +113,7 @@ Material:
     - _StencilWriteMaskMV: 41
     - _SupportDecals: 1
     - _SurfaceType: 0
-    - _Tile: 0.2
+    - _Tile: 0.1
     - _TransparentBackfaceEnable: 0
     - _TransparentCullMode: 2
     - _TransparentDepthPostpassEnable: 0
@@ -127,8 +127,8 @@ Material:
     - _ZTestTransparent: 4
     - _ZWrite: 1
     m_Colors:
-    - _Color_1: {r: 0.38679248, g: 0.38679248, b: 0.38679248, a: 0}
-    - _Color_2: {r: 0.254717, g: 0.24390353, b: 0.24390353, a: 0}
+    - _Color_1: {r: 0.2264151, g: 0.2264151, b: 0.2264151, a: 0}
+    - _Color_2: {r: 0.10404056, g: 0.1981132, b: 0.057004265, a: 0}
     - _DoubleSidedConstants: {r: 1, g: 1, b: -1, a: 0}
     - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
