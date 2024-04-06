@@ -35,8 +35,17 @@
   * Fully GPU-driven voxel chunks using indirect draw
     * Maybe mess around with nvidia mesh/task shaders?
   * Voxel graph / interpreter to create voxel terrains in C# or visually
-  * Multiplayer support   
-Showcase:
+  * Multiplayer support
+
+## Main issues
+  * Still riddled with bugs
+    * Editing terrain sometimes leaves gaps
+    * Prop generation sometimes breaks out of nowhere
+  * Terrain chunk scheduling is non-conservative. Always over-estimates the amount of chunks _actually_ containing terrain
+  * Bad performance when editing large voxel/dynamic edits (due to the dupe-octree nature of voxel edits)
+  * Slow async GPU readback which causes frame time spikes when there is more than 1 request per frame
+
+## Showcase:
 ![image](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/506140cb-6bd8-4c07-a3aa-9438115872b1)
 ![image](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/8b0d434b-0d18-4e3c-806d-a9ceb16e024c)
 ![image](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/5291314d-16da-420f-8a26-cda33c42060d)
