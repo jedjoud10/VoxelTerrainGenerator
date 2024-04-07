@@ -76,13 +76,14 @@ public class VoxelMesher : VoxelBehaviour {
 
     // Begin generating the mesh data using the given chunk and voxel container
     // Automatically creates a dependency from the editing system if it is editing modified chunks
-    public void GenerateMesh(VoxelChunk chunk, bool computeCollisions) {
+    public void GenerateMesh(VoxelChunk chunk, bool collisions, int maxFrames = 5) {
         if (chunk.container == null)
             return;
 
         var job = new PendingMeshJob {
             chunk = chunk,
-            computeCollisions = computeCollisions,
+            collisions = collisions,
+            maxFrames = maxFrames,
         };
 
         if (pendingMeshJobs.Contains(job))
@@ -94,9 +95,13 @@ public class VoxelMesher : VoxelBehaviour {
     void Update() {
         // Complete the jobs that finished and create the meshes
         foreach (var handler in handlers) {
-            if (handler.finalJobHandle.IsCompleted && !handler.Free) {
+            if ((handler.finalJobHandle.IsCompleted || (Time.frameCount - handler.startingFrame) > handler.maxFrames) && !handler.Free) {
                 VoxelChunk voxelChunk = handler.chunk;
-                var stats = handler.Complete(voxelChunk.sharedMesh, voxelMaterials);
+
+                if (voxelChunk == null)
+                    return;
+
+                var stats = handler.Complete(voxelChunk.sharedMesh);
 
                 if (voxelChunk.voxelCountersHandle != null)
                     terrain.VoxelEdits.UpdateCounters(handler, voxelChunk);
@@ -107,31 +112,32 @@ public class VoxelMesher : VoxelBehaviour {
 
         // Begin the jobs for the meshes
         for (int i = 0; i < meshJobsPerFrame; i++) {
-            PendingMeshJob output = PendingMeshJob.Empty;
-            if (pendingMeshJobs.TryDequeue(out output)) {
+            PendingMeshJob request = PendingMeshJob.Empty;
+            if (pendingMeshJobs.TryDequeue(out request)) {
                 if (!handlers[i].Free) {
-                    pendingMeshJobs.Enqueue(output);
+                    pendingMeshJobs.Enqueue(request);
                     continue;
                 }
 
-                // Create a mesh job handler for handling the meshing job
                 MeshJobHandler handler = handlers[i];
-                handler.chunk = output.chunk;
-                handler.voxels.CopyFrom(output.chunk.container.voxels);
-                handler.computeCollisions = output.computeCollisions;
+                handler.chunk = request.chunk;
+                handler.voxels.CopyFrom(request.chunk.container.voxels);
+                handler.colissions = request.collisions;
+                handler.maxFrames = request.maxFrames;
+                handler.startingFrame = Time.frameCount;
 
                 // Pass through the edit system for any chunks that should be modifiable
                 handler.voxelCounter.Count = 0;
-                JobHandle dynamicEdit = terrain.VoxelEdits.TryGetApplyDynamicEditJobDependency(output.chunk, ref handler.voxels);
-                JobHandle voxelEdit = terrain.VoxelEdits.TryGetApplyVoxelEditJobDependency(output.chunk, ref handler.voxels, handler.voxelCounter, dynamicEdit);
-                handler.BeginJob(voxelEdit, output.chunk.node);
+                JobHandle dynamicEdit = terrain.VoxelEdits.TryGetApplyDynamicEditJobDependency(request.chunk, ref handler.voxels);
+                JobHandle voxelEdit = terrain.VoxelEdits.TryGetApplyVoxelEditJobDependency(request.chunk, ref handler.voxels, handler.voxelCounter, dynamicEdit);
+                handler.BeginJob(voxelEdit, request.chunk.node);
             }
         }
     }
 
     internal override void Dispose() {
         foreach (MeshJobHandler handler in handlers) {
-            handler.Complete(new Mesh(), voxelMaterials);
+            handler.Complete(new Mesh());
             handler.Dispose();
         }
     }

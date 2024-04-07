@@ -15,6 +15,7 @@ public class VoxelChunk : MonoBehaviour {
 
     // Shared generated mesh
     public Mesh sharedMesh;
+    internal int[] voxelMaterialsLookup;
 
     // Get the AABB world bounds of this chunk
     public Bounds GetBounds() {
@@ -25,10 +26,10 @@ public class VoxelChunk : MonoBehaviour {
     }
 
     // Remesh the chunk given the parent terrain
-    public void Remesh(VoxelTerrain terrain) {
+    public void Remesh(VoxelTerrain terrain, int maxFrames = 5) {
         if (container is UniqueVoxelChunkContainer) {
             // Regenerate the mesh based on the unique voxel container
-            terrain.VoxelMesher.GenerateMesh(this, node.depth == VoxelUtils.MaxDepth);
+            terrain.VoxelMesher.GenerateMesh(this, node.depth == VoxelUtils.MaxDepth, maxFrames);
         } else {
             // If not, simply regenerate the chunk
             // This is pretty inefficient but it's a matter of memory vs performance
@@ -39,6 +40,17 @@ public class VoxelChunk : MonoBehaviour {
     // Regenerate the chunk given the parent terrain
     public void Regenerate(VoxelTerrain terrain) {
         terrain.VoxelGenerator.GenerateVoxels(this);
+    }
+
+    // Convert a specific sub-mesh index (from physics collision for example) to voxel material index
+    public bool TryGetVoxelMaterialFromSubmesh(int submeshIndex, out int voxelMaterialIndex) {
+        if (voxelMaterialsLookup != null && submeshIndex < voxelMaterialsLookup.Length) {
+            voxelMaterialIndex = voxelMaterialsLookup[submeshIndex];
+            return true;
+        }
+
+        voxelMaterialIndex = -1;
+        return false;
     }
 }
 

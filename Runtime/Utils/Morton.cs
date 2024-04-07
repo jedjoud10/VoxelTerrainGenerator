@@ -95,7 +95,7 @@ public static class Morton {
         return new uint3(x, y, z);
     }
 
-    [Conditional("DEBUG")]
+    [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
     static void DebugCheckLimits32(uint3 coordinates) {
         if (math.cmax(coordinates) > MaxCoordinateValue32) {
             throw new OverflowException(
@@ -103,7 +103,7 @@ public static class Morton {
         }
     }
 
-    [Conditional("DEBUG")]
+    [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
     static void DebugCheckLimits32(uint4 packedCoordinate) {
         if (math.cmax(packedCoordinate) > MaxCoordinateValue32) {
             throw new OverflowException(
@@ -111,7 +111,7 @@ public static class Morton {
         }
     }
 
-    [Conditional("DEBUG")]
+    [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
     static void DebugCheckLimits64(uint3 coordinates) {
         if (math.cmax(coordinates) > MaxCoordinateValue64) {
             throw new OverflowException(
@@ -119,7 +119,7 @@ public static class Morton {
         }
     }
 
-    [Conditional("DEBUG")]
+    [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
     static void DebugCheckLimits64(uint4 packedCoordinate) {
         if (math.cmax(packedCoordinate) > MaxCoordinateValue64) {
             throw new OverflowException(

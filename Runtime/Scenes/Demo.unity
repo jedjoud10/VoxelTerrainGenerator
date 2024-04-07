@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 29054.371, g: 21939.908, b: 24053.908, a: 1}
+  m_IndirectSpecularColor: {r: 22110.846, g: 16561.705, b: 17849.502, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -1110,8 +1110,13 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 305494748139102449, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
+      propertyPath: smoothing
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 305494748139102449, guid: 0e6936411dbff8245ae15ba99cdb64b9,
+        type: 3}
       propertyPath: meshJobsPerFrame
-      value: 2
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 305494748139102449, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
@@ -1125,14 +1130,34 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: d42681a54f383bb468b6aacca20850bd, type: 2}
     - target: {fileID: 305494748139102449, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
-      propertyPath: voxelMaterials.Array.data[2]
+      propertyPath: voxelMaterials.Array.data[1]
       value: 
       objectReference: {fileID: 2100000, guid: 046aef91378297847971989e13254949, type: 2}
     - target: {fileID: 305494748139102449, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
+      propertyPath: voxelMaterials.Array.data[2]
+      value: 
+      objectReference: {fileID: 2100000, guid: 62cb0288a0a6372468fe6da7d4a84aa1, type: 2}
+    - target: {fileID: 305494748139102449, guid: 0e6936411dbff8245ae15ba99cdb64b9,
+        type: 3}
       propertyPath: voxelMaterials.Array.data[3]
       value: 
-      objectReference: {fileID: 2100000, guid: ca1ae838cf2e7d645b7e97efe6deb252, type: 2}
+      objectReference: {fileID: 2100000, guid: 046aef91378297847971989e13254949, type: 2}
+    - target: {fileID: 2034548315684897522, guid: 0e6936411dbff8245ae15ba99cdb64b9,
+        type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2034548315684897522, guid: 0e6936411dbff8245ae15ba99cdb64b9,
+        type: 3}
+      propertyPath: debugGizmos
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3468452622346475171, guid: 0e6936411dbff8245ae15ba99cdb64b9,
+        type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5247181259204451943, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: m_Name
@@ -1191,17 +1216,37 @@ PrefabInstance:
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: seed
-      value: 984
+      value: 123
+      objectReference: {fileID: 0}
+    - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
+        type: 3}
+      propertyPath: worldScale.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
+        type: 3}
+      propertyPath: worldScale.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
+        type: 3}
+      propertyPath: worldScale.z
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: asyncReadbacks
-      value: 2
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7193759343885691420, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: maxDepth
-      value: 3
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 7193759343885691420, guid: 0e6936411dbff8245ae15ba99cdb64b9,
+        type: 3}
+      propertyPath: minMaxYPositions.y
+      value: 100
       objectReference: {fileID: 0}
     - target: {fileID: 8572855768852968992, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}

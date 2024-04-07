@@ -8,17 +8,17 @@
 // Called for each voxel in the chunk to check the density and material at a specific position
 void VoxelAt(float3 position, out float density, out uint material) {
 	// Density value for biome 1
-	float density1 = -fbm(position.xz * 0.001, 5, 0.50, 2.1) * 20 - 50;
+	float density1 = -fbm(position.xz * 0.001, 5, 0.50, 2.1) * 90 - 50;
 	density1 += opSmoothUnion(-fbmCellular(position.xz * 0.003, 5, 0.53, 2.1) + 0.6, 0, 1.0) * 260;
-	
+
 	// Density value for biome 2
-	float density2 = -fbmCellular(position.xz * 0.0008, 8, 0.4, 2.2).y * 920;
+	float density2 = fbmCellular(position.xz * 0.0008, 8, 0.4, 2.2).y * 7;
+	density2 = -pow(opSmoothIntersection(density2, 4, 5), 3) + 100;
 
 	// Density value for biome 3
 	float density3 = -fbm(position.xz * 0.005, 4, 0.60, 2.2) * 10 - 50;
 	float rngSlope = snoise(position.xz * 0.003) * 0.00325;
 	float2 sloped = position.xz * 0.008 + position.y * (0.008 + rngSlope);
-
 	float shortPillars = -fbmCellular(sloped, 4, 0.45, 2.1).x * (snoise(position.xz * 0.002) + 1);
 	shortPillars = max(shortPillars, -0.7);
 	density3 += min(shortPillars - 0.05, 0) * 225;
@@ -26,31 +26,31 @@ void VoxelAt(float3 position, out float density, out uint material) {
 
 	// Mixer between biome 1 and biome 2
 	float mixer = snoise(position.xz * 0.0003) * 0.5 + 0.5;
+	float mixer2 = snoise(position.xz * 0.0003 + 12541) * 0.5 + 0.5;
 	mixer = smoothstep(0, 1, saturate(2 * (mixer - 0.5) + 0.5));
 
 
-	density = position.y + lerp(density1, density3, mixer);
-
+	density = lerp(density1, density3, mixer);
+	density = lerp(density2, density, mixer2);
+	density += position.y;
 
 	/*
 	// Cave mixer?
 	float caveMixer = saturate((-(position.y + 30) / 60)) * saturate(((position.y + 600) / 60));
 	caveMixer = smoothstep(0, 1, caveMixer);
 	
-	float caveDensity = -fbmCellular(position * 0.001 * float3(1, 3, 1), 4, 0.4, 2.2).x * 620 - 20;
+	float caveDensity = -fbmCellular(position * 0.001 * float3(1, 1.5, 1), 4, 0.4, 2.2).x * 620 + 100;
 	caveDensity += snoise(float2(position.y, 0) * 0.001) * 300;
 	float pillars = fbmCellular(position.xz * 0.004, 5, 0.4, 2.0).y;
 	pillars = smoothstep(0, 1.0, saturate(pillars - 0.3));
 	caveDensity -= pillars * 800;
-	float shortPillars = -fbmCellular(position.xz * 0.01, 3, 0.45, 2.1).x;
-	caveDensity += min(shortPillars + 0.25, 0) * 200;
+	float shortPillars2 = -fbmCellular(position.xz * 0.01, 3, 0.45, 2.1).x;
+	caveDensity += min(shortPillars2 + 0.25, 0) * 200;
 	caveDensity -= cellular(position * 0.1 * float3(1, 3, 1)).y * 2;
-	density = lerp(density, caveDensity, caveMixer);
+	//density = lerp(density, caveDensity, caveMixer);
 	material = caveMixer > 0.2 ? 1 : 0;
 	*/
-
-	material = (shortPillars < 0.2 && (mixer + snoise(position * 0.1) * 0.2) > 0.4) ? 2 : 0;
-	//material = 0;
+	material = (shortPillars < 0.2 && (mixer + fbm(position * 0.008, 3, 0.5, 2.2) * 0.1) > 0.4 || (mixer2 < 0.5 && position.y > 200)) ? 1 : 0;
 }
 
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Voxelizer/VoxelGeneratorEnd.cginc"

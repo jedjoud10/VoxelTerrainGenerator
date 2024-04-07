@@ -244,8 +244,12 @@ public partial class VoxelTerrain : MonoBehaviour {
             gameObject.GetComponent<MeshRenderer>().enabled = false;
             gameObject.transform.position = item.position;
             gameObject.transform.localScale = new Vector3(size, size, size);
+            
+            // RESETS ALL THE OLD CACHED PROPERTIES OF THE CHUNK
             VoxelChunk chunk = gameObject.GetComponent<VoxelChunk>();
             chunk.node = item;
+            chunk.voxelCountersHandle = null;
+            chunk.voxelMaterialsLookup = null;
 
             // Only generate chunk voxel data for chunks at lowest depth
             chunk.container = null;
@@ -333,7 +337,8 @@ public partial class VoxelTerrain : MonoBehaviour {
         }
 
         // Set mesh and renderer settings
-        renderer.materials = mesh.Materials;
+        chunk.voxelMaterialsLookup = mesh.VoxelMaterialsLookup; 
+        renderer.materials = mesh.VoxelMaterialsLookup.Select(x => VoxelMesher.voxelMaterials[x]).ToArray();
 
         // Set renderer bounds
         renderer.bounds = new Bounds {

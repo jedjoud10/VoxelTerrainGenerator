@@ -171,20 +171,22 @@ public class VoxelSegments : VoxelBehaviour {
         terrain.VoxelProps.ResetPropData();
     }
 
-    private void OnDrawGizmosSelected() {
+    private void OnDrawGizmos() {
         if (terrain != null && debugGizmos) {
             int size = VoxelUtils.PropSegmentSize;
             foreach (var item in propSegmentsDict) {
                 var key = item.Key.xyz;
+                float scaleOffset = 1.0f;
                 Vector3 center = new Vector3(key.x, key.y, key.z) * size + Vector3.one * size / 2.0f;
 
                 if (item.Value.spawnPrefabs) {
                     Gizmos.color = Color.green;
+                    scaleOffset = 0.9f;
                 } else {
                     Gizmos.color = Color.red;
                 }
 
-                Gizmos.DrawWireCube(center, Vector3.one * size);
+                Gizmos.DrawWireCube(center, Vector3.one * size * scaleOffset);
             }
         }
     }

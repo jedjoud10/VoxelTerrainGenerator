@@ -188,7 +188,7 @@ public class VoxelEdits : VoxelBehaviour {
             VoxelChunk chunk = terrain.Chunks[node];
             chunk.voxelCountersHandle = countersHandle;
             countersHandle.pending++;
-            chunk.Remesh(terrain);
+            chunk.Remesh(terrain, immediate ? 0 : 5);
         }
 
         temp.Value.Dispose();
@@ -362,6 +362,11 @@ public class VoxelEdits : VoxelBehaviour {
         // Actually create the voxels and the job values
         OctreeNode node = temp.Value[0];
         VoxelChunk chunk = terrain.Chunks[node];
+
+        // Quit early if the chunk doesn't contain a proper voxel container (we aint doing a readback!!!)
+        if (chunk.container is not UniqueVoxelChunkContainer) {
+            return false;
+        }
         
         voxels = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         NativeCounter tempCounter = new NativeCounter(Allocator.Persistent);
@@ -371,7 +376,7 @@ public class VoxelEdits : VoxelBehaviour {
         return true;
     }
 
-    private void OnDrawGizmosSelected() {
+    private void OnDrawGizmos() {
         if (!lookup.IsCreated || !debugGizmos)
             return;
 

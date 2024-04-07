@@ -33,7 +33,9 @@ internal class MeshJobHandler {
     public NativeCounter materialCounter;
     public JobHandle finalJobHandle;
     public VoxelChunk chunk;
-    public bool computeCollisions = false;
+    public bool colissions = false;
+    public int startingFrame = 0;
+    public int maxFrames = 0;
     internal VertexAttributeDescriptor[] vertexAttributeDescriptors;
 
     internal MeshJobHandler() {
@@ -187,7 +189,7 @@ internal class MeshJobHandler {
     }
 
     // Complete the jobs and return a mesh
-    internal VoxelMesh Complete(Mesh mesh, Material[] orderedMaterials) {
+    internal VoxelMesh Complete(Mesh mesh) {
         if (voxels == null || chunk == null) {
             return VoxelMesh.Empty;
         }
@@ -227,11 +229,11 @@ internal class MeshJobHandler {
         mesh.subMeshCount = maxMaterials;
 
         // Create a material array for the new materials
-        Material[] materials = new Material[maxMaterials];
+        int[] lookup = new int[maxMaterials];
 
         // Convert material index to material *count* index
         foreach (var item in materialHashMap) {
-            materials[item.Value] = orderedMaterials[item.Key];
+            lookup[item.Value] = item.Key;
         }
 
         // Set mesh submeshes
@@ -250,8 +252,8 @@ internal class MeshJobHandler {
 
         chunk = null;
         return new VoxelMesh {
-            Materials = materials,
-            ComputeCollisions = computeCollisions,
+            VoxelMaterialsLookup = lookup,
+            ComputeCollisions = colissions,
             VertexCount = maxVertices,
             TriangleCount = maxIndices / 3,
         };

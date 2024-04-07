@@ -218,7 +218,7 @@ public class VoxelOctree : VoxelBehaviour {
         }
     }
 
-    private void OnDrawGizmosSelected() {
+    private void OnDrawGizmos() {
         if (terrain != null && debugGizmos && terrain.Free && Free && !mustUpdate) {
             NativeList<OctreeNode> nodes = octreeNodesList[1 - lastIndex];
 

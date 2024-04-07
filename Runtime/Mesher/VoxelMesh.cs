@@ -6,8 +6,8 @@ public struct VoxelMesh
     // Actual mesh reference (which is stored inside the chunk anyways)
     public Mesh SharedMesh { get; internal set; }
 
-    // Materials that must be set when setting the mesh
-    public Material[] Materials { get; internal set; }
+    // Lookup for converting sub-mesh index to voxel material index
+    public int[] VoxelMaterialsLookup { get; internal set; }
 
     // Should we compute collisions for this voxel mesh?
     public bool ComputeCollisions { get; internal set; }
@@ -21,7 +21,7 @@ public struct VoxelMesh
     public static VoxelMesh Empty = new VoxelMesh
     {
         SharedMesh = null,
-        Materials = null,
+        VoxelMaterialsLookup = null,
         VertexCount = 0,
         TriangleCount = 0,
         ComputeCollisions = false,

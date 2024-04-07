@@ -154,18 +154,20 @@ public partial class VoxelProps : VoxelBehaviour {
         propShader.SetVector("propChunkOffset", segment.worldPosition);
         propShader.Dispatch(0, _count, _count, _count);
 
-        // Create an async callback if we have ANY prop that must be spawned as a game object
-        // props.Any(x => x.WillSpawnPrefab) && segment.spawnPrefabs || props.Any(x => x.propSpawnBehavior.HasFlag(PropSpawnBehavior.SwapForPrefabs))
-        if (true) {
-            for (int i = 0; i < props.Count; i++) {
-                bool spawn = props[i].WillSpawnPrefab && segment.spawnPrefabs;
-                bool forceInstanced = props[i].propSpawnBehavior.HasFlag(PropSpawnBehavior.SwapForInstancedMeshes);
-                bool forcePrefab = props[i].propSpawnBehavior.HasFlag(PropSpawnBehavior.SwapForPrefabs);
-                if ((spawn && !forceInstanced) || forcePrefab) {
-                    segment.props.Add(i, (new List<GameObject>(), new List<ushort>()));
-                }
+        // Checks if we should do any sort of CPU sided gameobject spawning
+        bool readback = false;
+        for (int i = 0; i < props.Count; i++) {
+            bool spawn = props[i].WillSpawnPrefab && segment.spawnPrefabs;
+            bool forceInstanced = props[i].propSpawnBehavior.HasFlag(PropSpawnBehavior.SwapForInstancedMeshes);
+            bool forcePrefab = props[i].propSpawnBehavior.HasFlag(PropSpawnBehavior.SwapForPrefabs);
+            if ((spawn && !forceInstanced) || forcePrefab) {
+                segment.props.Add(i, (new List<GameObject>(), new List<ushort>()));
+                readback = true;
             }
+        }
 
+        // Create an async callback if we have ANY prop that must be spawned as a game object
+        if (readback) {
             asyncRequestsInProcess++;
 
             // TODO: Use this to eliminate reading back props that won't be spawned
@@ -213,7 +215,9 @@ public partial class VoxelProps : VoxelBehaviour {
         int[] count = new int[props.Count];
         tempCountBuffer.GetData(count);
 
+        // FIXME: Fix spike in Semaphore.WaitForSignal async readback thingy right here
         NativeArray<BlittableProp> data = asyncRequest.GetData<BlittableProp>();
+        asyncRequestsInProcess--;
 
         // Spawn all the props for all types
         for (int i = 0; i < props.Count; i++) {
@@ -262,7 +266,7 @@ public partial class VoxelProps : VoxelBehaviour {
             }
         }
 
-        asyncRequestsInProcess--;
+
     }
 
     // Called when an old prop segment is unloaded
