@@ -24,6 +24,7 @@
 * Serialization / deserialization system that supports terrain edits, terrain seed, and modified/destoyed props
   * Uses RLE and delta compression for voxel data
   * Uses RLE for prop masks
+* In editor SDF/Volume/Slice preview using unity Handles API 
  
  ## WIP Features to be added
   * Structure generation
@@ -45,9 +46,18 @@
   * Terrain chunk scheduling is non-conservative. Always over-estimates the amount of chunks _actually_ containing terrain
   * Bad performance when editing large voxel/dynamic edits (due to the dupe-octree nature of voxel edits)
   * Slow async GPU readback which causes frame time spikes when there is more than 1 request per frame
+  * Billboarded prop normals don't seem to match up with their gameobject counterpart
+  * Floating terrain segments (could fix by running a flood fill and seeing the parts that aren't "connected")
+  * Floating props (due to low-resolution segment voxel grid)
 
 ## Showcase:
 ![image](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/506140cb-6bd8-4c07-a3aa-9438115872b1)
 ![image](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/8b0d434b-0d18-4e3c-806d-a9ceb16e024c)
 ![image](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/5291314d-16da-420f-8a26-cda33c42060d)
 ![image](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/1fedfe2e-fc9e-4672-bbfa-dd413d86448d)
+![image](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/51a05c97-5f5b-4822-901b-3aac0f442a42)
+
+
+## In Editor Previews
+![Screenshot 2024-04-08 135853](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/c719561f-05d4-4b1a-9e6c-fae8e4e29cb8)
+![Screenshot 2024-04-08 141419](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/3228c033-1ef9-4d56-bf6d-5efa8a58177f)
