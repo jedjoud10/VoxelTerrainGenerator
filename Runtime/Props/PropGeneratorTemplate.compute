@@ -4,7 +4,7 @@
 // Called at each prop segment voxel inside the segment to check what props to spawn
 // Remember that you can only spawn ONE prop type (including variants) per unique ID
 void PropsAt(uint3 id, float3 position) {
-	return;
+	//return;
 	// Mixer between biome 1 and biome 2
 	float mixer = snoise(position.xz * 0.0003) * 0.5 + 0.5;
 	mixer = smoothstep(0, 1, mixer) * 1;
@@ -28,7 +28,7 @@ void PropsAt(uint3 id, float3 position) {
 		float3 rockPos = position + randomOffset2;
 		ClosestSurface hit2 = CheckClosestSurface(rockPos, 0, 3.0);
 		if (hit2.hit && (snoise(position * 0.001) + snoise(position * 0.02) * 0.4) < 0.4) {
-			Spawn(hit2.position, 0.6 + snoise(position * 0.01) * 0.5, hash33(position) * 180, 1, 0, id);
+			//Spawn(hit2.position, 0.6 + snoise(position * 0.01) * 0.5, hash33(position) * 180, 1, 0, id);
 		}
 	}
 

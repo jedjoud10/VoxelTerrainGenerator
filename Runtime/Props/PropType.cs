@@ -77,6 +77,7 @@ public enum PropSpawnBehavior {
 
 // Extra data that tells us how to render billboarded/instanced props
 // Textures stored as arrays so we can have multiple variants
+[Serializable]
 public class IndirectExtraPropData {
     public Texture2DArray billboardAlbedoTexture;
     public Texture2DArray billboardNormalTexture;

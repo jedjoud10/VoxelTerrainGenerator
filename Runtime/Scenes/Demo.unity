@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 22110.846, g: 16561.705, b: 17849.502, a: 1}
+  m_IndirectSpecularColor: {r: 22113.932, g: 16557.111, b: 17830.19, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -561,7 +561,7 @@ Transform:
   m_GameObject: {fileID: 1297311273}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 70, z: 0}
+  m_LocalPosition: {x: 0, y: 300, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -589,9 +589,9 @@ MonoBehaviour:
     radius: 16
     affectsVoxelProps: 1
     propSegmentExtent:
-      x: 7
+      x: 12
       y: 1
-      z: 7
+      z: 12
     propSegmentLodMultiplier: 2
     maxDistanceThreshold: 2
   viewCamera: {fileID: 1823688466}
@@ -791,7 +791,7 @@ Transform:
   m_GameObject: {fileID: 1592816412}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 68, z: 0}
+  m_LocalPosition: {x: 0, y: 290, z: 0}
   m_LocalScale: {x: 20, y: 1, z: 20}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1116,7 +1116,7 @@ PrefabInstance:
     - target: {fileID: 305494748139102449, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: meshJobsPerFrame
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 305494748139102449, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
@@ -1151,7 +1151,7 @@ PrefabInstance:
     - target: {fileID: 2034548315684897522, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: debugGizmos
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3468452622346475171, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
@@ -1241,7 +1241,7 @@ PrefabInstance:
     - target: {fileID: 7193759343885691420, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: maxDepth
-      value: 5
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 7193759343885691420, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
