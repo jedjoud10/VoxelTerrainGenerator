@@ -12,6 +12,7 @@
 * Terrain editing using duplicate octree
   * Supports "dynamic" edits which are applied on a global scale (non-destructive)
   * Supports "voxel" edits which are applied on a local voxel-to-voxel scale
+  * Custom "frame" limit to limit number of in-flight meshing jobs to reduce latency
 * GPU Based Prop Generation
   * Avoids unecessary CPU callbacks
   * Uses density and surface data to generate props
