@@ -11,6 +11,7 @@ using UnityEngine.Rendering;
 // Also handles showing a preview in the editor
 public class VoxelGenerator : VoxelBehaviour {
     public enum Preview3DMode {
+        None,
         Volume,
         Slice,
         SDF

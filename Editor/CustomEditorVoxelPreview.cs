@@ -10,6 +10,8 @@ public class CustomEditorVoxelGenerator : Editor {
         if (Application.isPlaying) return;
 
         VoxelGenerator generator = (VoxelGenerator)target;
+        if (generator.previewMode == VoxelGenerator.Preview3DMode.None) return;
+        
         generator.UpdateStaticComputeFields();
 
         ComputeShader shader = generator.voxelShader;

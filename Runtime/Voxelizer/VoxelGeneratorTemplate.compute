@@ -8,6 +8,9 @@
 
 // Called for each voxel in the chunk to check the density and material at a specific position
 void VoxelAt(float3 position, out float density, out uint material) {
+	density = -fbmCellular(position * 0.001, 4, 0.5, 2.0).y * 190 + position.y + snoise(position * 0.05) * 4;
+	material = 0;
+	return;
 	// Density value for biome 1
 	float density1 = -fbm(position.xz * 0.001, 5, 0.50, 2.1) * 90 - 50;
 	density1 += opSmoothUnion(-fbmCellular(position.xz * 0.003, 5, 0.53, 2.1) + 0.6, 0, 1.0) * 260;

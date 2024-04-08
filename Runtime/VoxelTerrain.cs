@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
 using UnityEngine;
-using static UnityEditor.Experimental.AssetDatabaseExperimental.AssetDatabaseCounters;
 
 // Voxel terrain that handles generating the chunks and handling prop generation
 // generate chunks -> generate voxels -> generate mesh -> generate mesh collider
