@@ -7,11 +7,28 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 
-// Responsible for generating the voxel data using the voxel graph
+// Responsible for generating the voxel data using the voxel compute shader
+// Also handles showing a preview in the editor
 public class VoxelGenerator : VoxelBehaviour {
+    public enum Preview3DMode {
+        Volume,
+        Slice,
+        SDF
+    }
+
     [Header("Voxelization Settings")]
     public Vector3 worldOffset = Vector3.zero;
     public Vector3 worldScale = Vector3.one;
+
+    [Header("Preview Settings")]
+    public Vector3 previewWorldOffset = Vector3.zero;
+    public Vector3 previewWorldScale = Vector3.one;
+    [Range(0, 1)]
+    public float previewOpacity = 1.0f;
+    public int previewQuality = 1;
+    public Gradient previewColorRampGradient;
+    public float previewDensityFactor = 1.0f;
+    public Preview3DMode previewMode;
 
     [Header("Seeding Behavior")]
     public int seed = 1234;
@@ -40,12 +57,6 @@ public class VoxelGenerator : VoxelBehaviour {
 
     // Chunks that we must generate the voxels for
     internal Queue<VoxelChunk> pendingVoxelGenerationChunks;
-
-    // Custom delegate that can be used to send custom data to the shader when generating new chunks
-    public delegate void InitComputeCustom(ComputeShader shader);
-    public delegate void UpdateComputeCustom(ComputeShader shader, VoxelChunk chunk);
-    public event InitComputeCustom onInitComputeCustom;
-    public event UpdateComputeCustom onUpdateComputeCustom;
 
     // Checks if we completed voxel generation
     public bool Free {
@@ -97,8 +108,9 @@ public class VoxelGenerator : VoxelBehaviour {
         voxelShader.SetInt("size", VoxelUtils.Size);
         voxelShader.SetFloat("voxelSize", VoxelUtils.VoxelSizeFactor);
         voxelShader.SetFloat("vertexScaling", VoxelUtils.VertexScaling);
-        voxelShader.SetTexture(0, "voxels", readbackTexture);
-        onInitComputeCustom?.Invoke(voxelShader);
+
+        if (readbackTexture != null)
+            voxelShader.SetTexture(0, "voxels", readbackTexture);
     }
 
     // Add the given chunk inside the queue for voxel generation
@@ -119,7 +131,6 @@ public class VoxelGenerator : VoxelBehaviour {
                 // Set chunk only parameters
                 voxelShader.SetVector("chunkOffset", chunk.transform.position);
                 voxelShader.SetFloat("chunkScale", chunk.transform.localScale.x);
-                onUpdateComputeCustom?.Invoke(voxelShader, chunk);
 
                 // Generate the voxel data for the chunk
                 int count = VoxelUtils.Size / 4;
@@ -148,6 +159,8 @@ public class VoxelGenerator : VoxelBehaviour {
     }
 
     internal override void Dispose() {
+        readbackTexture.DiscardContents();
+        readbackTexture.Release();
         AsyncGPUReadback.WaitAllRequests();
         foreach (var nativeArrays in voxelNativeArrays) {
             nativeArrays.Dispose();

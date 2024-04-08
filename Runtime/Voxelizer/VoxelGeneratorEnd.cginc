@@ -29,6 +29,28 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 	voxels[mortonPos.xzy] = packedData;
 }
 
+// USED FOR PREVIEW ONLY
+[numthreads(4, 4, 4)]
+void CSPreview(uint3 id : SV_DispatchThreadID)
+{
+	// Calculate the main world position
+	float3 position = float3(id.xzy);
+	position *= voxelSize;
+	position -= (1.5 * voxelSize);
+
+	// Chunk offsets + vertex scaling
+	position *= vertexScaling;
+
+	// World offset and scale
+	position = ((position * worldScale) / voxelSize) + worldOffset;
+	float density = 0.0;
+	uint material = 0;
+	
+	VoxelAt(position, density, material);
+
+	previewVoxels[id.xzy] = density * densityFactor;
+}
+
 // Generates the prop cached voxel data
 [numthreads(4, 4, 4)]
 void CSPropVoxelizer(uint3 id : SV_DispatchThreadID)

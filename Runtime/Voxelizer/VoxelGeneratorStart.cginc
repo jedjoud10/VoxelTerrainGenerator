@@ -19,6 +19,10 @@ float voxelSize;
 // Used for async readback
 RWTexture3D<uint> voxels;
 
+// PREVIEW MODE
+RWTexture3D<float> previewVoxels;
+float densityFactor;
+
 float propSegmentWorldSize;
 float propSegmentResolution;
 float3 propChunkOffset;

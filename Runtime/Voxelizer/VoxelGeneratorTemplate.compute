@@ -2,6 +2,7 @@
 #pragma kernel CSPropVoxelizer
 #pragma kernel CSPropRaycaster
 #pragma kernel CSClearRayCastData
+#pragma kernel CSPreview
 
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Voxelizer/VoxelGeneratorStart.cginc"
 
@@ -28,7 +29,6 @@ void VoxelAt(float3 position, out float density, out uint material) {
 	float mixer = snoise(position.xz * 0.0003) * 0.5 + 0.5;
 	float mixer2 = snoise(position.xz * 0.0003 + 12541) * 0.5 + 0.5;
 	mixer = smoothstep(0, 1, saturate(2 * (mixer - 0.5) + 0.5));
-
 
 	density = lerp(density1, density3, mixer);
 	density = lerp(density2, density, mixer2);
