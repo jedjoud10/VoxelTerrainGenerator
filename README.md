@@ -3,6 +3,7 @@
 ## Features
 * 3D Octree for worlds up to 32km with sub-meter voxel precision
 * GPU Voxel Generation with Async CPU readback
+* Morton encoding to improve CPU cache locality (didn't actually test but I just implemented it for the funny)
 * Multithreaded and Jobified CPU meshing implementing the Surface Nets algorithm
   *  Supports vertex merging and custom materials
   *  Supports custom per vertex ambient occlusion and UV pass-through data
