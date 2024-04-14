@@ -3,10 +3,11 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 
-// CPU representation of what a voxel is
-// I don't think I'll have bigger types than this so wtv
+// CPU representation of what a voxel is. The most important value here is the density value
 [StructLayout(LayoutKind.Sequential)]
 public struct Voxel {
+    public const int size = sizeof(int);
+
     // Density of the voxel as a half to save some memory
     public half density;
 
@@ -22,14 +23,6 @@ public struct Voxel {
         material = byte.MaxValue,
         _padding = 0,
     };
-}
-
-
-// Burst does not support tuple accross boundaries so we must do this
-[StructLayout(LayoutKind.Sequential)]
-internal struct PosScale {
-    public float3 position;
-    public float scalingFactor;
 }
 
 // Delta data that contains the voxel values for any arbitrarily sized chunk

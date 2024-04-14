@@ -142,62 +142,16 @@ ClosestSurface CheckClosestSurface(float3 position, int dir, float thickness) {
 	return res;
 }
 
-/*
-// Structure returned from a hit ray
-struct HitRay {
-	bool hit;
-	float3 position;
-	float3 normals;
-};
-
-// Check if a ray hits the surface in a specific axis, and returns the hit position
-HitRay CheckRay(float3 position, int dir) {
-	HitRay ray;
-	ray.hit = false;
-	ray.position = float3(0, 0, 0);
-	ray.normals = float3(0, 0, 0);
-
-	// Convert world position to local position (in ID space)
-	float3 localPosTest = WorldToPropSegment(position) + (0.5f / propSegmentResolution);
-	float2 localPos = float2(0, 0);
-
-	if (dir == 0) {
-		localPos = localPosTest.xy;
-	} else if (dir == 1) {
-		localPos = localPosTest.xz;
-	} else {
-		localPos = localPosTest.yz;
-	}
-
-	// No ray if we're outside the bounds of the segment
-	bool test1 = any(localPos <= float2(0, 0) + (0.5f / propSegmentResolution));
-	bool test2 = any(localPos >= float2(1, 1) - (0.5f / propSegmentResolution));
-	if (test1 || test2) {
-		return ray;
-	}
-
-	// Check normal
-	float4 normals = _PositionIntersections.Gather(sampler_PositionIntersections, float3(localPos, dir), 0);
-	float zNormal = -(normals.x - normals.z);
-	float xNormal = -(normals.x - normals.y);
-	ray.normals = normalize(float3(xNormal, 1, zNormal));
-
-	// Check the ray dist by sampling the texture
-	float4 baseTest = _PositionIntersections.SampleLevel(sampler_PositionIntersections, float3(localPos, dir), 0);
-	float value = baseTest.x;
+// Get the min/max density values in a straight line using a normal vector
+float2 GetMinMaxInLine(float3 position, float3 normal, float stepSize) {
+	float2 values = float2(10000000, -100000);
 	
-	if (value < 1000) {
-		if (dir == 0) {
-			ray.position = float3(position.x, value, position.z);
-		} else if (dir == 1) {
-			ray.position = float3(position.x, position.y, value);
-		} else {
-			ray.position = float3(value, position.y, position.z);
-		}
-
-		ray.hit = true;
+	for (float step = 0; step < stepSize; step += stepSize) {
+		float3 newPos = position + normal * step;
+		float d = GetDensity(newPos);
+		values.x = min(d, values.x);
+		values.y = max(d, values.y);
 	}
 
-	return ray;
+	return values;
 }
-*/

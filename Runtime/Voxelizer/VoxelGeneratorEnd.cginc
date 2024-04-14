@@ -1,6 +1,7 @@
 // Seems to work without this janky thing below
 //position += (chunkOffset - ((chunkScale * size) / (size - 3.0)) * 0.5);
 
+
 [numthreads(4, 4, 4)]
 void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 {
@@ -22,7 +23,7 @@ void CSVoxelizer(uint3 id : SV_DispatchThreadID)
 	VoxelAt(position, density, material);
 
 	// Morton encode the texture data
-	uint packedDensity = f32tof16(density);
+	uint packedDensity = f32tof16(density + densityOffset);
 	uint packedData = packedDensity | (material << 16);
 	uint mortonIndex = encodeMorton32(id.xzy);
 	uint3 mortonPos = indexToPos(mortonIndex);
@@ -48,7 +49,7 @@ void CSPreview(uint3 id : SV_DispatchThreadID)
 	
 	VoxelAt(position, density, material);
 
-	previewVoxels[id.xzy] = density * densityFactor;
+	previewVoxels[id.xzy] = density * previewDensityFactor + previewDensityOffset;
 }
 
 // Generates the prop cached voxel data

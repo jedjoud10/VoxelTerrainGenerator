@@ -55,6 +55,10 @@ float voronoise( in float2 p, float u, float v )
 		float w = pow( 1.0-smoothstep(0.0,1.414,length(d)), k );
 		a += float2(o.z*w,w);
     }
-	
-    return a.x/a.y;
+
+    if (a.y == 0.0) {
+        return a.x;
+    } else {
+        return a.x/a.y;
+    }
 }

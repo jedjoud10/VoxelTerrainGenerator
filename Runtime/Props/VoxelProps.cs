@@ -288,6 +288,16 @@ public partial class VoxelProps : VoxelBehaviour {
         segment.indexRangeLookup = -1;
         segment.props = null;
     }
+
+    // Destroy all instanced/GPU props of a specific type/variant in a specific radius
+    // Needed since we cannot access the generated props on the GPU directly
+    // TODO: Implement this
+    public void DestroyInstancedInRadius(Vector3 position, float radius, int type, int variant=0) {
+        // make sure the prop type is GPU sided only (NO PREFABS!!!)
+        // get the world segments that will be within the radius
+        // run the compute shader on ALL of the segments to remove the data on the GPU
+    }
+
     internal override void Dispose() {
         drawArgsBuffer.Dispose();
         culledCountBuffer.Dispose();

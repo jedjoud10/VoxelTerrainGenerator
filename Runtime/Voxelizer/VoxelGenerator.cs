@@ -29,6 +29,7 @@ public class VoxelGenerator : VoxelBehaviour {
     public int previewQuality = 1;
     public Gradient previewColorRampGradient;
     public float previewDensityFactor = 1.0f;
+    public float previewDensityOffset = 0.0f;
     public Preview3DMode previewMode;
 
     [Header("Seeding Behavior")]
@@ -36,8 +37,8 @@ public class VoxelGenerator : VoxelBehaviour {
     public Vector3Int permutationSeed = Vector3Int.zero;
     public Vector3Int moduloSeed = Vector3Int.zero;
 
-    // Added onto the isosurface value
-    public float isosurfaceOffset = 0.0F;
+    // Added onto the density value
+    public float densityOffset = 0.0F;
 
     // Compute shader that will be responsble for voxel generation
     public ComputeShader voxelShader;
@@ -103,7 +104,7 @@ public class VoxelGenerator : VoxelBehaviour {
 
         voxelShader.SetVector("worldOffset", worldOffset);
         voxelShader.SetVector("worldScale", worldScale * VoxelUtils.VoxelSizeFactor);
-        voxelShader.SetFloat("isosurfaceOffset", isosurfaceOffset);
+        voxelShader.SetFloat("densityOffset", densityOffset);
         voxelShader.SetInts("permuationSeed", new int[] { permutationSeed.x, permutationSeed.y, permutationSeed.z });
         voxelShader.SetInts("moduloSeed", new int[] { moduloSeed.x, moduloSeed.y, moduloSeed.z });
         voxelShader.SetInt("size", VoxelUtils.Size);

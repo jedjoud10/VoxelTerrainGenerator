@@ -22,11 +22,12 @@ MonoBehaviour:
   maxPropsPerSegment: 8192
   maxPropsInTotal: 524288
   maxVisibleProps: 524288
-  maxInstancingDistance: 10000
+  maxInstancingDistance: 100
   instancedMeshMaterial: {fileID: 0}
   instancedMesh: {fileID: 0}
   billboardTextureWidth: 64
   billboardTextureHeight: 64
+  billboardMipMaps: 1
   billboardTextureFilterMode: 1
   billboardSize: {x: 1, y: 1}
   billboardOffset: {x: 0, y: 3, z: 0}

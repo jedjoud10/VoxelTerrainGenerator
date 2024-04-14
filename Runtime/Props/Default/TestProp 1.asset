@@ -23,6 +23,7 @@ MonoBehaviour:
   instancedMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
   billboardTextureWidth: 64
   billboardTextureHeight: 64
+  billboardMipMaps: 1
   billboardTextureFilterMode: 1
   billboardSize: {x: 1, y: 1}
   billboardOffset: {x: 0, y: 3, z: 0}

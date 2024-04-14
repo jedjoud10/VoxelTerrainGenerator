@@ -5,7 +5,7 @@ float chunkScale;
 // World parameters
 float3 worldOffset;
 float3 worldScale;
-float isosurfaceOffset;
+float densityOffset;
 
 // Seeding parameters
 int3 permuationSeed;
@@ -21,7 +21,8 @@ RWTexture3D<uint> voxels;
 
 // PREVIEW MODE
 RWTexture3D<float> previewVoxels;
-float densityFactor;
+float previewDensityFactor;
+float previewDensityOffset;
 
 float propSegmentWorldSize;
 float propSegmentResolution;

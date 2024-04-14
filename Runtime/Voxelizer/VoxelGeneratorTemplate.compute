@@ -7,9 +7,31 @@
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Voxelizer/VoxelGeneratorStart.cginc"
 
 // Called for each voxel in the chunk to check the density and material at a specific position
-void VoxelAt(float3 position, out float density, out uint material) {
-	density = -fbmCellular(position * 0.001, 4, 0.5, 2.0).y * 190 + position.y + snoise(position * 0.05) * 4;
-	material = 0;
+void VoxelAt(float3 position, out float density, out uint material) {	
+	float h = voronoise(position.xz * 0.03 + position.y * 0.01 + snoise(position * 0.08) * 0.00, 1.0, 0.3);
+	density = position.y - h * 50;
+	density += snoise(position * 0.02 * float3(1, 3, 1)) * 10;
+	density -= pow(cellular(position.xz * 0.02).y - 1.0, 6) * 20;
+	density -= fmod(position.y, 100) * -1;
+	float nothing2 = 1-clamp(-fbmCellular(position.xz * 0.01, 4, 0.8, 1.6).x + 0.1, -0.2, 1.8);
+	nothing2 = -pow(nothing2, 5);
+	density += nothing2 * 20;
+	//density += hash11(position.y * 0.00001) * 100;
+	//material = h > 0.3 ? 1 : 0;
+	material = nothing2 < -1.3 ? 1 : 0;
+	return;
+
+	density = -fbmCellular(position * 0.001, 6, 0.5, 2.0).y * 190 + position.y;
+	float test2 = clamp(fbmCellular(position * 0.01 * float3(1, 0.8, 1), 3, 0.66, 1.3).y - 0.2, 0, 1);
+	density += test2 * -40;
+	float test1 = clamp((fbmCellular(position.xz * 0.001, 3, 0.66, 1.3).y - 0.2).x * 10, 0, 1);
+	density += test1 * 90;
+	float nothing = 1-clamp(-fbmCellular(position.xz * 0.01, 4, 0.8, 1.4).x + 0.2, -0.4, 1.8);
+	nothing = -pow(nothing, 4);
+	//density = nothing * 20 + position.y;
+	density += nothing * 5;
+	material = density < -100 ? 1 : 0;
+
 	return;
 	// Density value for biome 1
 	float density1 = -fbm(position.xz * 0.001, 5, 0.50, 2.1) * 90 - 50;
@@ -53,7 +75,8 @@ void VoxelAt(float3 position, out float density, out uint material) {
 	//density = lerp(density, caveDensity, caveMixer);
 	material = caveMixer > 0.2 ? 1 : 0;
 	*/
-	material = (shortPillars < 0.2 && (mixer + fbm(position * 0.008, 3, 0.5, 2.2) * 0.1) > 0.4 || (mixer2 < 0.5 && position.y > 200)) ? 1 : 0;
+	//material = (shortPillars < 0.2 && (mixer + fbm(position * 0.008, 3, 0.5, 2.2) * 0.1) > 0.4 || (mixer2 < 0.5 && position.y > 200)) ? 1 : 0;
+	//materail
 }
 
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Voxelizer/VoxelGeneratorEnd.cginc"

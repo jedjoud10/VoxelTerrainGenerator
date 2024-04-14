@@ -12,6 +12,10 @@ float sdBox(float3 p, float3 b)
 	return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 
+float3 repeat(float3 p, float3 b) {
+	return float3(fmod(p.x, b.x), fmod(p.y, b.y), fmod(p.z, b.z));
+}
+
 float sdOctahedron(float3 p, float s)
 {
 	p = abs(p);

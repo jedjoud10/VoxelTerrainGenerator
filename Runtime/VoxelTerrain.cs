@@ -404,7 +404,7 @@ public partial class VoxelTerrain : MonoBehaviour {
             Label($"# of chunks to remove: {toRemoveChunk.Count}");
             Label($"# of world edits: {VoxelEdits.worldEditRegistry.TryGetAll<IDynamicEdit>().Count}");
             Label($"# of pending voxel edits: {VoxelEdits.tempVoxelEdits.Count}");
-            int mul = System.Runtime.InteropServices.Marshal.SizeOf(Voxel.Empty) * VoxelUtils.Volume;
+            int mul = Voxel.size * VoxelUtils.Volume;
             int bytes = pooledVoxelChunkContainers.Count * mul;
             int kbs = bytes / 1024;
             Label($"KBs of pooled native voxel arrays: {kbs}");
