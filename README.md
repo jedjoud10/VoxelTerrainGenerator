@@ -1,4 +1,4 @@
-# A procedural terrain generator that makes use of your GPU to generate fully volumetric terrain
+# A procedural terrain generator that makes use of your GPU and CPU to generate volumetric and fully destructible terrain
 
 ## Features
 * 3D Octree for worlds up to 32km with sub-meter voxel precision
