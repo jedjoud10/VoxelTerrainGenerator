@@ -8,17 +8,17 @@
   *  Supports vertex merging and custom materials
   *  Supports custom per vertex ambient occlusion and UV pass-through data
   *  Async Collision Baking using the job system and PhysX
-  *  Custom skirts system for meshes with different resolution to avoid gaps between chunks
-  *  Fully parallel, runs under 6ms for a 64x64x64 mesh on my machine for 8 threads 
+  *  Custom skirts system for meshes with different resolution to avoid gaps between chunks (kinda works)
 * Terrain editing using duplicate octree
-  * Supports "dynamic" edits which are applied on a global scale (non-destructive)
-  * Supports "voxel" edits which are applied on a local voxel-to-voxel scale
-  * Custom "frame" limit to limit number of in-flight meshing jobs to reduce latency
+  * Supports dynamic edits which are applied on a global scale (non-destructive)
+  * Supports voxel edits which are applied on a local voxel-to-voxel scale
+  * Callback for voxel edits to detect how much volume was added/removed for each material type
+  * Custom frame limit to limit number of in-flight meshing jobs to reduce latency
 * GPU Based Prop Generation
   * Avoids unecessary CPU callbacks
   * Uses density and surface data to generate props
   * Multiple prop "variants" supported
-  * Uses the GPU for indirect instanced rendering directly without CPU callback
+  * Uses the GPU for indirect instanced rendering directly
   * Uses billboard system for props that are further away
     * Billboard captures are done automatically at the start of the frame
     * Makes use of albedo, mask, and normal map data to create billboards procedurally
@@ -29,15 +29,18 @@
  
  ## WIP Features to be added
   * Structure generation
+  * Mess around with multiple camera angles for props
+  * Custom prop spawning / modifiers (using CSG)
+  * Optimize rendering & voxel editing
   * Better compresion ratio for saved worlds
   * Better compression algorithms for props and voxel data
-  * Full world biome generation (big low-res 3d texture)
-  * Per-biome localized volumetric fog
   * Better lighting effects (AO/GI)
   * Voxel Occlusion culling for props and terrain chunks
   * Fully GPU-driven voxel chunks using indirect draw
     * Maybe mess around with nvidia mesh/task shaders?
   * Voxel graph / interpreter to create voxel terrains in C# or visually
+    * Full world biome generation (big low-res 3d texture)
+    * Per-biome localized volumetric fog
   * Multiplayer support
 
 ## Main issues
@@ -62,3 +65,4 @@
 ## In Editor Previews
 ![Screenshot 2024-04-08 135853](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/c719561f-05d4-4b1a-9e6c-fae8e4e29cb8)
 ![Screenshot 2024-04-08 141419](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/3228c033-1ef9-4d56-bf6d-5efa8a58177f)
+![2222image](https://github.com/jedjoud10/VoxelTerrainGenerator/assets/34755598/a736877a-9a96-4212-9bd7-634db644438f)
