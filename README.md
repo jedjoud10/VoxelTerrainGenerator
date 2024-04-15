@@ -12,6 +12,7 @@
 * Terrain editing using duplicate octree
   * Supports dynamic edits which are applied on a global scale (non-destructive)
   * Supports voxel edits which are applied on a local voxel-to-voxel scale
+  * Generic dynamic edits/ voxel edits allowing you to write your own editing shapes and brushes (using Job system as well) 
   * Callback for voxel edits to detect how much volume was added/removed for each material type
   * Custom frame limit to limit number of in-flight meshing jobs to reduce latency
 * GPU Based Prop Generation
@@ -38,10 +39,15 @@
   * Voxel Occlusion culling for props and terrain chunks
   * Fully GPU-driven voxel chunks using indirect draw
     * Maybe mess around with nvidia mesh/task shaders?
+    * Compute based fallback for chunks further away, to reduce readback
   * Voxel graph / interpreter to create voxel terrains in C# or visually
     * Full world biome generation (big low-res 3d texture)
     * Per-biome localized volumetric fog
-  * Multiplayer support
+  * Multiplayer support (theoretically should be easy)
+    * Just need to share seed to all clients
+    * And whenever we do a new edit, send an edit "request" to all clients who need it
+    * Apply delta compression for edits and possible send the whole dupe octree sometimes
+    * For props since they implement INetworkSerializable you just need to share their values 
 
 ## Main issues
   * Still riddled with bugs
