@@ -13,7 +13,7 @@ public partial class VoxelProps {
     public Material billboardMaterialBase;
 
     // Extra prop data that is shared with the prop segments
-    private List<IndirectExtraPropData> extraPropData;
+    public List<IndirectExtraPropData> extraPropData;
 
     // Capture the billboards of all props sequentially
     private void CaptureBillboards() {
@@ -49,15 +49,19 @@ public partial class VoxelProps {
         temp.useMipMap = mips;
         camera.targetTexture = temp;
 
+
+        // Pregenerate the textures so we can copy to them on the GPU
         Texture2DArray albedoTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, mips);
         Texture2DArray normalTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, mips);
         Texture2DArray maskTextureOut = new Texture2DArray(width, height, prop.variants.Count, TextureFormat.ARGB32, mips);
         Texture2DArray[] tempOut = new Texture2DArray[3] { albedoTextureOut, normalTextureOut, maskTextureOut };
 
+        // Many different variants per prop type
         for (int i = 0; i < prop.variants.Count; i++) {
             PropType.PropVariantType variant = prop.variants[i];
             camera.orthographicSize = variant.billboardCaptureCameraScale;
 
+            // Spawns the fake object and put it in its own layer with the camera
             GameObject faker = Instantiate(variant.prefab);
             faker.GetComponent<SerializableProp>().OnSpawnCaptureFake(camera, tempOut, i);
             faker.layer = 31;
@@ -67,9 +71,10 @@ public partial class VoxelProps {
 
             // Move the prop to the appropriate position
             faker.transform.position = variant.billboardCapturePosition;
+            //  + r * new Vector3(0, 90, 0)
             faker.transform.eulerAngles = variant.billboardCaptureRotation;
 
-            // I love for looping inside a for loop inside a for loop inside a for loop yes yes yes
+            // Renders the camera 3 times (albedo, normal, mask)
             for (int j = 0; j < 3; j++) {
                 tempOut[j].filterMode = prop.billboardTextureFilterMode;
                 propCaptureFullscreenMaterial.SetInteger("_TextureType", j);
@@ -79,8 +84,10 @@ public partial class VoxelProps {
                 }
             }
 
+            // Reset the prop variant
             faker.GetComponent<SerializableProp>().OnDestroyCaptureFake();
-            DestroyImmediate(faker);
+            faker.SetActive(false);
+            Destroy(faker);
             temp.DiscardContents(true, true);
             temp.Release();
         }

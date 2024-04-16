@@ -9,7 +9,7 @@ public struct VoxelEditApplyJob : IJobParallelFor {
     public NativeArray<Voxel> voxels;
     [ReadOnly] public SparseVoxelDeltaData data;
 
-    public NativeCounter.Concurrent counter;
+    public NativeMultiCounter.Concurrent counters;
 
     public void Execute(int index) {
         half deltaDensity = data.densities[index];
@@ -25,9 +25,9 @@ public struct VoxelEditApplyJob : IJobParallelFor {
         half newDensity = cur.density;
 
         if (newDensity > 0.0f && oldDensity < 0.0f) {
-            counter.Increment();
+            counters.Increment(cur.material);
         } else if (newDensity < 0.0f && oldDensity > 0.0f) {
-            counter.Decrement();
+            counters.Decrement(cur.material);
         }
         
         voxels[index] = cur;

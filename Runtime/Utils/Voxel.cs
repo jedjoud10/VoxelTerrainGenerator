@@ -42,7 +42,7 @@ public struct SparseVoxelDeltaData {
 
     // Last counters for the chunk for this delta node
     // Used to calculate delta counter values
-    public int lastCounters;
+    public NativeArray<int> lastCounters;
 
     // Create sparse voxel data for an unnaffected delta chunk
     public static SparseVoxelDeltaData Empty = new SparseVoxelDeltaData {
@@ -51,6 +51,7 @@ public struct SparseVoxelDeltaData {
         applyJobHandle = new JobHandle(),
         position = new float3(0, 0, 0),
         scalingFactor = -1,
+        lastCounters = default,
     };
 }
 

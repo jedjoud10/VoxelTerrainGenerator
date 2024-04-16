@@ -24,7 +24,7 @@ internal class MeshJobHandler {
     public NativeMultiCounter countersQuad;
     public NativeMultiCounter chunkCullingFaceCounters;
     public NativeCounter counter;
-    public NativeCounter voxelCounter;
+    public NativeMultiCounter voxelCounters;
 
     // Native buffer for handling multiple materials
     public NativeParallelHashMap<ushort, int> materialHashMap;
@@ -40,25 +40,26 @@ internal class MeshJobHandler {
 
     internal MeshJobHandler() {
         // Native buffers for mesh data
+        int materialCount = VoxelUtils.MAX_MATERIAL_COUNT;
         voxels = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         vertices = new NativeArray<float3>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         normals = new NativeArray<float3>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         uvs = new NativeArray<float2>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         tempTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         permTriangles = new NativeArray<int>(VoxelUtils.Volume * 6, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        voxelCounter = new NativeCounter(Allocator.Persistent);
+        voxelCounters = new NativeMultiCounter(materialCount, Allocator.Persistent);
 
         // Native buffer for mesh generation data
         indices = new NativeArray<int>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         enabled = new NativeArray<byte>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        countersQuad = new NativeMultiCounter(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
+        countersQuad = new NativeMultiCounter(materialCount, Allocator.Persistent);
         chunkCullingFaceCounters = new NativeMultiCounter(6, Allocator.Persistent);
         counter = new NativeCounter(Allocator.Persistent);
 
         // Native buffer for handling multiple materials
-        materialHashMap = new NativeParallelHashMap<ushort, int>(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
-        materialHashSet = new NativeParallelHashSet<ushort>(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
-        materialSegmentOffsets = new NativeArray<int>(VoxelUtils.MAX_MATERIAL_COUNT, Allocator.Persistent);
+        materialHashMap = new NativeParallelHashMap<ushort, int>(materialCount, Allocator.Persistent);
+        materialHashSet = new NativeParallelHashSet<ushort>(materialCount, Allocator.Persistent);
+        materialSegmentOffsets = new NativeArray<int>(materialCount, Allocator.Persistent);
         materialCounter = new NativeCounter(Allocator.Persistent);
 
         VertexAttributeDescriptor positionDesc = new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, 0);
@@ -276,6 +277,6 @@ internal class MeshJobHandler {
         materialSegmentOffsets.Dispose();
         chunkCullingFaceCounters.Dispose();
         enabled.Dispose();
-        voxelCounter.Dispose();
+        voxelCounters.Dispose();
     }
 }

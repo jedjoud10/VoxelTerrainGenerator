@@ -127,9 +127,9 @@ public class VoxelMesher : VoxelBehaviour {
                 handler.startingFrame = Time.frameCount;
 
                 // Pass through the edit system for any chunks that should be modifiable
-                handler.voxelCounter.Count = 0;
+                handler.voxelCounters.Reset();
                 JobHandle dynamicEdit = terrain.VoxelEdits.TryGetApplyDynamicEditJobDependency(request.chunk, ref handler.voxels);
-                JobHandle voxelEdit = terrain.VoxelEdits.TryGetApplyVoxelEditJobDependency(request.chunk, ref handler.voxels, handler.voxelCounter, dynamicEdit);
+                JobHandle voxelEdit = terrain.VoxelEdits.TryGetApplyVoxelEditJobDependency(request.chunk, ref handler.voxels, handler.voxelCounters, dynamicEdit);
                 handler.BeginJob(voxelEdit, request.chunk.node);
             }
         }

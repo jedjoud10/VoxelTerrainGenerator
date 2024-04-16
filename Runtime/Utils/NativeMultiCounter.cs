@@ -96,6 +96,7 @@ unsafe public struct NativeMultiCounter {
         [NativeDisableUnsafePtrRestriction]
         int* m_Counters;
         int sizeOfInt;
+        int capacity;
 
         // Copy of the AtomicSafetyHandle from the full NativeCounter. The dispose sentinel is not copied since this inner struct does not own the memory and is not responsible for freeing it
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -113,6 +114,7 @@ unsafe public struct NativeMultiCounter {
 
             concurrent.m_Counters = cnt.m_Counters;
             concurrent.sizeOfInt = cnt.sizeOfInt;
+            concurrent.capacity = cnt.capacity;
             return concurrent;
         }
 

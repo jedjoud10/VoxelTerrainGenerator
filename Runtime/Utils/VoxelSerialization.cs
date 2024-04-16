@@ -199,8 +199,8 @@ public partial class VoxelTerrain {
             reader.ReadValueSafe(out float z);
             data.position = new float3(x, y, z);
 
-            reader.ReadValueSafe(out int counter);
-            data.lastCounters = counter;
+            reader.ReadValueSafe(out NativeArray<int> counters, Allocator.Persistent);
+            data.lastCounters = counters;
 
             reader.ReadValueSafe(out data.scalingFactor);
 

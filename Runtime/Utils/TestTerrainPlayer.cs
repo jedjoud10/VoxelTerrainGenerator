@@ -14,7 +14,7 @@ public class PlayerControllerScript : MonoBehaviour {
     private void Start() {
     }
 
-    private void Callback(int changed) {
+    private void Callback(int[] changed) {
         Debug.Log(changed);
     }
 

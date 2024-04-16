@@ -16,13 +16,13 @@ public class VoxelEdits : VoxelBehaviour {
 
     // Reference that we can use to fetch modified data of a voxel edit
     internal class VoxelEditCountersHandle {
-        internal int changed;
+        internal int[] changed;
         internal int pending;
         internal VoxelEditCounterCallback callback;
     } 
 
     // Callback that we can pass to the voxel edit functions to allow us to check how many voxels were added/removed
-    public delegate void VoxelEditCounterCallback(int changed);
+    public delegate void VoxelEditCounterCallback(int[] changed);
 
     public bool debugGizmos = false;
 
@@ -154,6 +154,7 @@ public class VoxelEdits : VoxelBehaviour {
                 scalingFactor = node.scalingFactor,
                 densities = new NativeArray<half>(VoxelUtils.Volume, Allocator.Persistent),
                 materials = new NativeArray<byte>(VoxelUtils.Volume, Allocator.Persistent),
+                lastCounters = new NativeArray<int>(terrain.VoxelMesher.voxelMaterials.Length, Allocator.Persistent),
             };
 
             for (int i = 0; i < VoxelUtils.Volume; i++) {
@@ -164,7 +165,7 @@ public class VoxelEdits : VoxelBehaviour {
         }
 
         VoxelEditCountersHandle countersHandle = new VoxelEditCountersHandle {
-            changed = 0,
+            changed = new int[terrain.VoxelMesher.voxelMaterials.Length],
             pending = 0,
             callback = callback,
         };
@@ -261,7 +262,7 @@ public class VoxelEdits : VoxelBehaviour {
     }
 
     // Create an apply job dependeny for a chunk that has voxel edits
-    public JobHandle TryGetApplyVoxelEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> voxels, NativeCounter counter, JobHandle dependency) {
+    public JobHandle TryGetApplyVoxelEditJobDependency(VoxelChunk chunk, ref NativeArray<Voxel> voxels, NativeMultiCounter counters, JobHandle dependency) {
         if (!IsChunkAffectedByVoxelEdits(chunk)) {
             if (chunk.voxelCountersHandle != null) {
                 chunk.voxelCountersHandle.pending--;
@@ -285,7 +286,7 @@ public class VoxelEdits : VoxelBehaviour {
         VoxelEditApplyJob job = new VoxelEditApplyJob {
             data = data,
             voxels = voxels,
-            counter = counter,
+            counters = counters,
         };
         return job.Schedule(VoxelUtils.Volume, 2048 * 8, newDep);
     }    
@@ -320,15 +321,17 @@ public class VoxelEdits : VoxelBehaviour {
 
             // Check current values, update them
             SparseVoxelDeltaData data = sparseVoxelData[lookup];
-            int lastValue = data.lastCounters;
-            int newValue = handler.voxelCounter.Count;
+            NativeArray<int> lastValues = data.lastCounters;
 
             // Store the data back into the sparse voxel array
-            int delta = newValue - lastValue;
-            data.lastCounters = newValue;
-            sparseVoxelData[lookup] = data;
+            for (int i = 0; i < terrain.VoxelMesher.voxelMaterials.Length; i++) {
+                int newValue = handler.voxelCounters[i];
+                int delta = newValue - lastValues[i];
+                handle.changed[i] += delta;
+                data.lastCounters[i] = newValue;
+            }
 
-            handle.changed += delta;
+            // Call the callback when we finished modifiying all requested chunks
             if (handle.pending == 0)
                 handle.callback?.Invoke(handle.changed);            
         }
@@ -369,7 +372,7 @@ public class VoxelEdits : VoxelBehaviour {
         }
         
         voxels = new NativeArray<Voxel>(VoxelUtils.Volume, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        NativeCounter tempCounter = new NativeCounter(Allocator.Persistent);
+        NativeMultiCounter tempCounter = new NativeMultiCounter(terrain.VoxelMesher.voxelMaterials.Length, Allocator.Persistent);
         voxels.CopyFrom(chunk.container.voxels);
         JobHandle dynamicEdit = TryGetApplyDynamicEditJobDependency(chunk, ref voxels);
         handle = TryGetApplyVoxelEditJobDependency(chunk, ref voxels, tempCounter, dynamicEdit);
