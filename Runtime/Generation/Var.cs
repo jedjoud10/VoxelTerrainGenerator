@@ -1,4 +1,3 @@
-using Codice.Client.BaseCommands.Merge;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -11,9 +10,6 @@ public class Var<T> {
 
     // is the current value defined in the code as a constant (or an editor variable)
     public bool IsStatic { get; internal set; }
-
-    // variable name that will be substituted
-    public string CodeName { get; internal set; }
 
     // Dimensionality of a variable
     public enum Dimensions {
@@ -44,7 +40,6 @@ public class Var<T> {
             return new Var<T> {
                 Name = "identity_" + typeof(T).FullName,
                 IsStatic = false,
-                CodeName = "identity_" + typeof(T).FullName,
             };
         }
     }
@@ -53,9 +48,8 @@ public class Var<T> {
     public static implicit operator Var<T>(T value) => new Var<T> {
         Name = "_st_",
         IsStatic = true,
-        CodeName = "_st_"
     };
-
+    
     // Implict conversion from common types to this type
     public static implicit operator Var<T>(Var<double> d) => Var<T>.Identity;
     public static implicit operator Var<T>(Var<float> d) => Var<T>.Identity;
@@ -64,7 +58,12 @@ public class Var<T> {
 
     // Inject a custom variable that will update its value dynamically based on the given callback 
     // Mainly used to pass inputs from fields from the unity editor to the graph
-    public static Var<T> Inject(Func<T> callback) { return null; }
+    public static Var<T> Inject(Func<T> callback) {
+        // hook on before on graph execution (runtime) 
+        // update "internal" value
+        // send value to shader using uniform (make sure name matches up)
+        return Var<T>.Identity;
+    }
 
     // Common operators
     public static Var<T> operator +(Var<T> a, Var<T> b) => a;

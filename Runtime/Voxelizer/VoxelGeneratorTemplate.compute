@@ -8,18 +8,15 @@
 
 // Called for each voxel in the chunk to check the density and material at a specific position
 void VoxelAt(float3 position, out float density, out uint material) {	
-	density = position.y + snoise(position * 0.001) * 20;
-	material = 0;
-	return;
-
-
+	/*
 	float height = cellular(position.xz * 0.01).x;
-	height = exp(-4 * height) * sin(15 * 3.1415 * height);
+	height = exp(-4 * height) * sin(0.5 + 2 * 3.1415 * height);
 	density = position.y + height * 20;
 	material = 0;
 	return;
+	*/
 
-	/*
+	
 	float2 slope2 = float2(position.y * snoise(position.xz * 0.001), position.y * snoise(position.xz * 0.001 + 123)) * 0.04;
 	float h = voronoise(position.xz * 0.03 + slope2 + snoise(position * 0.04) * 0.1, 1.0, 0.3);
 	h = max(h, 0.5) * 80;
@@ -27,7 +24,7 @@ void VoxelAt(float3 position, out float density, out uint material) {
 	material = 1;
 	density *= 0.4;
 	return;
-	*/
+	
 
 	density = -fbmCellular(position.xz * 0.006, 4, 0.5, 2.0).y * 30 + position.y;
 	float test2 = clamp(fbmCellular(position * 0.01 * float3(1, 2.8, 1), 3, 0.66, 1.3).y - 0.2, 0, 1);

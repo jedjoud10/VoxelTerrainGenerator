@@ -13,6 +13,11 @@ public class Noise {
         this.scale = scale;
     }
 
+    public Noise() {
+        this.intensity = 1.0f;
+        this.scale = 1.0f;
+    }
+
     public Type type;
     public Var<float> intensity;
     public Var<float> scale;

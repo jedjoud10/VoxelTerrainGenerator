@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 22118.799, g: 16557.268, b: 17818.814, a: 1}
+  m_IndirectSpecularColor: {r: 22120.986, g: 16555.002, b: 17805.19, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -1125,6 +1125,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 305494748139102449, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
+      propertyPath: ambientOcclusionOffset
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 305494748139102449, guid: 0e6936411dbff8245ae15ba99cdb64b9,
+        type: 3}
       propertyPath: voxelMaterials.Array.size
       value: 4
       objectReference: {fileID: 0}
@@ -1221,7 +1226,7 @@ PrefabInstance:
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: seed
-      value: 137
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
@@ -1231,17 +1236,17 @@ PrefabInstance:
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: moduloSeed.x
-      value: 599
+      value: 116
       objectReference: {fileID: 0}
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: moduloSeed.y
-      value: -881
+      value: -588
       objectReference: {fileID: 0}
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: moduloSeed.z
-      value: -435
+      value: 117
       objectReference: {fileID: 0}
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
@@ -1260,6 +1265,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
+      propertyPath: densityOffset
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
+        type: 3}
       propertyPath: worldOffset.y
       value: 0
       objectReference: {fileID: 0}
@@ -1271,7 +1281,7 @@ PrefabInstance:
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: previewOpacity
-      value: 0.436
+      value: 0.638
       objectReference: {fileID: 0}
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
@@ -1281,17 +1291,17 @@ PrefabInstance:
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: permutationSeed.x
-      value: -403
+      value: 452
       objectReference: {fileID: 0}
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: permutationSeed.y
-      value: -969
+      value: 634
       objectReference: {fileID: 0}
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: permutationSeed.z
-      value: 58
+      value: 536
       objectReference: {fileID: 0}
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
@@ -1311,7 +1321,7 @@ PrefabInstance:
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: previewDensityFactor
-      value: 4
+      value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
@@ -1321,12 +1331,12 @@ PrefabInstance:
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: previewWorldOffset.x
-      value: -116.7
+      value: -1010.8
       objectReference: {fileID: 0}
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
       propertyPath: previewWorldOffset.y
-      value: -82.36
+      value: -32.6
       objectReference: {fileID: 0}
     - target: {fileID: 7158265105977027013, guid: 0e6936411dbff8245ae15ba99cdb64b9,
         type: 3}
