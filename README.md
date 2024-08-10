@@ -20,9 +20,12 @@
   * Uses density and surface data to generate props
   * Multiple prop "variants" supported
   * Uses the GPU for indirect instanced rendering directly
-  * Uses billboard system for props that are further away
-    * Billboard captures are done automatically at the start of the frame
+  * Uses impostors (advanced billboards) system for props that are further away
     * Makes use of albedo, mask, and normal map data to create billboards procedurally
+    * Texture captures are done automatically at the start of the frame
+    * Custom camera position, rotation and scale when capturing textures 
+    * Handles different prop variants using texture arrays
+  * Uses a compute based culler executed before indirect rendering 
 * Serialization / deserialization system that supports terrain edits, terrain seed, and modified/destoyed props
   * Uses RLE and delta compression for voxel data
   * Uses RLE for prop masks
@@ -30,7 +33,6 @@
  
  ## WIP Features to be added
   * Structure generation
-  * Mess around with multiple camera angles for props
   * Custom prop spawning / modifiers (using CSG)
   * Optimize rendering & voxel editing
   * Better compresion ratio for saved worlds
@@ -55,8 +57,9 @@
     * Prop generation sometimes breaks out of nowhere
   * Terrain chunk scheduling is non-conservative. Always over-estimates the amount of chunks _actually_ containing terrain
   * Bad performance when editing large voxel/dynamic edits (due to the dupe-octree nature of voxel edits)
+  * Bad memory consumption / saved world size due to dupe-octree
   * Slow async GPU readback which causes frame time spikes when there is more than 1 request per frame
-  * Billboarded prop normals don't seem to match up with their gameobject counterpart
+  * Billboarded prop normals don't seem to match up with their gameobject counterpart (seem fine at a distance, only noticeable at some lighting conditions)
   * Floating terrain segments (could fix by running a flood fill and seeing the parts that aren't "connected")
   * Floating props (due to low-resolution segment voxel grid)
 
