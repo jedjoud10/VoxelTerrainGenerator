@@ -4,28 +4,35 @@
 // Called at each prop segment voxel inside the segment to check what props to spawn
 // Remember that you can only spawn ONE prop type (including variants) per unique ID
 void PropsAt(uint3 id, float3 position) {
-	return;
+	//return;
 	// Mixer between biome 1 and biome 2
 	float mixer = snoise(position.xz * 0.0003) * 0.5 + 0.5;
 	mixer = smoothstep(0, 1, mixer) * 1;
 
-	float3 randomOffset = (2 * hash33(position) - 1) * float3(5, 0, 5);
-	float3 treePos = position + randomOffset;
-	ClosestSurface hit1 = CheckClosestSurface(treePos, 0, 3.0);
-	float caveMixer = saturate(-(position.y - 100) / 20);
-
-	if ((hash13(treePos) < 0.8) && hit1.hit && dot(float3(0, 1, 0), hit1.normals) > 0.80 + snoise(position.xz * 0.01) * 0.12) {
-		Spawn(hit1.position, hash13(treePos * 12.321) * 0.5 + 1.5, float3(0, 0, 0), 0, round(hash13(treePos * 3.123 - 15.694)*2), id);
-	}
 
 
-	for (int i = 0; i < 4; i++) {
+
+	for (int i = 0; i < 2; i++) {
 		float3 randomOffset2 = (2 * hash33(position * 2 + 0.588456 + i) - 1) * 30;
 		float3 rockPos = position + randomOffset2;
+		
+		float3 randomOffset = (2 * hash33(position) - 1) * float3(5, 0, 5);
+		float3 treePos = position + randomOffset;
+		treePos = rockPos;
+		ClosestSurface hit1 = CheckClosestSurface(treePos, 0, 3.0);
+		float caveMixer = saturate(-(position.y - 100) / 20);
+
+		if (hit1.hit && dot(float3(0, 1, 0), hit1.normals) > 0.80 + snoise(position.xz * 0.01) * 0.12)
+		{
+			Spawn(hit1.position, hash13(treePos * 12.321) * 0.5 + 1.5, float3(0, 0, 0), 0, round(hash13(treePos * 3.123 - 15.694) * 2), id);
+		}
+		
+		/*
 		ClosestSurface hit2 = CheckClosestSurface(rockPos, 0, 3.0);
 		if (hit2.hit && hit2.normals.y < 0.8) {
 			Spawn(hit2.position, 0.6 + snoise(position * 0.01) * 0.5, hash33(position) * 180, 1, 0, id);
 		}
+		*/
 	}
 
 }

@@ -116,6 +116,8 @@ public partial class VoxelProps {
         propCullingCopy.SetBuffer(0, "propSectionOffsets", propSectionOffsetsBuffer);
 
         int count = Mathf.CeilToInt((float)maxPermPropCount / 32.0f);
+        tempCount.SetData(new int[1]);
+        propCullingCopy.SetBuffer(0, "totalTemp", tempCount);
         propCullingCopy.SetBuffer(0, "usedBitmask", permBitmaskBuffer);
         propCullingCopy.SetBuffer(0, "permProps", permPropBuffer);
         propCullingCopy.SetBuffer(0, "culledProps", culledPropBuffer);
@@ -140,6 +142,14 @@ public partial class VoxelProps {
             if (prop.WillRenderIndirectInstances)
                 RenderInstancesOfType(i, extraData, prop);
         }
+
+        var temp = new GraphicsBuffer.IndirectDrawIndexedArgs[1];
+        //drawArgsBuffer.GetData(temp);
+        //Debug.Log("Culled: " + temp[0].instanceCount);
+
+        var temp2 = new int[1];
+        //tempCount.GetData(temp2);
+        //Debug.Log("Unculled: " + temp2[0]);
     }
 
     // Render the instanced mesh for a specific type of prop type

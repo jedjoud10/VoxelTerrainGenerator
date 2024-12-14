@@ -46,6 +46,8 @@ public partial class VoxelProps {
     private ComputeBuffer segmentIndexCountBuffer;
     private NativeBitArray unusedSegmentLookupIndices;
 
+    private ComputeBuffer tempCount;
+
     // Update the static world generation fields (will also update the seed)
     public void UpdateStaticComputeFields() {
         var permutationSeed = terrain.VoxelGenerator.permutationSeed;
@@ -86,6 +88,7 @@ public partial class VoxelProps {
         tempPropBuffer = new ComputeBuffer(tempSum, BlittableProp.size, ComputeBufferType.Structured);
 
         // Secondary buffers used for temp -> perm data copy
+        tempCount = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Structured);
         tempIndexBuffer = new ComputeBuffer(props.Count, sizeof(int), ComputeBufferType.Raw);
         int permSum = props.Select(x => x.maxPropsInTotal).Sum();
         int permMax = props.Select(x => x.maxPropsInTotal).Max();

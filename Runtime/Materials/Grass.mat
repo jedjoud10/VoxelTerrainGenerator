@@ -88,9 +88,9 @@ Material:
     - _EnableBlendModePreserveSpecularLighting: 1
     - _EnableFogOnTransparent: 1
     - _ExcludeFromTUAndAA: 0
-    - _Factor: 100
+    - _Factor: 22.89
     - _Metallic: 0
-    - _Offset: -0.79
+    - _Offset: -0.9
     - _OpaqueCullMode: 2
     - _RayTracing: 0
     - _ReceivesSSR: 1
@@ -128,7 +128,7 @@ Material:
     - _ZWrite: 1
     m_Colors:
     - _Color_1: {r: 0.2264151, g: 0.2264151, b: 0.2264151, a: 0}
-    - _Color_2: {r: 0, g: 0.18867922, b: 0.030526526, a: 0}
+    - _Color_2: {r: 1, g: 1, b: 1, a: 0}
     - _DoubleSidedConstants: {r: 1, g: 1, b: -1, a: 0}
     - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

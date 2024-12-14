@@ -3,6 +3,8 @@
 #include "UnityIndirect.cginc"
 #include "Packages/com.jedjoud.voxelterraingenerator/Runtime/Utils/PropPackUtils.cginc"
 
+RWStructuredBuffer<uint> totalTemp;
+
 RWStructuredBuffer<uint> culledCount;
 StructuredBuffer<uint4> permProps;
 
@@ -37,7 +39,12 @@ void CSPropCullingCopy(uint3 id : SV_DispatchThreadID)
 
 	bool visible = dot(diff, cameraForward) < -0.2 && mag < maxDistance;
 	//visible = true;
-
+	
+	if (valid)
+	{
+		InterlockedAdd(totalTemp[0], 1);
+	}
+	
 	if (visible && valid) {
 		int index;
 		InterlockedAdd(culledCount[id.y], 1, index);

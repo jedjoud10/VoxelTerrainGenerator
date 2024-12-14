@@ -17,6 +17,7 @@ void VoxelAt(float3 position, out float density, out uint material) {
 	*/
 
 	
+	/*
 	float2 slope2 = float2(position.y * snoise(position.xz * 0.001), position.y * snoise(position.xz * 0.001 + 123)) * 0.04;
 	float h = voronoise(position.xz * 0.03 + slope2 + snoise(position * 0.04) * 0.1, 1.0, 0.3);
 	h = max(h, 0.5) * 80;
@@ -33,8 +34,10 @@ void VoxelAt(float3 position, out float density, out uint material) {
 	density += (clamp(test1,-3,-2)) * 10 + 40;
 	material = density < -100 ? 1 : 0;
 	return;
+	*/
 
 	// Density value for biome 1
+	material = 0;
 	float density1 = -fbm(position.xz * 0.001, 5, 0.50, 2.1) * 90 - 50;
 	density1 += opSmoothUnion(-fbmCellular(position.xz * 0.003, 5, 0.53, 2.1) + 0.6, 0, 1.0) * 260;
 
